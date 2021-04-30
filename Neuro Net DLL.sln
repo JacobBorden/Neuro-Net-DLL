@@ -5,7 +5,7 @@ VisualStudioVersion = 16.0.31129.286
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Neuro Net DLL", "Neuro Net DLL\Neuro Net DLL.vcxproj", "{9F20E9A3-23DC-4767-8852-FFA4D8EBC400}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Neuro Net Includes", "Neuro Net Includes\Neuro Net Includes.vcxproj", "{D90F5642-58F0-4763-90C2-823E6B0938C4}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Neuro Net Includes", "includes\Neuro Net Includes.vcxproj", "{D90F5642-58F0-4763-90C2-823E6B0938C4}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
