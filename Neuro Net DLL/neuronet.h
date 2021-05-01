@@ -22,17 +22,16 @@
 
 namespace NeuroNet
 {
-	/**
-	 * @brief NeuroNet is a library for creating neuro networks for artificial intelligence and machine learning.
-	 * 
-	 * 
-	 * 
-	 */
-	extern "C++" class NEURONET_DLL_API NeuroNet
+	extern "C++" struct NEURONET_DLL_API LayerWeights
 	{
-	public:
-	private:
-		std::vector<NeuroNetLayer> NeuroNetVector;
+		int WeightCount = 0;
+		std::vector<BYTE> WeightsVector;
+	};
+
+	extern "C++" struct NEURONET_DLL_API LayerBiases
+	{
+		int BiasCount = 0;
+		std::vector<BYTE> BiasVector;
 	};
 
 	/**
@@ -64,15 +63,29 @@ namespace NeuroNet
 		LayerBiases Biases;
 	};
 
-	extern "C++" struct NEURONET_DLL_API LayerWeights
-	{
-		int WeightCount = 0;
-		std::vector<BYTE> WeightsVector;
-	};
+	
 
-	extern "C++" struct NEURONET_DLL_API LayerBiases
+	/**
+	 * @brief NeuroNet is a library for creating neuro networks for artificial intelligence and machine learning.
+	 *
+	 *
+	 *
+	 */
+	extern "C++" class NEURONET_DLL_API NeuroNet
 	{
-		int BiasCount = 0;
-		std::vector<BYTE> BiasVector;
+	public:
+		NeuroNet();
+		NeuroNet(int pLayerCount);
+		~NeuroNet();
+		bool ResizeLayer(int pLayerIndex, int pLayerSize);
+		void SetInputSize(int pInputSize);
+		void ResizeNeuroNet(int pLayerCount);
+		bool SetInput(int pInputSize);
+		Matrix::Matrix<float> GetOutput();
+
+	private:
+		int InputSize = 0;
+		int LayerCount = 0;
+		std::vector<NeuroNetLayer> NeuroNetVector;
 	};
 }

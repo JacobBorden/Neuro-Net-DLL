@@ -85,3 +85,38 @@ bool NeuroNet::NeuroNetLayer::SetBiases(LayerBiases pBiases)
 		}
 	return true;
 }
+
+NeuroNet::NeuroNet::NeuroNet()
+{
+}
+
+NeuroNet::NeuroNet::NeuroNet(int pLayerCount)
+{
+}
+
+NeuroNet::NeuroNet::~NeuroNet()
+{
+}
+
+bool NeuroNet::NeuroNet::ResizeLayer(int pLayerIndex, int pLayerSize)
+{
+	return false;
+}
+
+void NeuroNet::NeuroNet::SetInputSize(int pInputSize)
+{
+}
+
+void NeuroNet::NeuroNet::ResizeNeuroNet(int pLayerCount)
+{
+}
+
+bool NeuroNet::NeuroNet::SetInput(int pInputSize)
+{
+	return false;
+}
+
+Matrix::Matrix<float> NeuroNet::NeuroNet::GetOutput()
+{
+	return Matrix::Matrix<float>();
+}
