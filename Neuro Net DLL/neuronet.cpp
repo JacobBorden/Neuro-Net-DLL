@@ -22,19 +22,24 @@ NeuroNet::NeuroNetLayer::~NeuroNetLayer()
 
 void NeuroNet::NeuroNetLayer::ResizeLayer(int pInputSize, int pLayerSize)
 {
-	this->LayerSize = pLayerSize;
+	this->vLayerSize = pLayerSize;
 	this->InputSize = pInputSize;
 	this->InputMatrix.Resize(1, this->InputSize);
-	this->WeightMatrix.Resize(this->InputSize, this->LayerSize);
-	this->BiasMatrix.Resize(1, this->LayerSize);
-	this->OutputMatrix.Resize(1, this->LayerSize);
-	this->Weights.WeightCount = this->LayerSize * this->InputSize;
-	this->Biases.BiasCount = this->LayerSize;
+	this->WeightMatrix.Resize(this->InputSize, this->vLayerSize);
+	this->BiasMatrix.Resize(1, this->vLayerSize);
+	this->OutputMatrix.Resize(1, this->vLayerSize);
+	this->Weights.WeightCount = this->vLayerSize * this->InputSize;
+	this->Biases.BiasCount = this->vLayerSize;
 }
 
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::CalculateOutput()
 {
 	this->OutputMatrix = this->InputMatrix * this->WeightMatrix + this->BiasMatrix;
+	return this->OutputMatrix;
+}
+
+Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ReturnOutputMatrix()
+{
 	return this->OutputMatrix;
 }
 
@@ -54,6 +59,11 @@ int NeuroNet::NeuroNetLayer::WeightCount()
 int NeuroNet::NeuroNetLayer::BiasCount()
 {
 	return this->Biases.BiasCount;
+}
+
+int NeuroNet::NeuroNetLayer::LayerSize()
+{
+	return this->vLayerSize;
 }
 
 bool NeuroNet::NeuroNetLayer::SetWeights(LayerWeights pWeights)
@@ -92,6 +102,7 @@ NeuroNet::NeuroNet::NeuroNet()
 
 NeuroNet::NeuroNet::NeuroNet(int pLayerCount)
 {
+	this->NeuroNetVector.resize(pLayerCount);
 }
 
 NeuroNet::NeuroNet::~NeuroNet()
@@ -100,23 +111,43 @@ NeuroNet::NeuroNet::~NeuroNet()
 
 bool NeuroNet::NeuroNet::ResizeLayer(int pLayerIndex, int pLayerSize)
 {
-	return false;
+	if (pLayerIndex >= this->NeuroNetVector.size())
+		return false;
+	if (pLayerIndex > 0)
+		this->NeuroNetVector[pLayerIndex].ResizeLayer(this->NeuroNetVector[pLayerIndex - 1].LayerSize(), pLayerSize);
+	else
+		this->NeuroNetVector[pLayerIndex].ResizeLayer(this->InputSize, pLayerSize);
+	if (pLayerIndex + 1 < this->NeuroNetVector.size())
+		this->NeuroNetVector[pLayerIndex + 1].ResizeLayer(pLayerSize, this->NeuroNetVector[pLayerIndex + 1].LayerSize());
+	return true;
 }
 
 void NeuroNet::NeuroNet::SetInputSize(int pInputSize)
 {
+	this->InputSize = pInputSize;
+	this->NeuroNetVector[0].ResizeLayer(pInputSize, this->NeuroNetVector[0].LayerSize());
 }
 
 void NeuroNet::NeuroNet::ResizeNeuroNet(int pLayerCount)
 {
+	this->NeuroNetVector.resize(pLayerCount);
 }
 
-bool NeuroNet::NeuroNet::SetInput(int pInputSize)
+bool NeuroNet::NeuroNet::SetInput(Matrix::Matrix<float> pInputMatrix)
 {
-	return false;
+	if (this->NeuroNetVector.size() > 0)
+		return this->NeuroNetVector[0].SetInput(pInputMatrix);
+	else
+		return false;
 }
 
 Matrix::Matrix<float> NeuroNet::NeuroNet::GetOutput()
 {
-	return Matrix::Matrix<float>();
+	this->NeuroNetVector[0].CalculateOutput();
+	for (int i = 1; i < this->LayerCount; i++)
+	{
+		this->NeuroNetVector[i].SetInput(this->NeuroNetVector[i - 1].ReturnOutputMatrix());
+		this->NeuroNetVector[i].CalculateOutput();
+	}
+	return this->NeuroNetVector[this->LayerCount - 1].ReturnOutputMatrix();
 }

@@ -46,14 +46,16 @@ namespace NeuroNet
 		~NeuroNetLayer();
 		void ResizeLayer(int pInputSize, int pLayerSize);
 		Matrix::Matrix<float> CalculateOutput();
+		Matrix::Matrix<float> ReturnOutputMatrix();
 		bool SetInput(Matrix::Matrix<float> pInputMatrix);
 		int WeightCount();
 		int BiasCount();
+		int LayerSize();
 		bool SetWeights(LayerWeights pWeights);
 		bool SetBiases(LayerBiases pBiases);
 
 	private:
-		int LayerSize = 0;
+		int vLayerSize = 0;
 		int InputSize = 0;
 		Matrix::Matrix<float> InputMatrix;
 		Matrix::Matrix<float> WeightMatrix;
@@ -62,8 +64,6 @@ namespace NeuroNet
 		LayerWeights Weights;
 		LayerBiases Biases;
 	};
-
-	
 
 	/**
 	 * @brief NeuroNet is a library for creating neuro networks for artificial intelligence and machine learning.
@@ -80,7 +80,7 @@ namespace NeuroNet
 		bool ResizeLayer(int pLayerIndex, int pLayerSize);
 		void SetInputSize(int pInputSize);
 		void ResizeNeuroNet(int pLayerCount);
-		bool SetInput(int pInputSize);
+		bool SetInput(Matrix::Matrix<float> pInputMatrix);
 		Matrix::Matrix<float> GetOutput();
 
 	private:
