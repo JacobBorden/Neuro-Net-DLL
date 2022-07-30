@@ -4,12 +4,12 @@
  * @brief  Header file for neuronet.dll
  * @version 0.1
  * @date 2021-04-24
- * 
+ *
  * @copyright Copyright (c) 2021
- * 
+ *
  */
 
-//Header declearations
+// Header declearations
 #pragma once
 #ifdef NEURONET_DLL_EXPORTS
 #define NEURONET_DLL_API __declspec(dllexport)
@@ -17,7 +17,7 @@
 #define NEURONET_DLL_API __declspec(dllimport)
 #endif // NEURONET_DLL_EXPORTS
 
-#include "../includes/matrix.h"
+#include "..\build\matrix\matrix.h"
 #include <vector>
 
 namespace NeuroNet
@@ -35,10 +35,10 @@ namespace NeuroNet
 	};
 
 	/**
- * @brief The NeuroNetLayer class is an object that represents each individual layer of the neuro network
- * 
- * 
- */
+	 * @brief The NeuroNetLayer class is an object that represents each individual layer of the neuro network
+	 *
+	 *
+	 */
 	extern "C++" class NEURONET_DLL_API NeuroNetLayer
 	{
 	public:

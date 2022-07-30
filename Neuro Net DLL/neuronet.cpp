@@ -1,12 +1,12 @@
 /**
  * @file neuronet.cpp
  * @author Jacob Borden (amenra.beats@gmail.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2021-04-24
- * 
+ *
  * @copyright Copyright (c) 2021
- * 
+ *
  */
 
 #include "pch.h"
@@ -24,10 +24,10 @@ void NeuroNet::NeuroNetLayer::ResizeLayer(int pInputSize, int pLayerSize)
 {
 	this->vLayerSize = pLayerSize;
 	this->InputSize = pInputSize;
-	this->InputMatrix.Resize(1, this->InputSize);
-	this->WeightMatrix.Resize(this->InputSize, this->vLayerSize);
-	this->BiasMatrix.Resize(1, this->vLayerSize);
-	this->OutputMatrix.Resize(1, this->vLayerSize);
+	this->InputMatrix.resize(1, this->InputSize);
+	this->WeightMatrix.resize(this->InputSize, this->vLayerSize);
+	this->BiasMatrix.resize(1, this->vLayerSize);
+	this->OutputMatrix.resize(1, this->vLayerSize);
 	this->Weights.WeightCount = this->vLayerSize * this->InputSize;
 	this->Biases.BiasCount = this->vLayerSize;
 }
@@ -45,7 +45,7 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ReturnOutputMatrix()
 
 bool NeuroNet::NeuroNetLayer::SetInput(Matrix::Matrix<float> pInputMatrix)
 {
-	if (pInputMatrix.Rows() != 1 || pInputMatrix.Columns() != this->InputMatrix.Columns())
+	if (pInputMatrix.rows() != 1 || pInputMatrix.cols() != this->InputMatrix.cols())
 		return false;
 	this->InputMatrix = pInputMatrix;
 	return true;
@@ -72,8 +72,8 @@ bool NeuroNet::NeuroNetLayer::SetWeights(LayerWeights pWeights)
 		return false;
 	this->Weights = pWeights;
 	int k = 0;
-	for (int i = 0; i < this->WeightMatrix.Rows(); i++)
-		for (int j = 0; j < this->WeightMatrix.Columns(); j++)
+	for (int i = 0; i < this->WeightMatrix.rows(); i++)
+		for (int j = 0; j < this->WeightMatrix.cols(); j++)
 		{
 			this->WeightMatrix[i][j] = this->Weights.WeightsVector[k];
 			k++;
@@ -87,8 +87,8 @@ bool NeuroNet::NeuroNetLayer::SetBiases(LayerBiases pBiases)
 		return false;
 	this->Biases = pBiases;
 	int k = 0;
-	for (int i = 0; i < this->BiasMatrix.Rows(); i++)
-		for (int j = 0; j < this->BiasMatrix.Columns(); j++)
+	for (int i = 0; i < this->BiasMatrix.rows(); i++)
+		for (int j = 0; j < this->BiasMatrix.cols(); j++)
 		{
 			this->BiasMatrix[i][j] = this->Biases.BiasVector[k];
 			k++;
