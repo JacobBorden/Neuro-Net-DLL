@@ -17,7 +17,7 @@
 #define NEURONET_DLL_API __declspec(dllimport)
 #endif // NEURONET_DLL_EXPORTS
 
-#include "..\build\matrix\matrix.h"
+#include "..\dependencies\matrix\matrix.h"
 #include <vector>
 
 namespace NeuroNet

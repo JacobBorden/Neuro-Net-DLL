@@ -8,7 +8,7 @@ enable_testing()
 FetchContent_Populate(
     matrix
     GIT_REPOSITORY https://github.com/JacobBorden/Matrix.git
-    SOURCE_DIR matrix
+    SOURCE_DIR ../dependencies/matrix
 )
 
 
