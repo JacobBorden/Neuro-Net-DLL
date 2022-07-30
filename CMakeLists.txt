@@ -11,8 +11,10 @@ FetchContent_Populate(
     SOURCE_DIR ../dependencies/matrix
 )
 
+include_directories(src)
+include_directories(dependencies)
 
-add_library(neuronet SHARED neuronet.cpp)
+add_library(neuronet SHARED src/dllmain.cpp)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
