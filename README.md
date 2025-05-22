@@ -49,6 +49,7 @@ After building the project, you can run the tests from the `build` directory:
 
 ```bash
 ctest
+```
 # Or, if 'make test' is available
 # make test 
 Google Test is used as the testing framework and is fetched automatically by CMake during the configuration step.
@@ -56,6 +57,7 @@ Google Test is used as the testing framework and is fetched automatically by CMa
 Using the NeuroNet Library
 Here's a minimal example of how to use the NeuroNet library:
 
+```cpp
 #include "neuronet.h" // Assumes include paths are set up
 #include <iostream>
 #include <vector>
@@ -195,6 +197,7 @@ int main() {
 
     return 0;
 }
+```
 Key Components
 NeuroNet (src/neuronet.h, src/neuronet.cpp): The core class representing a neural network. Manages layers and network-level operations.
 NeuroNetLayer (src/neuronet.h, src/neuronet.cpp): Represents a single layer within a NeuroNet. Handles calculations for that layer.
