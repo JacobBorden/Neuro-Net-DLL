@@ -49,9 +49,10 @@ After building the project, you can run the tests from the `build` directory:
 
 ```bash
 ctest
-```
+
 # Or, if 'make test' is available
-# make test 
+# make test
+```
 Google Test is used as the testing framework and is fetched automatically by CMake during the configuration step.
 
 Using the NeuroNet Library
