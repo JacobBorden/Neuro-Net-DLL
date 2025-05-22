@@ -85,10 +85,10 @@ namespace NeuroNet
 
 		/**
 		 * @brief Sets the input for this layer.
-		 * @param pInputMatrix A matrix containing the input values. Must match the expected input dimensions.
+		 * @param pInputMatrix A const reference to a matrix containing the input values. Must match the expected input dimensions.
 		 * @return bool True if the input was successfully set, false otherwise (e.g., size mismatch).
 		 */
-		bool SetInput(Matrix::Matrix<float> pInputMatrix);
+		bool SetInput(const Matrix::Matrix<float>& pInputMatrix);
 
 		/**
 		 * @brief Gets the total number of weights in this layer.
@@ -202,10 +202,10 @@ namespace NeuroNet
 
 		/**
 		 * @brief Sets the input for the first layer of the network.
-		 * @param pInputMatrix A matrix containing the input values for the network.
+		 * @param pInputMatrix A const reference to a matrix containing the input values for the network.
 		 * @return bool True if input was successfully set, false otherwise (e.g., network has no layers).
 		 */
-		bool SetInput(Matrix::Matrix<float> pInputMatrix);
+		bool SetInput(const Matrix::Matrix<float>& pInputMatrix);
 
 		/**
 		 * @brief Calculates and returns the output of the entire network.
