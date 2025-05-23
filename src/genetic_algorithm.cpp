@@ -34,6 +34,7 @@ GeneticAlgorithm::GeneticAlgorithm(
       crossover_rate_(crossover_rate),
       num_generations_(num_generations),
       template_network_(template_network), // Make a copy of the template network
+      best_individual_(template_network), // Initialize best_individual_ with template structure
       best_fitness_score_(std::numeric_limits<double>::lowest()) { // Initialize best score to a very low value
     
     // Seed the random number generator for reproducibility during a run,

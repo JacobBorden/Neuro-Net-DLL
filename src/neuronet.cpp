@@ -253,11 +253,41 @@ Matrix::Matrix<float> NeuroNet::NeuroNet::GetOutput() {
 // For Doxygen, their detailed comments are in the header.
 
 NeuroNet::LayerWeights NeuroNet::NeuroNetLayer::get_weights() const {
-	return this->Weights;
+    LayerWeights current_weights_struct;
+    // Use the WeightCount already stored in this->Weights, which ResizeLayer correctly sets.
+    current_weights_struct.WeightCount = this->Weights.WeightCount; 
+    if (this->WeightMatrix.rows() * this->WeightMatrix.cols() != current_weights_struct.WeightCount) {
+        // Optional: Add error handling or log if counts mismatch,
+        // but this->Weights.WeightCount should be authoritative if ResizeLayer is always used.
+    }
+
+    current_weights_struct.WeightsVector.clear(); // Ensure vector is empty before filling
+    current_weights_struct.WeightsVector.reserve(current_weights_struct.WeightCount);
+
+    for (int i = 0; i < this->WeightMatrix.rows(); ++i) {
+        for (int j = 0; j < this->WeightMatrix.cols(); ++j) {
+            current_weights_struct.WeightsVector.push_back(this->WeightMatrix[i][j]);
+        }
+    }
+    return current_weights_struct;
 }
 
 NeuroNet::LayerBiases NeuroNet::NeuroNetLayer::get_biases() const {
-	return this->Biases;
+    LayerBiases current_biases_struct;
+    // Use the BiasCount already stored in this->Biases, which ResizeLayer correctly sets.
+    current_biases_struct.BiasCount = this->Biases.BiasCount;
+    if (this->BiasMatrix.cols() != current_biases_struct.BiasCount && this->BiasMatrix.rows() == 1) {
+         // Optional: Add error handling or log if counts mismatch
+    }
+
+    current_biases_struct.BiasVector.clear(); // Ensure vector is empty before filling
+    current_biases_struct.BiasVector.reserve(current_biases_struct.BiasCount);
+
+    // BiasMatrix is 1xN (1 row, N columns where N is number of neurons/biases)
+    for (int j = 0; j < this->BiasMatrix.cols(); ++j) {
+        current_biases_struct.BiasVector.push_back(this->BiasMatrix[0][j]);
+    }
+    return current_biases_struct;
 }
 
 // --- Helper Method Implementations for NeuroNet ---
