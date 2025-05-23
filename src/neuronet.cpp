@@ -9,9 +9,9 @@
  *
  */
 
-#include "pch.h" // Precompiled header (if used, ensure it's appropriate for the project)
 #include "neuronet.h"
 #include <stdexcept> // For std::runtime_error or other exceptions if needed
+// #include "pch.h" // Precompiled header (if used, ensure it's appropriate for the project) - REMOVED
 
 // --- NeuroNetLayer Method Implementations ---
 

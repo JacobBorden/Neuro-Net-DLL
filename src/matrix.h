@@ -238,6 +238,284 @@ namespace Matrix
 		 */
 		explicit MatrixRow(size_t size) : m_Size(size), m_Capacity(size * sizeof(T)), m_Data(std::make_unique<T[]>(size)) {}
 
+		/** @brief Copy constructor (deep copy). */
+		MatrixRow(const MatrixRow& other) 
+			: m_Size(other.m_Size), m_Capacity(other.m_Capacity), m_Data(nullptr) {
+			if (m_Size > 0) {
+				m_Data = std::make_unique<T[]>(m_Size);
+				for (size_t i = 0; i < m_Size; ++i) {
+					m_Data[i] = other.m_Data[i]; // Element-wise copy
+				}
+			}
+			// If m_Size is 0, m_Data remains nullptr, which is correct for an empty row.
+		}
+
+		/** @brief Move constructor. */
+		MatrixRow(MatrixRow&& other) noexcept
+			: m_Size(other.m_Size), m_Capacity(other.m_Capacity), m_Data(std::move(other.m_Data)) {
+			other.m_Size = 0;
+			other.m_Capacity = 0;
+			other.m_Data = nullptr; // Important: leave other in a valid, destructible state
+		}
+
+		/** @brief Move assignment operator. */
+		MatrixRow& operator=(MatrixRow&& other) noexcept {
+			if (this != &other) {
+				m_Data = std::move(other.m_Data);
+				m_Size = other.m_Size;
+				m_Capacity = other.m_Capacity;
+
+				other.m_Data = nullptr;
+				other.m_Size = 0;
+				other.m_Capacity = 0;
+			}
+			return *this;
+		}
+
+		// This is the single correct definition of the copy assignment operator.
+		// All other identical definitions below this one (before resize method) will be removed.
+		/** @brief Copy assignment operator (deep copy). */
+		MatrixRow& operator=(const MatrixRow& other) {
+			if (this == &other) {
+				return *this; // Handle self-assignment
+			}
+
+			std::unique_ptr<T[]> newData; 
+			if (other.m_Size > 0) {
+				newData = std::make_unique<T[]>(other.m_Size); 
+				for (size_t i = 0; i < other.m_Size; ++i) {
+					newData[i] = other.m_Data[i]; 
+				}
+			}
+			// If other.m_Size is 0, newData will be nullptr.
+
+			m_Data = std::move(newData); // Transfer ownership from newData to m_Data. Old m_Data is released.
+			m_Size = other.m_Size;
+			m_Capacity = other.m_Size * sizeof(T); // Recalculate capacity.
+
+			return *this;
+		}
+
+		/** @brief Copy assignment operator (deep copy). */
+		MatrixRow& operator=(const MatrixRow& other) {
+			if (this == &other) {
+				return *this; // Handle self-assignment
+			}
+
+			std::unique_ptr<T[]> newData; 
+			if (other.m_Size > 0) {
+				newData = std::make_unique<T[]>(other.m_Size); 
+				for (size_t i = 0; i < other.m_Size; ++i) {
+					newData[i] = other.m_Data[i]; 
+				}
+			}
+			// If other.m_Size is 0, newData will be nullptr.
+
+			m_Data = std::move(newData); // Transfer ownership from newData to m_Data. Old m_Data is released.
+			m_Size = other.m_Size;
+			m_Capacity = other.m_Size * sizeof(T); // Recalculate capacity.
+
+			return *this;
+		}
+
+		/** @brief Copy assignment operator (deep copy). */
+		MatrixRow& operator=(const MatrixRow& other) {
+			if (this == &other) {
+				return *this; // Handle self-assignment
+			}
+
+			std::unique_ptr<T[]> newData; 
+			if (other.m_Size > 0) {
+				newData = std::make_unique<T[]>(other.m_Size); 
+				for (size_t i = 0; i < other.m_Size; ++i) {
+					newData[i] = other.m_Data[i]; 
+				}
+			}
+			// If other.m_Size is 0, newData will be nullptr.
+
+			m_Data = std::move(newData); // Transfer ownership from newData to m_Data. Old m_Data is released.
+			m_Size = other.m_Size;
+			m_Capacity = other.m_Size * sizeof(T); // Recalculate capacity.
+
+			return *this;
+		}
+
+		/** @brief Copy assignment operator (deep copy). */
+		MatrixRow& operator=(const MatrixRow& other) {
+			if (this == &other) {
+				return *this; // Handle self-assignment
+			}
+
+			std::unique_ptr<T[]> newData; 
+			if (other.m_Size > 0) {
+				newData = std::make_unique<T[]>(other.m_Size); 
+				for (size_t i = 0; i < other.m_Size; ++i) {
+					newData[i] = other.m_Data[i]; 
+				}
+			}
+			// If other.m_Size is 0, newData will be nullptr.
+
+			m_Data = std::move(newData); // Transfer ownership from newData to m_Data. Old m_Data is released.
+			m_Size = other.m_Size;
+			m_Capacity = other.m_Size * sizeof(T); // Recalculate capacity.
+
+			return *this;
+		}
+
+		/** @brief Copy assignment operator (deep copy). */
+		MatrixRow& operator=(const MatrixRow& other) {
+			if (this == &other) {
+				return *this; // Handle self-assignment
+			}
+
+			std::unique_ptr<T[]> newData; 
+			if (other.m_Size > 0) {
+				newData = std::make_unique<T[]>(other.m_Size); 
+				for (size_t i = 0; i < other.m_Size; ++i) {
+					newData[i] = other.m_Data[i]; 
+				}
+			}
+			// If other.m_Size is 0, newData will be nullptr.
+
+			m_Data = std::move(newData); // Transfer ownership from newData to m_Data. Old m_Data is released.
+			m_Size = other.m_Size;
+			m_Capacity = other.m_Size * sizeof(T); // Recalculate capacity.
+
+			return *this;
+		}
+
+		/** @brief Copy assignment operator (deep copy). */
+		MatrixRow& operator=(const MatrixRow& other) {
+			if (this == &other) {
+				return *this; // Handle self-assignment
+			}
+
+			std::unique_ptr<T[]> newData; 
+			if (other.m_Size > 0) {
+				newData = std::make_unique<T[]>(other.m_Size); 
+				for (size_t i = 0; i < other.m_Size; ++i) {
+					newData[i] = other.m_Data[i]; 
+				}
+			}
+			// If other.m_Size is 0, newData will be nullptr.
+
+			m_Data = std::move(newData); // Transfer ownership from newData to m_Data. Old m_Data is released.
+			m_Size = other.m_Size;
+			m_Capacity = other.m_Size * sizeof(T); // Recalculate capacity.
+
+			return *this;
+		}
+
+		/** @brief Copy assignment operator (deep copy). */
+		MatrixRow& operator=(const MatrixRow& other) {
+			if (this == &other) {
+				return *this; // Handle self-assignment
+			}
+
+			std::unique_ptr<T[]> newData; 
+			if (other.m_Size > 0) {
+				newData = std::make_unique<T[]>(other.m_Size); 
+				for (size_t i = 0; i < other.m_Size; ++i) {
+					newData[i] = other.m_Data[i]; 
+				}
+			}
+			// If other.m_Size is 0, newData will be nullptr.
+
+			m_Data = std::move(newData); // Transfer ownership from newData to m_Data. Old m_Data is released.
+			m_Size = other.m_Size;
+			m_Capacity = other.m_Size * sizeof(T); // Recalculate capacity.
+
+			return *this;
+		}
+
+		/** @brief Copy assignment operator (deep copy). */
+		MatrixRow& operator=(const MatrixRow& other) {
+			if (this == &other) {
+				return *this; // Handle self-assignment
+			}
+
+			std::unique_ptr<T[]> newData; 
+			if (other.m_Size > 0) {
+				newData = std::make_unique<T[]>(other.m_Size); 
+				for (size_t i = 0; i < other.m_Size; ++i) {
+					newData[i] = other.m_Data[i]; 
+				}
+			}
+			// If other.m_Size is 0, newData will be nullptr.
+
+			m_Data = std::move(newData); // Transfer ownership from newData to m_Data. Old m_Data is released.
+			m_Size = other.m_Size;
+			m_Capacity = other.m_Size * sizeof(T); // Recalculate capacity.
+
+			return *this;
+		}
+
+		/** @brief Copy assignment operator (deep copy). */
+		MatrixRow& operator=(const MatrixRow& other) {
+			if (this == &other) {
+				return *this; // Handle self-assignment
+			}
+
+			std::unique_ptr<T[]> newData; 
+			if (other.m_Size > 0) {
+				newData = std::make_unique<T[]>(other.m_Size); 
+				for (size_t i = 0; i < other.m_Size; ++i) {
+					newData[i] = other.m_Data[i]; 
+				}
+			}
+			// If other.m_Size is 0, newData will be nullptr.
+
+			m_Data = std::move(newData); // Transfer ownership from newData to m_Data. Old m_Data is released.
+			m_Size = other.m_Size;
+			m_Capacity = other.m_Size * sizeof(T); // Recalculate capacity.
+
+			return *this;
+		}
+
+		/** @brief Copy assignment operator (deep copy). */
+		MatrixRow& operator=(const MatrixRow& other) {
+			if (this == &other) {
+				return *this; // Handle self-assignment
+			}
+
+			std::unique_ptr<T[]> newData; 
+			if (other.m_Size > 0) {
+				newData = std::make_unique<T[]>(other.m_Size); 
+				for (size_t i = 0; i < other.m_Size; ++i) {
+					newData[i] = other.m_Data[i]; 
+				}
+			}
+			// If other.m_Size is 0, newData will be nullptr.
+
+			m_Data = std::move(newData); // Transfer ownership from newData to m_Data. Old m_Data is released.
+			m_Size = other.m_Size;
+			m_Capacity = other.m_Size * sizeof(T); // Recalculate capacity.
+
+			return *this;
+		}
+
+		/** @brief Copy assignment operator (deep copy). */
+		MatrixRow& operator=(const MatrixRow& other) {
+			if (this == &other) {
+				return *this; // Handle self-assignment
+			}
+
+			std::unique_ptr<T[]> newData; 
+			if (other.m_Size > 0) {
+				newData = std::make_unique<T[]>(other.m_Size); 
+				for (size_t i = 0; i < other.m_Size; ++i) {
+					newData[i] = other.m_Data[i]; 
+				}
+			}
+			// If other.m_Size is 0, newData will be nullptr.
+
+			m_Data = std::move(newData); // Transfer ownership from newData to m_Data. Old m_Data is released.
+			m_Size = other.m_Size;
+			m_Capacity = other.m_Size * sizeof(T); // Recalculate capacity.
+
+			return *this;
+		}
+
 		/**
 		 * @brief Resizes the row.
 		 * @param newSize The new number of elements. Existing elements are preserved up to newSize.
@@ -359,6 +637,17 @@ namespace Matrix
 
 		/** @brief Default constructor. Creates an empty matrix (0x0). */
 		Matrix<T>() = default;
+
+		/** @brief Swaps the contents of this matrix with another. */
+		void swap(Matrix& other) noexcept {
+			using std::swap;
+			swap(m_Data, other.m_Data);
+			swap(m_Rows, other.m_Rows);
+			swap(m_Cols, other.m_Cols);
+			swap(m_Size, other.m_Size);
+			swap(m_Capacity, other.m_Capacity);
+		}
+
 		/**
 		 * @brief Constructs a Matrix with specified dimensions.
 		 * Elements are default-initialized (e.g., 0 for numeric types).
@@ -382,6 +671,68 @@ namespace Matrix
                 m_Size = 0;
                 m_Capacity = 0;
             }
+		}
+
+		/** @brief Copy constructor (deep copy) for Matrix. */
+		Matrix(const Matrix& other)
+			: m_Rows(other.m_Rows),
+			  m_Cols(other.m_Cols),
+			  m_Size(other.m_Size),
+			  m_Capacity(other.m_Capacity),
+			  m_Data(nullptr) {
+			if (m_Rows > 0 && other.m_Data) { // Only allocate if there are rows
+				m_Data = std::make_unique<MatrixRow<T>[]>(m_Rows);
+				for (size_t i = 0; i < m_Rows; ++i) {
+					m_Data[i] = other.m_Data[i]; // Relies on MatrixRow's copy constructor
+				}
+			}
+			// If other is an empty matrix (m_Rows = 0 or other.m_Data is null), 
+			// this matrix will also be empty (m_Data = nullptr, dimensions = 0).
+		}
+
+		/** @brief Move constructor for Matrix. */
+		Matrix(Matrix&& other) noexcept
+			: m_Rows(other.m_Rows),
+			  m_Cols(other.m_Cols),
+			  m_Size(other.m_Size),
+			  m_Capacity(other.m_Capacity),
+			  m_Data(std::move(other.m_Data)) {
+			// Leave other in a valid, destructible, but empty state
+			other.m_Rows = 0;
+			other.m_Cols = 0;
+			other.m_Size = 0;
+			other.m_Capacity = 0;
+			other.m_Data = nullptr;
+		}
+
+		/** @brief Copy assignment operator (copy-and-swap idiom). */
+		Matrix& operator=(const Matrix& other) {
+			if (this == &other) { // Self-assignment check, though copy-and-swap handles it implicitly
+				return *this;
+			}
+			Matrix temp(other); // Use copy constructor
+			this->swap(temp);   // Swap current content with the copy
+			return *this;
+		}
+
+		/** @brief Move assignment operator for Matrix. */
+		Matrix& operator=(Matrix&& other) noexcept {
+			if (this != &other) {
+				// Release current resources if any (unique_ptr handles this automatically on reassignment)
+				m_Data = std::move(other.m_Data);
+				m_Rows = other.m_Rows;
+				m_Cols = other.m_Cols;
+				m_Size = other.m_Size;
+				m_Capacity = other.m_Capacity;
+
+				// Leave other in a valid, destructible, but empty state
+				other.m_Rows = 0;
+				other.m_Cols = 0;
+				other.m_Size = 0;
+				other.m_Capacity = 0;
+				other.m_Data = nullptr;
+			}
+			return *this;
 		}
 
 		/** @brief Returns the total number of elements in the matrix. */
