@@ -290,23 +290,6 @@ namespace Matrix
             return *this;
 		}
 
-		/** @brief Copy assignment operator (deep copy). */
-		MatrixRow& operator=(const MatrixRow& other) {
-			if (this == &other) {
-				return *this; // Handle self-assignment
-			}
-		 std::unique_ptr<T[]> newData;
-            if (other.m_Size > 0) {
-                newData = std::make_unique<T[]>(other.m_Size);
-                for (size_t i = 0; i < other.m_Size; ++i) {
-                    newData[i] = other.m_Data[i];
-                }
-            }
-            m_Data = std::move(newData);
-            m_Size = other.m_Size;
-            m_Capacity = other.m_Size * sizeof(T);
-            return *this;
-		}
 
 		
 		/** @brief Resizes the row.
