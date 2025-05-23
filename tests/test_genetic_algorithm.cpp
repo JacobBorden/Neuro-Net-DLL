@@ -98,11 +98,11 @@ TEST_F(GeneticAlgorithmTest, EvaluateFitness) {
 TEST_F(GeneticAlgorithmTest, Mutate) {
     NeuroNet::GeneticAlgorithm ga(population_size, 1.0, crossover_rate, num_generations, template_net); // 100% mutation
     ga.initialize_population();
-    NeuroNet original_individual = template_net; // Use template as a base
+    NeuroNet::NeuroNet original_individual = template_net; // Use template as a base
     std::vector<float> original_weights = original_individual.get_all_weights_flat();
     std::vector<float> original_biases = original_individual.get_all_biases_flat();
 
-    NeuroNet mutated_individual = original_individual; // Copy
+    NeuroNet::NeuroNet mutated_individual = original_individual; // Copy
     ga.mutate(mutated_individual); // Mutate the copy
 
     std::vector<float> mutated_weights = mutated_individual.get_all_weights_flat();
@@ -134,13 +134,13 @@ TEST_F(GeneticAlgorithmTest, Mutate) {
 TEST_F(GeneticAlgorithmTest, Crossover) {
     NeuroNet::GeneticAlgorithm ga(population_size, mutation_rate, 1.0, num_generations, template_net); // 100% crossover
     
-    NeuroNet parent1 = template_net;
+    NeuroNet::NeuroNet parent1 = template_net;
     std::vector<float> p1_weights(template_net.get_all_weights_flat().size(), 1.0f); // All 1s
     std::vector<float> p1_biases(template_net.get_all_biases_flat().size(), 1.0f);
     parent1.set_all_weights_flat(p1_weights);
     parent1.set_all_biases_flat(p1_biases);
 
-    NeuroNet parent2 = template_net;
+    NeuroNet::NeuroNet parent2 = template_net;
     std::vector<float> p2_weights(template_net.get_all_weights_flat().size(), 2.0f); // All 2s
     std::vector<float> p2_biases(template_net.get_all_biases_flat().size(), 2.0f);
     parent2.set_all_weights_flat(p2_weights);
@@ -191,7 +191,7 @@ TEST_F(GeneticAlgorithmTest, RunEvolutionImprovesFitness) {
 
     ga.run_evolution(simple_fitness_function);
 
-    NeuroNet final_best = ga.get_best_individual();
+    NeuroNet::NeuroNet final_best = ga.get_best_individual();
     double final_best_fitness = simple_fitness_function(final_best);
     
     // Check if the number of weights is greater than 0 to avoid issues with empty networks.
@@ -206,7 +206,7 @@ TEST_F(GeneticAlgorithmTest, GetBestIndividual) {
     NeuroNet::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, 1, template_net);
     ga.initialize_population();
     // Manually create an individual that should be the best
-    NeuroNet clearly_best_net = template_net;
+    NeuroNet::NeuroNet clearly_best_net = template_net;
     std::vector<float> best_weights(template_net.get_all_weights_flat().size(), 100.0f); // High values
     std::vector<float> best_biases(template_net.get_all_biases_flat().size(), 100.0f);
     clearly_best_net.set_all_weights_flat(best_weights);
