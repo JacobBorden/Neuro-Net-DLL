@@ -126,13 +126,13 @@ namespace NeuroNet
 		 * @brief Retrieves the current weights of the layer.
 		 * @return LayerWeights A struct containing the layer's weights.
 		 */
-		LayerWeights get_weights();
+		LayerWeights get_weights() const;
 
 		/**
 		 * @brief Retrieves the current biases of the layer.
 		 * @return LayerBiases A struct containing the layer's biases.
 		 */
-		LayerBiases get_biases();
+		LayerBiases get_biases() const;
 
 	private:
 		int vLayerSize = 0; ///< Number of neurons in this layer.

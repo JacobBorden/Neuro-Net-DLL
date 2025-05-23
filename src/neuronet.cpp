@@ -252,11 +252,11 @@ Matrix::Matrix<float> NeuroNet::NeuroNet::GetOutput() {
 // but if they had more complex logic, they'd be here.
 // For Doxygen, their detailed comments are in the header.
 
-NeuroNet::LayerWeights NeuroNet::NeuroNetLayer::get_weights() {
+NeuroNet::LayerWeights NeuroNet::NeuroNetLayer::get_weights() const {
 	return this->Weights;
 }
 
-NeuroNet::LayerBiases NeuroNet::NeuroNetLayer::get_biases() {
+NeuroNet::LayerBiases NeuroNet::NeuroNetLayer::get_biases() const {
 	return this->Biases;
 }
 
@@ -347,7 +347,7 @@ bool NeuroNet::NeuroNet::set_all_weights_flat(const std::vector<float>& all_weig
 
 	if (current_idx != all_weights_flat.size()) {
 		// This means the flat vector had more weights than the network expected, or fewer were consumed.
-		return false; 
+		return false;
 	}
 	return true;
 }
