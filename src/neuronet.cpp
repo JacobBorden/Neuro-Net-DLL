@@ -64,7 +64,7 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ReturnOutputMatrix() {
 	return this->OutputMatrix;
 }
 
-bool NeuroNet::NeuroNetLayer::SetInput(Matrix::Matrix<float> pInputMatrix) {
+bool NeuroNet::NeuroNetLayer::SetInput(const Matrix::Matrix<float>& pInputMatrix) {
 	// Expecting a 1xN matrix where N is InputSize.
 	if (pInputMatrix.rows() != 1 || pInputMatrix.cols() != this->InputMatrix.cols()) {
 		return false; // Input dimensions do not match layer's expected input dimensions.
@@ -212,7 +212,7 @@ void NeuroNet::NeuroNet::ResizeNeuroNet(int pLayerCount) {
     this->LayerCount = pLayerCount; // Update the LayerCount member
 }
 
-bool NeuroNet::NeuroNet::SetInput(Matrix::Matrix<float> pInputMatrix) {
+bool NeuroNet::NeuroNet::SetInput(const Matrix::Matrix<float>& pInputMatrix) {
 	if (this->NeuroNetVector.empty()) {
 		return false; // No layers to process input.
 	}
