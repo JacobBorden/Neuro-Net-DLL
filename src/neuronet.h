@@ -245,7 +245,7 @@ namespace NeuroNet
 		 * This is useful for genetic algorithms or other optimization techniques.
 		 * @return std::vector<float> A flat vector containing all weight values.
 		 */
-		std::vector<float> get_all_weights_flat();
+		std::vector<float> get_all_weights_flat() const;
 
 		/**
 		 * @brief Sets all weights for all layers from a single flattened vector.
@@ -261,7 +261,7 @@ namespace NeuroNet
 		 * Useful for genetic algorithms or similar optimization methods.
 		 * @return std::vector<float> A flat vector containing all bias values.
 		 */
-		std::vector<float> get_all_biases_flat();
+		std::vector<float> get_all_biases_flat() const;
 
 		/**
 		 * @brief Sets all biases for all layers from a single flattened vector.

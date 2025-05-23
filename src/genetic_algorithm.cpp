@@ -347,7 +347,7 @@ void GeneticAlgorithm::evolve_one_generation(const std::function<double(NeuroNet
         initialize_population(); 
         if(population_.empty() && population_size_ > 0) { // If still empty after trying to init
              throw std::runtime_error("Population is empty even after initialization attempt in evolve_one_generation.");
-        } else if (population_empty()){ // If population_size_ is 0
+        } else if (population_size_ == 0) { // If population_size_ is 0
             return; // Nothing to evolve
         }
     }

@@ -305,12 +305,10 @@ bool NeuroNet::NeuroNet::set_all_layer_biases(const std::vector<LayerBiases>& al
 	return true;
 }
 
-std::vector<float> NeuroNet::NeuroNet::get_all_weights_flat() {
+std::vector<float> NeuroNet::NeuroNet::get_all_weights_flat() const {
 	std::vector<float> flat_weights;
-	for (auto& layer : this->NeuroNetVector) {
+	for (const auto& layer : this->NeuroNetVector) {
 		LayerWeights lw = layer.get_weights();
-		// Ensure WeightsVector is populated before trying to access its contents.
-        // The get_weights() method returns the struct; its WeightsVector should be valid if SetWeights was used.
 		if (lw.WeightCount > 0 && !lw.WeightsVector.empty()) {
 			flat_weights.insert(flat_weights.end(), lw.WeightsVector.begin(), lw.WeightsVector.end());
 		}
@@ -354,9 +352,9 @@ bool NeuroNet::NeuroNet::set_all_weights_flat(const std::vector<float>& all_weig
 	return true;
 }
 
-std::vector<float> NeuroNet::NeuroNet::get_all_biases_flat() {
+std::vector<float> NeuroNet::NeuroNet::get_all_biases_flat() const {
 	std::vector<float> flat_biases;
-	for (auto& layer : this->NeuroNetVector) {
+	for (const auto& layer : this->NeuroNetVector) {
 		LayerBiases lb = layer.get_biases();
 		if (lb.BiasCount > 0 && !lb.BiasVector.empty()) {
 			flat_biases.insert(flat_biases.end(), lb.BiasVector.begin(), lb.BiasVector.end());

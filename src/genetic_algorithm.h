@@ -121,7 +121,7 @@ private:
     NeuroNet best_individual_;             ///< The best individual found so far across all generations.
     double best_fitness_score_;            ///< The fitness score of the best_individual_.
 
-    std::mt19937 random_engine_; ///< Mersenne Twister random number engine for GA operations.
+    mutable std::mt19937 random_engine_; ///< Mersenne Twister random number engine for GA operations.
 
     /**
      * @brief Creates a random NeuroNet individual based on the template_network_.
