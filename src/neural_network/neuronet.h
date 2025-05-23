@@ -11,7 +11,7 @@
 
 #pragma once
 
-#include "matrix.h" // For Matrix class usage
+#include "../math/matrix.h" // For Matrix class usage
 #include <vector>   // For std::vector usage
 #include <string>   // For potential string usage in future extensions
 
