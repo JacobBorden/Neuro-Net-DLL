@@ -59,7 +59,8 @@ Using the NeuroNet Library
 Here's a minimal example of how to use the NeuroNet library:
 
 ```cpp
-#include "neuronet.h" // Assumes include paths are set up
+#include "neural_network/neuronet.h" // Assumes include paths are set up
+#include "math/matrix.h"             // For Matrix::Matrix
 #include <iostream>
 #include <vector>
 
@@ -91,7 +92,8 @@ int main() {
 
 
     // 3. Create an input matrix
-    Matrix::Matrix<float> inputMatrix(1, inputSize);
+    // Matrix is in the Matrix namespace, NeuroNet in NeuroNet namespace
+    Matrix::Matrix<float> inputMatrix(1, inputSize); 
     for (int i = 0; i < inputSize; ++i) {
         inputMatrix[0][i] = static_cast<float>(i) * 0.1f; // Example input
     }
@@ -116,22 +118,23 @@ int main() {
 Using the GeneticAlgorithm
 Here's a minimal example of how to use the GeneticAlgorithm:
 
-#include "genetic_algorithm.h"
-#include "neuronet.h"
+#include "optimization/genetic_algorithm.h" // For Optimization::GeneticAlgorithm
+#include "neural_network/neuronet.h"        // For NeuroNet::NeuroNet
+#include "math/matrix.h"                    // For Matrix::Matrix
 #include <iostream>
 #include <vector>
 #include <numeric> // For std::accumulate
 #include <cmath>   // For std::fabs
 
 // 1. Define a fitness function
-//    This function evaluates a NeuroNet and returns a fitness score (higher is better).
+//    This function evaluates a NeuroNet (from NeuroNet namespace) and returns a fitness score (higher is better).
 double simpleFitnessFunction(NeuroNet::NeuroNet& network) {
     // Example: Try to get the network to output a sum of its inputs.
     // This is a toy problem.
     int inputSize = network.GetInputSize();
     if (inputSize == 0) return 0.0;
 
-    Matrix::Matrix<float> testInput(1, inputSize);
+    Matrix::Matrix<float> testInput(1, inputSize); // Matrix from Matrix namespace
     float expectedSum = 0.0f;
     for (int i = 0; i < inputSize; ++i) {
         testInput[0][i] = static_cast<float>(i + 1); // e.g., 1, 2, 3...
@@ -139,7 +142,7 @@ double simpleFitnessFunction(NeuroNet::NeuroNet& network) {
     }
 
     network.SetInput(testInput);
-    Matrix::Matrix<float> output = network.GetOutput();
+    Matrix::Matrix<float> output = network.GetOutput(); // Matrix from Matrix namespace
 
     if (output.cols() == 0) return 0.0; // No output produced
 
@@ -153,7 +156,7 @@ double simpleFitnessFunction(NeuroNet::NeuroNet& network) {
 
 int main() {
     // 2. Create a template NeuroNet for the GA population
-    NeuroNet::NeuroNet templateNetwork;
+    NeuroNet::NeuroNet templateNetwork; // NeuroNet from NeuroNet namespace
     int inputSize = 5;
     templateNetwork.SetInputSize(inputSize);
     templateNetwork.ResizeNeuroNet(2);    // 2 layers
@@ -166,7 +169,8 @@ int main() {
     double crossoverRate = 0.7;
     int numGenerations = 100;
 
-    NeuroNet::GeneticAlgorithm ga(
+    // GeneticAlgorithm is in the Optimization namespace
+    Optimization::GeneticAlgorithm ga(
         populationSize, 
         mutationRate, 
         crossoverRate, 
@@ -180,7 +184,7 @@ int main() {
     std::cout << "Evolution finished." << std::endl;
 
     // 5. Get the best individual
-    NeuroNet::NeuroNet bestNetwork = ga.get_best_individual();
+    NeuroNet::NeuroNet bestNetwork = ga.get_best_individual(); // NeuroNet from NeuroNet namespace
 
     // You can now use the bestNetwork, e.g., test its output or save its weights
     std::cout << "Best individual's fitness can be re-evaluated (or stored during GA run): " 
@@ -188,7 +192,8 @@ int main() {
 
     // Example: Print weights of the first layer of the best network
     if (bestNetwork.GetLayerCount() > 0) {
-        NeuroNet::LayerWeights weights = bestNetwork.get_all_layer_weights()[0];
+        // LayerWeights is part of NeuroNet namespace (defined in neuronet.h)
+        NeuroNet::LayerWeights weights = bestNetwork.get_all_layer_weights()[0]; 
         std::cout << "Best network, Layer 0, first few weights: ";
         for(int i=0; i < 5 && i < weights.WeightsVector.size(); ++i) {
             std::cout << weights.WeightsVector[i] << " ";
@@ -200,9 +205,9 @@ int main() {
 }
 ```
 Key Components
-NeuroNet (src/neuronet.h, src/neuronet.cpp): The core class representing a neural network. Manages layers and network-level operations.
-NeuroNetLayer (src/neuronet.h, src/neuronet.cpp): Represents a single layer within a NeuroNet. Handles calculations for that layer.
-GeneticAlgorithm (src/genetic_algorithm.h, src/genetic_algorithm.cpp): Implements the genetic algorithm to train/evolve NeuroNet instances.
-Matrix (src/matrix.h): A header-only template library for matrix operations, used by NeuroNetLayer for calculations.
+NeuroNet (src/neural_network/neuronet.h, src/neural_network/neuronet.cpp): The core class representing a neural network, part of the NeuralNetwork module. Manages layers and network-level operations.
+NeuroNetLayer (src/neural_network/neuronet.h, src/neural_network/neuronet.cpp): Represents a single layer within a NeuroNet, part of the NeuralNetwork module. Handles calculations for that layer.
+GeneticAlgorithm (src/optimization/genetic_algorithm.h, src/optimization/genetic_algorithm.cpp): Implements the genetic algorithm to train/evolve NeuroNet instances. Part of the Optimization module (namespace Optimization).
+Matrix (src/math/matrix.h): A header-only template library for matrix operations, part of the Math module (namespace Matrix). Used by NeuroNetLayer for calculations.
 Dependencies
 Google Test: Used for unit testing. It is fetched automatically by CMake via FetchContent during the build configuration. No manual installation is required.

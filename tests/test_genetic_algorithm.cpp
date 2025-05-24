@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
-#include "genetic_algorithm.h" // Access to GeneticAlgorithm
-#include "neuronet.h"          // Access to NeuroNet for template and individuals
+#include "optimization/genetic_algorithm.h" // Access to GeneticAlgorithm
+#include "neural_network/neuronet.h"          // Access to NeuroNet for template and individuals
 #include <numeric>             // For std::accumulate
 #include <set>                 // For checking distinctness
 

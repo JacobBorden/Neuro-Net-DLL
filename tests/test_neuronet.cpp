@@ -1,6 +1,6 @@
 #include "gtest/gtest.h"
-#include "neuronet.h" // Access to NeuroNet and NeuroNetLayer
-#include "matrix.h"   // For creating Matrix objects for input
+#include "neural_network/neuronet.h" // Access to NeuroNet and NeuroNetLayer
+#include "math/matrix.h"   // For creating Matrix objects for input
 
 // Test fixture for NeuroNet tests
 class NeuroNetTest : public ::testing::Test {
