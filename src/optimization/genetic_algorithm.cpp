@@ -28,7 +28,7 @@ Optimization::GeneticAlgorithm::GeneticAlgorithm(
     double mutation_rate,
     double crossover_rate,
     int num_generations,
-    const NeuroNet& template_network)
+    const NeuroNet::NeuroNet& template_network)
     : population_size_(population_size),
       mutation_rate_(mutation_rate),
       crossover_rate_(crossover_rate),
@@ -54,8 +54,8 @@ Optimization::GeneticAlgorithm::GeneticAlgorithm(
  * values, typically between -1.0 and 1.0.
  * @return NeuroNet A new, randomly initialized NeuroNet individual.
  */
-NeuroNet Optimization::GeneticAlgorithm::create_random_individual() const {
-    NeuroNet individual = template_network_; // Start with the template structure.
+NeuroNet::NeuroNet Optimization::GeneticAlgorithm::create_random_individual() const {
+    NeuroNet::NeuroNet individual = template_network_; // Start with the template structure.
 
     // Retrieve the total number of weights and biases from the template structure.
     // This uses the NeuroNet's flat accessor methods, which is convenient.
@@ -112,7 +112,7 @@ void Optimization::GeneticAlgorithm::initialize_population() {
  * but does not update the overall `best_individual_` or `best_fitness_score_` (across all generations);
  * that update is handled in `evolve_one_generation` after selection and other operations.
  */
-void Optimization::GeneticAlgorithm::evaluate_fitness(const std::function<double(NeuroNet&)>& fitness_function) {
+void Optimization::GeneticAlgorithm::evaluate_fitness(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function) {
     if (population_.empty()) {
         // Or throw std::runtime_error("Population is empty, cannot evaluate fitness.");
         return;
@@ -142,7 +142,7 @@ void Optimization::GeneticAlgorithm::evaluate_fitness(const std::function<double
  * @return const NeuroNet& A reference to the selected parent individual.
  * @throws std::runtime_error if the population is empty.
  */
-const NeuroNet& Optimization::GeneticAlgorithm::tournament_selection(int tournament_size) const {
+const NeuroNet::NeuroNet& Optimization::GeneticAlgorithm::tournament_selection(int tournament_size) const {
     if (population_.empty()) {
         throw std::runtime_error("Tournament selection called on an empty population.");
     }
@@ -151,7 +151,7 @@ const NeuroNet& Optimization::GeneticAlgorithm::tournament_selection(int tournam
     }
     
     std::uniform_int_distribution<int> dist(0, population_.size() - 1);
-    const NeuroNet* best_participant = nullptr;
+    const NeuroNet::NeuroNet* best_participant = nullptr;
     double max_fitness_in_tournament = std::numeric_limits<double>::lowest();
 
     for (int i = 0; i < tournament_size; ++i) {
@@ -188,7 +188,7 @@ void Optimization::GeneticAlgorithm::selection() {
         return;
     }
 
-    std::vector<NeuroNet> new_population;
+    std::vector<NeuroNet::NeuroNet> new_population;
     new_population.reserve(population_size_);
 
     // Elitism: Carry over the best individual from the current population.
@@ -205,12 +205,12 @@ void Optimization::GeneticAlgorithm::selection() {
 
     // Fill the rest of the new population.
     while (new_population.size() < static_cast<size_t>(population_size_)) {
-        const NeuroNet& parent1 = tournament_selection();
-        const NeuroNet& parent2 = tournament_selection();
+        const NeuroNet::NeuroNet& parent1 = tournament_selection();
+        const NeuroNet::NeuroNet& parent2 = tournament_selection();
 
         std::uniform_real_distribution<double> cross_dist(0.0, 1.0);
         if (cross_dist(random_engine_) < crossover_rate_) {
-            std::vector<NeuroNet> offspring = crossover(parent1, parent2); // Get two offspring
+            std::vector<NeuroNet::NeuroNet> offspring = crossover(parent1, parent2); // Get two offspring
             mutate(offspring[0]); // Mutate first offspring
             if (new_population.size() < static_cast<size_t>(population_size_)) {
                 new_population.push_back(offspring[0]);
@@ -221,14 +221,14 @@ void Optimization::GeneticAlgorithm::selection() {
             }
         } else {
             // No crossover: clone parents, mutate, and add to new population.
-            NeuroNet p1_copy = parent1;
+            NeuroNet::NeuroNet p1_copy = parent1;
             mutate(p1_copy);
             if (new_population.size() < static_cast<size_t>(population_size_)) {
                 new_population.push_back(p1_copy);
             }
 
             if (new_population.size() < static_cast<size_t>(population_size_)) { // Check size again
-                NeuroNet p2_copy = parent2;
+                NeuroNet::NeuroNet p2_copy = parent2;
                 mutate(p2_copy);
                 new_population.push_back(p2_copy);
             }
@@ -246,9 +246,9 @@ void Optimization::GeneticAlgorithm::selection() {
  * @param parent2 The second parent NeuroNet.
  * @return std::vector<NeuroNet> A vector containing two new offspring NeuroNet individuals.
  */
-std::vector<NeuroNet> Optimization::GeneticAlgorithm::crossover(const NeuroNet& parent1, const NeuroNet& parent2) {
-    NeuroNet offspring1 = template_network_; // Ensure offspring have the correct structure.
-    NeuroNet offspring2 = template_network_;
+std::vector<NeuroNet::NeuroNet> Optimization::GeneticAlgorithm::crossover(const NeuroNet::NeuroNet& parent1, const NeuroNet::NeuroNet& parent2) {
+    NeuroNet::NeuroNet offspring1 = template_network_; // Ensure offspring have the correct structure.
+    NeuroNet::NeuroNet offspring2 = template_network_;
 
     // Crossover for weights
     std::vector<float> p1_weights = parent1.get_all_weights_flat();
@@ -305,7 +305,7 @@ std::vector<NeuroNet> Optimization::GeneticAlgorithm::crossover(const NeuroNet& 
  * by a small random value (e.g., adding a value between -0.1 and 0.1).
  * @param individual The NeuroNet to mutate (modified in place).
  */
-void Optimization::GeneticAlgorithm::mutate(NeuroNet& individual) {
+void Optimization::GeneticAlgorithm::mutate(NeuroNet::NeuroNet& individual) {
     std::uniform_real_distribution<double> prob_dist(0.0, 1.0); // For checking against mutation_rate_
     std::uniform_real_distribution<float> mutation_val_dist(-0.1f, 0.1f); // Magnitude of mutation
 
@@ -341,7 +341,7 @@ void Optimization::GeneticAlgorithm::mutate(NeuroNet& individual) {
  * 3. Performing selection (which internally handles crossover and mutation for the new population).
  * @param fitness_function The function used to evaluate the fitness of each individual.
  */
-void Optimization::GeneticAlgorithm::evolve_one_generation(const std::function<double(NeuroNet&)>& fitness_function) {
+void Optimization::GeneticAlgorithm::evolve_one_generation(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function) {
     if (population_.empty()) {
         // This might happen if initialize_population was not called before the first evolution step.
         // Or if population_size_ is 0.
@@ -393,7 +393,7 @@ void Optimization::GeneticAlgorithm::evolve_one_generation(const std::function<d
  * It first initializes the population, then iteratively calls `evolve_one_generation`.
  * @param fitness_function The function to evaluate individual fitness.
  */
-void Optimization::GeneticAlgorithm::run_evolution(const std::function<double(NeuroNet&)>& fitness_function) {
+void Optimization::GeneticAlgorithm::run_evolution(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function) {
     initialize_population(); // Prepare the initial random population.
 
     for (int i = 0; i < num_generations_; ++i) {
@@ -412,7 +412,7 @@ void Optimization::GeneticAlgorithm::run_evolution(const std::function<double(Ne
  * (which could be default if no better one was found).
  * @return NeuroNet A copy of the best performing individual.
  */
-NeuroNet Optimization::GeneticAlgorithm::get_best_individual() const {
+NeuroNet::NeuroNet Optimization::GeneticAlgorithm::get_best_individual() const {
     // If best_individual_ was never updated (e.g. evolution didn't run or no valid individuals),
     // it might be default-constructed.
     // A check could be added: if best_fitness_score_ is still numeric_limits::lowest(),
