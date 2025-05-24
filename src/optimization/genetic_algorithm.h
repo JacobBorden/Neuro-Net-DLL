@@ -16,9 +16,9 @@
 #include <algorithm>  // For std::sort, std::transform, std::max_element
 #include <random>     // For std::mt19937, std::uniform_real_distribution, etc.
 #include <limits>     // For std::numeric_limits
-#include "neuronet.h" // NeuroNet class header
+#include "../neural_network/neuronet.h" // NeuroNet class header
 
-namespace NeuroNet {
+namespace Optimization {
 
 /**
  * @brief Implements a genetic algorithm to evolve NeuroNet individuals.
@@ -139,6 +139,6 @@ private:
     const NeuroNet& tournament_selection(int tournament_size = 5) const;
 };
 
-} // namespace NeuroNet
+} // namespace Optimization
 
 #endif // GENETIC_ALGORITHM_H
