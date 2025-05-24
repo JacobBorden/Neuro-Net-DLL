@@ -16,7 +16,7 @@ FetchContent_MakeAvailable(googletest)
 
 include_directories(src)
 
-add_library(neuronet STATIC src/neuronet.cpp src/genetic_algorithm.cpp)
+add_library(neuronet STATIC src/neural_network/neuronet.cpp src/optimization/genetic_algorithm.cpp)
 
 # Testing subdirectory
 add_subdirectory(tests)

@@ -16,9 +16,9 @@
 #include <algorithm>  // For std::sort, std::transform, std::max_element
 #include <random>     // For std::mt19937, std::uniform_real_distribution, etc.
 #include <limits>     // For std::numeric_limits
-#include "neuronet.h" // NeuroNet class header
+#include "../neural_network/neuronet.h" // NeuroNet class header
 
-namespace NeuroNet {
+namespace Optimization {
 
 /**
  * @brief Implements a genetic algorithm to evolve NeuroNet individuals.
@@ -44,7 +44,7 @@ public:
         double mutation_rate,
         double crossover_rate,
         int num_generations,
-        const NeuroNet& template_network
+        const NeuroNet::NeuroNet& template_network
     );
 
     /**
@@ -59,7 +59,7 @@ public:
      * @param fitness_function A function that takes a NeuroNet individual by reference
      *                         and returns its fitness score (double). Higher scores are better.
      */
-    void evaluate_fitness(const std::function<double(NeuroNet&)>& fitness_function);
+    void evaluate_fitness(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function);
 
     /**
      * @brief Performs selection to choose individuals for the next generation.
@@ -77,7 +77,7 @@ public:
      * @param parent2 The second parent NeuroNet.
      * @return std::vector<NeuroNet> A vector containing two offspring NeuroNet individuals.
      */
-    std::vector<NeuroNet> crossover(const NeuroNet& parent1, const NeuroNet& parent2);
+    std::vector<NeuroNet::NeuroNet> crossover(const NeuroNet::NeuroNet& parent1, const NeuroNet::NeuroNet& parent2);
 
     /**
      * @brief Applies mutation to an individual NeuroNet.
@@ -85,21 +85,21 @@ public:
      * to be altered by a small random amount.
      * @param individual The NeuroNet individual to mutate (modified in place).
      */
-    void mutate(NeuroNet& individual);
+    void mutate(NeuroNet::NeuroNet& individual);
 
     /**
      * @brief Evolves the population for a single generation.
      * This involves evaluating fitness, performing selection, crossover, and mutation.
      * @param fitness_function The fitness function to evaluate individuals.
      */
-    void evolve_one_generation(const std::function<double(NeuroNet&)>& fitness_function);
+    void evolve_one_generation(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function);
 
     /**
      * @brief Runs the complete evolution process for the specified number of generations.
      * Initializes the population and then iteratively calls evolve_one_generation.
      * @param fitness_function The fitness function to evaluate individuals.
      */
-    void run_evolution(const std::function<double(NeuroNet&)>& fitness_function);
+    void run_evolution(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function);
 
     /**
      * @brief Retrieves the best NeuroNet individual found during the evolution process.
@@ -107,18 +107,18 @@ public:
      * @return NeuroNet The best performing NeuroNet individual.
      *                Returns a default-constructed NeuroNet if evolution hasn't run or population is empty.
      */
-    NeuroNet get_best_individual() const;
+    NeuroNet::NeuroNet get_best_individual() const;
 
 private:
     int population_size_;       ///< Number of individuals in the population.
     double mutation_rate_;      ///< Probability of mutation for each gene.
     double crossover_rate_;     ///< Probability of performing crossover.
     int num_generations_;       ///< Total number of generations for evolution.
-    NeuroNet template_network_; ///< Template NeuroNet defining the structure of individuals.
+    NeuroNet::NeuroNet template_network_; ///< Template NeuroNet defining the structure of individuals.
 
-    std::vector<NeuroNet> population_;     ///< Current population of NeuroNet individuals.
+    std::vector<NeuroNet::NeuroNet> population_;     ///< Current population of NeuroNet individuals.
     std::vector<double> fitness_scores_;   ///< Fitness scores corresponding to the population_.
-    NeuroNet best_individual_;             ///< The best individual found so far across all generations.
+    NeuroNet::NeuroNet best_individual_;             ///< The best individual found so far across all generations.
     double best_fitness_score_;            ///< The fitness score of the best_individual_.
 
     mutable std::mt19937 random_engine_; ///< Mersenne Twister random number engine for GA operations.
@@ -128,7 +128,7 @@ private:
      * Weights and biases are initialized to small random values.
      * @return NeuroNet A new NeuroNet individual with randomized parameters.
      */
-    NeuroNet create_random_individual() const;
+    NeuroNet::NeuroNet create_random_individual() const;
 
     /**
      * @brief Selects an individual from the population using tournament selection.
@@ -136,9 +136,9 @@ private:
      * @return const NeuroNet& A reference to the winning individual from the tournament.
      *                         Returns a reference to a fallback network if population is empty.
      */
-    const NeuroNet& tournament_selection(int tournament_size = 5) const;
+    const NeuroNet::NeuroNet& tournament_selection(int tournament_size = 5) const;
 };
 
-} // namespace NeuroNet
+} // namespace Optimization
 
 #endif // GENETIC_ALGORITHM_H
