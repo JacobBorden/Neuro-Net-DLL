@@ -11,17 +11,22 @@
 
 #include "neuronet.h"
 #include <stdexcept> // For std::runtime_error or other exceptions if needed
+#include <cmath>     // For std::exp and std::max
 // #include "pch.h" // Precompiled header (if used, ensure it's appropriate for the project) - REMOVED
 
 // --- NeuroNetLayer Method Implementations ---
 
-NeuroNet::NeuroNetLayer::NeuroNetLayer() : vLayerSize(0), InputSize(0) {
+NeuroNet::NeuroNetLayer::NeuroNetLayer() : vLayerSize(0), InputSize(0), vActivationFunction(ActivationFunctionType::None) {
     // Constructor body can remain empty if all initialization is done by member initializers
     // or if default member initializers in the header are sufficient.
 }
 
 NeuroNet::NeuroNetLayer::~NeuroNetLayer() {
     // Destructor body - typically empty unless managing raw pointers or other resources.
+}
+
+void NeuroNet::NeuroNetLayer::SetActivationFunction(ActivationFunctionType pActivationFunction) {
+	this->vActivationFunction = pActivationFunction;
 }
 
 /**
@@ -50,13 +55,100 @@ void NeuroNet::NeuroNetLayer::ResizeLayer(int pInputSize, int pLayerSize) {
 	this->Biases.BiasVector.clear(); // Clear old data.
 }
 
+Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyReLU(const Matrix::Matrix<float>& input) {
+    Matrix::Matrix<float> output = input; // Make a copy
+    for (int i = 0; i < output.rows(); ++i) {
+        for (int j = 0; j < output.cols(); ++j) {
+            output[i][j] = std::max(0.0f, output[i][j]);
+        }
+    }
+    return output;
+}
+
+Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyLeakyReLU(const Matrix::Matrix<float>& input) {
+    Matrix::Matrix<float> output = input; // Make a copy
+    const float alpha = 0.01f;
+    for (int i = 0; i < output.rows(); ++i) {
+        for (int j = 0; j < output.cols(); ++j) {
+            if (output[i][j] < 0) {
+                output[i][j] = alpha * output[i][j];
+            }
+        }
+    }
+    return output;
+}
+
+Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyELU(const Matrix::Matrix<float>& input) {
+    Matrix::Matrix<float> output = input; // Make a copy
+    const float alpha = 1.0f;
+    for (int i = 0; i < output.rows(); ++i) {
+        for (int j = 0; j < output.cols(); ++j) {
+            if (output[i][j] < 0) {
+                output[i][j] = alpha * (std::exp(output[i][j]) - 1.0f);
+            }
+        }
+    }
+    return output;
+}
+
+Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplySoftmax(const Matrix::Matrix<float>& input) {
+    Matrix::Matrix<float> output = input; // Make a copy
+    float sum_exp = 0.0f;
+    // Calculate sum of exponents for normalization.
+    // This implementation assumes input is a 1xN matrix (a single row vector),
+    // which is typical for the output of a layer before activation.
+    if (output.rows() != 1) {
+        // For a more general Softmax that could operate column-wise on a batch of outputs,
+        // this logic would need to be adjusted. For now, it processes a single output vector.
+    }
+
+    for (int j = 0; j < output.cols(); ++j) {
+        output[0][j] = std::exp(output[0][j]);
+        sum_exp += output[0][j];
+    }
+
+    // Normalize
+    if (sum_exp != 0.0f) { // Avoid division by zero
+        for (int j = 0; j < output.cols(); ++j) {
+            output[0][j] /= sum_exp;
+        }
+    }
+    return output;
+}
+
+
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::CalculateOutput() {
 	if (InputMatrix.cols() == 0 || WeightMatrix.rows() == 0 || BiasMatrix.cols() == 0) {
 		// Or throw an exception, or return an empty matrix with error status
 		// For now, returning the current (possibly uninitialized) OutputMatrix.
 		// Consider adding error handling or preconditions.
 	}
+	// Calculate the linear transformation part: (InputMatrix * WeightMatrix) + BiasMatrix
 	this->OutputMatrix = (this->InputMatrix * this->WeightMatrix) + this->BiasMatrix;
+
+    // OutputMatrix now holds the result of the linear transformation.
+    // Apply the selected activation function.
+    switch (this->vActivationFunction) {
+        case ActivationFunctionType::ReLU:
+            this->OutputMatrix = ApplyReLU(this->OutputMatrix);
+            break;
+        case ActivationFunctionType::LeakyReLU:
+            this->OutputMatrix = ApplyLeakyReLU(this->OutputMatrix);
+            break;
+        case ActivationFunctionType::ELU:
+            this->OutputMatrix = ApplyELU(this->OutputMatrix);
+            break;
+        case ActivationFunctionType::Softmax:
+            this->OutputMatrix = ApplySoftmax(this->OutputMatrix);
+            break;
+        case ActivationFunctionType::None:
+            // No activation function applied, do nothing.
+            break;
+        default:
+            // Optional: Handle unknown activation type, e.g., log a warning or do nothing.
+            break;
+    }
+
 	return this->OutputMatrix;
 }
 

@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased] - 2025-05-23
 
 ### Added
+- Pluggable activation functions (None, ReLU, LeakyReLU, ELU, Softmax) for `NeuroNetLayer`. Layers now apply the selected activation function after the linear transformation.
+- `ActivationFunctionType` enum to specify activation types.
+- `NeuroNetLayer::SetActivationFunction()` method.
+- Private helper methods in `NeuroNetLayer` for applying each activation function.
+
+### Changed
+- `NeuroNetLayer::CalculateOutput()` now incorporates the selected activation function.
+- Default constructor `NeuroNetLayer()` initializes with `ActivationFunctionType::None`.
+- Updated Doxygen comments in `neuronet.h` and `neuronet.cpp` for new activation function features.
+- Updated `README.md` with a new section explaining activation functions and providing usage examples.
+
+## [Previous Version - e.g., 0.2.0] - 2025-05-23 (Date of previous changes if known, or adjust as needed)
+
+### Added
 - Created `CHANGELOG.md` to track changes.
 
 ### Changed

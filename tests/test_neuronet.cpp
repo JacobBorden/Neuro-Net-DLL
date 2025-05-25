@@ -1,3 +1,14 @@
+// Catch2 directives and include removed.
+
+#include "../src/neural_network/neuronet.h" // Adjusted path
+#include "../src/math/matrix.h"           // Adjusted path
+#include <vector>
+#include <cmath> // For std::exp, std::max
+
+
+// --- Existing Google Test code commented out or removed ---
+// Removed /* block comment marker
+
 #include "gtest/gtest.h"
 #include "neural_network/neuronet.h" // Access to NeuroNet and NeuroNetLayer
 #include "math/matrix.h"   // For creating Matrix objects for input
@@ -223,7 +234,159 @@ TEST_F(NeuroNetTest, NeuroNetAllLayerWeightsBiases) {
 }
 
 // Main function for running tests (needed if not using gtest_main)
-// int main(int argc, char **argv) {
-//     ::testing::InitGoogleTest(&argc, argv);
-//     return RUN_ALL_TESTS();
-// }
+int main(int argc, char **argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
+}
+// Removed */ block comment marker
+
+
+// --- Activation Function Tests ---
+
+TEST_F(NeuroNetTest, ActivationReLU) {
+    const int num_outputs = 3;
+    layer.ResizeLayer(1, num_outputs); // InputSize=1, LayerSize=num_outputs
+
+    Matrix::Matrix<float> input_to_layer(1, 1);
+    input_to_layer[0][0] = 1.0f;
+    layer.SetInput(input_to_layer);
+
+    NeuroNet::LayerBiases biases_config; // Renamed to avoid conflict with fixture member if any
+    biases_config.BiasCount = num_outputs;
+    biases_config.BiasVector.assign(num_outputs, 0.0f);
+    layer.SetBiases(biases_config);
+
+    NeuroNet::LayerWeights weights_config; // Renamed
+    weights_config.WeightCount = num_outputs;
+    weights_config.WeightsVector = {1.0f, -2.0f, 0.0f};
+    layer.SetWeights(weights_config);
+
+    layer.SetActivationFunction(NeuroNet::ActivationFunctionType::ReLU);
+    Matrix::Matrix<float> output = layer.CalculateOutput();
+
+    EXPECT_EQ(output.rows(), 1);
+    EXPECT_EQ(output.cols(), num_outputs);
+    EXPECT_FLOAT_EQ(output[0][0], 1.0f);
+    EXPECT_FLOAT_EQ(output[0][1], 0.0f);
+    EXPECT_FLOAT_EQ(output[0][2], 0.0f);
+}
+
+TEST_F(NeuroNetTest, ActivationLeakyReLU) {
+    const int num_outputs = 3;
+    layer.ResizeLayer(1, num_outputs);
+
+    Matrix::Matrix<float> input_to_layer(1, 1);
+    input_to_layer[0][0] = 1.0f;
+    layer.SetInput(input_to_layer);
+
+    NeuroNet::LayerBiases biases_config;
+    biases_config.BiasCount = num_outputs;
+    biases_config.BiasVector.assign(num_outputs, 0.0f);
+    layer.SetBiases(biases_config);
+
+    NeuroNet::LayerWeights weights_config;
+    weights_config.WeightCount = num_outputs;
+    weights_config.WeightsVector = {1.0f, -2.0f, -10.0f};
+    layer.SetWeights(weights_config);
+
+    layer.SetActivationFunction(NeuroNet::ActivationFunctionType::LeakyReLU);
+    Matrix::Matrix<float> output = layer.CalculateOutput();
+
+    EXPECT_EQ(output.rows(), 1);
+    EXPECT_EQ(output.cols(), num_outputs);
+    EXPECT_FLOAT_EQ(output[0][0], 1.0f);
+    EXPECT_FLOAT_EQ(output[0][1], -0.02f);
+    EXPECT_FLOAT_EQ(output[0][2], -0.1f);
+}
+
+TEST_F(NeuroNetTest, ActivationELU) {
+    const int num_outputs = 3;
+    layer.ResizeLayer(1, num_outputs);
+
+    Matrix::Matrix<float> input_to_layer(1, 1);
+    input_to_layer[0][0] = 1.0f;
+    layer.SetInput(input_to_layer);
+
+    NeuroNet::LayerBiases biases_config;
+    biases_config.BiasCount = num_outputs;
+    biases_config.BiasVector.assign(num_outputs, 0.0f);
+    layer.SetBiases(biases_config);
+
+    NeuroNet::LayerWeights weights_config;
+    weights_config.WeightCount = num_outputs;
+    weights_config.WeightsVector = {1.0f, -2.0f, 0.0f};
+    layer.SetWeights(weights_config);
+
+    layer.SetActivationFunction(NeuroNet::ActivationFunctionType::ELU);
+    Matrix::Matrix<float> output = layer.CalculateOutput();
+
+    EXPECT_EQ(output.rows(), 1);
+    EXPECT_EQ(output.cols(), num_outputs);
+    EXPECT_FLOAT_EQ(output[0][0], 1.0f);
+    EXPECT_FLOAT_EQ(output[0][1], 1.0f * (std::exp(-2.0f) - 1.0f));
+    EXPECT_FLOAT_EQ(output[0][2], 0.0f);
+}
+
+TEST_F(NeuroNetTest, ActivationSoftmax) {
+    const int num_outputs = 3;
+    layer.ResizeLayer(1, num_outputs);
+
+    Matrix::Matrix<float> input_to_layer(1, 1);
+    input_to_layer[0][0] = 1.0f;
+    layer.SetInput(input_to_layer);
+
+    NeuroNet::LayerBiases biases_config;
+    biases_config.BiasCount = num_outputs;
+    biases_config.BiasVector.assign(num_outputs, 0.0f);
+    layer.SetBiases(biases_config);
+
+    NeuroNet::LayerWeights weights_config;
+    weights_config.WeightCount = num_outputs;
+    weights_config.WeightsVector = {1.0f, 2.0f, 3.0f};
+    layer.SetWeights(weights_config);
+
+    layer.SetActivationFunction(NeuroNet::ActivationFunctionType::Softmax);
+    Matrix::Matrix<float> output = layer.CalculateOutput();
+
+    EXPECT_EQ(output.rows(), 1);
+    EXPECT_EQ(output.cols(), num_outputs);
+
+    float e1 = std::exp(1.0f);
+    float e2 = std::exp(2.0f);
+    float e3 = std::exp(3.0f);
+    float sum_exp = e1 + e2 + e3;
+
+    EXPECT_FLOAT_EQ(output[0][0], e1 / sum_exp);
+    EXPECT_FLOAT_EQ(output[0][1], e2 / sum_exp);
+    EXPECT_FLOAT_EQ(output[0][2], e3 / sum_exp);
+}
+
+TEST_F(NeuroNetTest, ActivationNone) {
+    const int num_outputs = 3;
+    layer.ResizeLayer(1, num_outputs);
+
+    Matrix::Matrix<float> input_to_layer(1, 1);
+    input_to_layer[0][0] = 1.0f;
+    layer.SetInput(input_to_layer);
+
+    NeuroNet::LayerBiases biases_config;
+    biases_config.BiasCount = num_outputs;
+    biases_config.BiasVector.assign(num_outputs, 0.0f);
+    layer.SetBiases(biases_config);
+
+    NeuroNet::LayerWeights weights_config;
+    weights_config.WeightCount = num_outputs;
+    weights_config.WeightsVector = {1.0f, -2.0f, 0.5f};
+    layer.SetWeights(weights_config);
+
+    layer.SetActivationFunction(NeuroNet::ActivationFunctionType::None);
+    Matrix::Matrix<float> output = layer.CalculateOutput();
+
+    EXPECT_EQ(output.rows(), 1);
+    EXPECT_EQ(output.cols(), num_outputs);
+    EXPECT_FLOAT_EQ(output[0][0], 1.0f);
+    EXPECT_FLOAT_EQ(output[0][1], -2.0f);
+    EXPECT_FLOAT_EQ(output[0][2], 0.5f);
+}
+
+// --- End of Activation Function Tests ---

@@ -18,6 +18,18 @@
 namespace NeuroNet
 {
 	/**
+	 * @brief Specifies the type of activation function to be used in a NeuroNetLayer.
+	 */
+	enum class ActivationFunctionType
+	{
+		None,      ///< No activation function. Output is the raw linear transformation.
+		ReLU,      ///< Rectified Linear Unit. Output is max(0, x).
+		LeakyReLU, ///< Leaky Rectified Linear Unit. Output is x if x > 0, otherwise alpha*x.
+		ELU,       ///< Exponential Linear Unit. Output is x if x > 0, otherwise alpha*(exp(x)-1).
+		Softmax    ///< Softmax function. Normalizes outputs to a probability distribution.
+	};
+
+	/**
 	 * @brief Structure to hold the weights for a neural network layer.
 	 *
 	 * Contains the count of weights and a vector storing the actual weight values as floats.
@@ -42,14 +54,14 @@ namespace NeuroNet
 	/**
 	 * @brief Represents an individual layer within a neural network.
 	 *
-	 * Manages its own weights, biases, and calculates its output based on inputs.
+	 * Manages its own weights, biases, activation function, and calculates its output based on inputs.
 	 */
 	class NeuroNetLayer
 	{
 	public:
 		/**
 		 * @brief Default constructor for NeuroNetLayer.
-		 * Initializes an empty layer.
+		 * Initializes an empty layer with ActivationFunctionType::None by default.
 		 */
 		NeuroNetLayer();
 
@@ -134,15 +146,49 @@ namespace NeuroNet
 		 */
 		LayerBiases get_biases() const;
 
+		/**
+		 * @brief Sets the activation function for this layer.
+		 * @param pActivationFunction The type of activation function to use (e.g., ReLU, Softmax).
+		 */
+		void SetActivationFunction(ActivationFunctionType pActivationFunction);
+
 	private:
 		int vLayerSize = 0; ///< Number of neurons in this layer.
 		int InputSize = 0; ///< Number of inputs expected by this layer.
+		ActivationFunctionType vActivationFunction; ///< The activation function type for this layer.
 		Matrix::Matrix<float> InputMatrix; ///< Matrix storing the inputs to this layer.
 		Matrix::Matrix<float> WeightMatrix; ///< Matrix storing the weights of this layer.
 		Matrix::Matrix<float> BiasMatrix;   ///< Matrix storing the biases of this layer.
 		Matrix::Matrix<float> OutputMatrix; ///< Matrix storing the calculated outputs of this layer.
 		LayerWeights Weights; ///< Struct holding the layer's weights.
 		LayerBiases Biases;   ///< Struct holding the layer's biases.
+
+    // Private helper methods for activation functions
+    /**
+     * @brief Applies the ReLU activation function element-wise to the input matrix.
+     * @param input The matrix resulting from the linear transformation (Wx + b).
+     * @return Matrix::Matrix<float> The matrix after applying ReLU.
+     */
+    Matrix::Matrix<float> ApplyReLU(const Matrix::Matrix<float>& input);
+    /**
+     * @brief Applies the LeakyReLU activation function element-wise to the input matrix.
+     * @param input The matrix resulting from the linear transformation (Wx + b).
+     * @return Matrix::Matrix<float> The matrix after applying LeakyReLU.
+     */
+    Matrix::Matrix<float> ApplyLeakyReLU(const Matrix::Matrix<float>& input);
+    /**
+     * @brief Applies the ELU activation function element-wise to the input matrix.
+     * @param input The matrix resulting from the linear transformation (Wx + b).
+     * @return Matrix::Matrix<float> The matrix after applying ELU.
+     */
+    Matrix::Matrix<float> ApplyELU(const Matrix::Matrix<float>& input);
+    /**
+     * @brief Applies the Softmax activation function to the input matrix.
+     * Typically used for the output layer in classification tasks.
+     * @param input The matrix resulting from the linear transformation (Wx + b).
+     * @return Matrix::Matrix<float> The matrix after applying Softmax.
+     */
+    Matrix::Matrix<float> ApplySoftmax(const Matrix::Matrix<float>& input);
 	};
 
 	/**

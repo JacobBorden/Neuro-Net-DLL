@@ -65,6 +65,64 @@ This section provides details on the core classes and data structures used in th
     *   `get_best_individual()`: After the evolution process, this function returns the `NeuroNet` individual that achieved the highest fitness score.
 *   **Source:** Defined in `src/optimization/genetic_algorithm.h`.
 
+## Activation Functions
+
+`NeuroNetLayer` now supports pluggable activation functions. You can set an activation function for each layer individually. After the standard linear transformation `(InputMatrix * WeightMatrix) + BiasMatrix`, the selected activation function is applied to the result.
+
+Supported activation functions (defined in `NeuroNet::ActivationFunctionType`):
+- `None`: No activation (linear output). This is the default.
+- `ReLU`: Rectified Linear Unit. Output is `max(0, x)`.
+- `LeakyReLU`: Leaky Rectified Linear Unit. Output is `x` if `x > 0`, otherwise `alpha*x` (current alpha = 0.01).
+- `ELU`: Exponential Linear Unit. Output is `x` if `x > 0`, otherwise `alpha*(exp(x)-1)` (current alpha = 1.0).
+- `Softmax`: Softmax function. Normalizes outputs to a probability distribution, suitable for output layers in classification tasks.
+
+### Example Usage:
+
+```cpp
+#include "neural_network/neuronet.h" // Or appropriate path
+#include "math/matrix.h" // For Matrix::Matrix
+
+int main() {
+    // Create a layer
+    NeuroNet::NeuroNetLayer myLayer;
+    myLayer.ResizeLayer(10, 5); // 10 inputs, 5 neurons
+
+    // Set ReLU activation for this layer
+    myLayer.SetActivationFunction(NeuroNet::ActivationFunctionType::ReLU);
+
+    // --- Setup: Provide dummy input, weights, and biases for demonstration ---
+    Matrix::Matrix<float> input(1, 10); // 1 sample, 10 features
+    for(int i=0; i<10; ++i) input[0][i] = (i % 3) - 1.0f; // Some -1, 0, 1 values
+
+    NeuroNet::LayerWeights weights;
+    weights.WeightCount = 10 * 5;
+    weights.WeightsVector.assign(weights.WeightCount, 0.1f); // All weights 0.1
+
+    NeuroNet::LayerBiases biases;
+    biases.BiasCount = 5;
+    biases.BiasVector.assign(biases.BiasCount, 0.05f); // All biases 0.05
+
+    myLayer.SetInput(input);
+    myLayer.SetWeights(weights);
+    myLayer.SetBiases(biases);
+    // --- End Setup ---
+
+    // Calculate output - it will have ReLU applied
+    Matrix::Matrix<float> layerOutput = myLayer.CalculateOutput(); 
+
+    // Example with Softmax for an output layer
+    NeuroNet::NeuroNetLayer outputLayer;
+    outputLayer.ResizeLayer(20, 3); // 20 inputs from previous layer, 3 output classes
+    outputLayer.SetActivationFunction(NeuroNet::ActivationFunctionType::Softmax);
+    // ... further setup for outputLayer (input, weights, biases) ...
+    
+    // (Code to print layerOutput would go here if desired)
+
+    return 0;
+}
+
+```
+
 ## Usage Examples
 
 This section provides C++ code examples to illustrate how to use the NeuroNet library for common tasks.
@@ -480,12 +538,52 @@ This will build the `neuronet` static library and the test executables.
 
 ## Running Tests
 
-After building the project, you can run the tests from the `build` directory:
+The project includes a suite of unit tests to ensure functionality and correctness. Tests are located in the `tests/` directory, primarily in `tests/test_neuronet.cpp`.
 
-```bash
-ctest
+### Test Frameworks
 
-# Or, if 'make test' is available
-# make test
-```
-Google Test is used as the testing framework and is fetched automatically by CMake during the configuration step.
+The tests in `tests/test_neuronet.cpp` currently utilize two C++ testing frameworks:
+- **Google Test:** Used for the original suite of tests covering core `NeuroNet` and `NeuroNetLayer` functionalities.
+- **Catch2:** Introduced for newer tests, specifically for the activation functions in `NeuroNetLayer`.
+
+### Current Status and Build Instructions
+
+**Important Note on Build Issues:**
+There are ongoing challenges with the CMake build system configuration concerning the Catch2 framework. Specifically, the `catch.hpp` header file, which is required for Catch2 tests, may not be correctly located during the compilation process. This issue prevents the Catch2-based tests (including the activation function tests) from being compiled and run. Resolution of this build configuration is pending.
+
+The `tests/test_neuronet.cpp` file includes the `CATCH_CONFIG_MAIN` macro, which designates Catch2 to provide the `main()` function for the test executable. The original Google Test `main()` function is present in the file but is commented out to avoid conflicts. If the Catch2 header issue were resolved, the current setup would prioritize running Catch2 tests.
+
+Successfully running both sets of tests from a single executable, or selecting between them, would require further adjustments to the CMake configuration and potentially the test file structure.
+
+**General Steps to Build and Run Tests (once build issues are resolved):**
+
+1.  Ensure your development environment is set up with a C++ compiler and CMake.
+2.  Navigate to your build directory (or create one if it doesn't exist):
+    ```bash
+    # From the project root
+    mkdir -p build
+    cd build
+    ```
+3.  Configure the project with CMake:
+    ```bash
+    cmake ..
+    ```
+4.  Build the project, including the test executables:
+    ```bash
+    cmake --build . 
+    # Alternatively, use 'make' if that's your build tool
+    # make
+    ```
+5.  Run the tests:
+    *   The primary test executable defined in `tests/CMakeLists.txt` is `test_neuronet`. If compiled successfully, it would be located in the `tests` subdirectory of your build folder:
+        ```bash
+        cd tests
+        ./test_neuronet 
+        ```
+    *   Alternatively, `ctest` can be used if the tests are correctly registered with CTest in CMake (which they are):
+        ```bash
+        # From the build directory
+        ctest
+        ```
+
+Further work is required on the CMake configuration to seamlessly support the dual test framework setup or to fully transition to and stabilize a single framework.
