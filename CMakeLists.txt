@@ -5,21 +5,18 @@ include(CTest)
 include(FetchContent)
 enable_testing()
 
-# Catch2
+# Google Test
 FetchContent_Declare(
-  Catch2
-  URL https://github.com/catchorg/Catch2/archive/refs/tags/v3.5.2.zip # Using a specific recent version
+  googletest
+  URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip # Or a suitable release
 )
-FetchContent_MakeAvailable(Catch2)
-# catch2_INCLUDE_DIRS might not be the correct variable or might not be set as expected.
-# Rely on target properties. Catch2::Catch2 should be an INTERFACE library target
-# that defines the necessary include directories.
+# For Windows: Prevent overriding the parent project's compiler/linker settings
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
 
 include_directories(src)
 
 add_library(neuronet STATIC src/neural_network/neuronet.cpp src/optimization/genetic_algorithm.cpp)
-# Reverted: target_link_libraries(neuronet INTERFACE Catch2::Catch2)
-# Rely on tests/CMakeLists.txt to handle Catch2 linkage for test executables.
 
 # Testing subdirectory
 add_subdirectory(tests)
