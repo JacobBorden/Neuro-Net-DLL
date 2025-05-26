@@ -119,7 +119,7 @@ namespace NeuroNet
 		 * @brief Gets the size of this layer (number of neurons).
 		 * @return int The number of neurons in this layer.
 		 */
-		int LayerSize();
+		int LayerSize() const;
 
 		/**
 		 * @brief Sets the weights for this layer.

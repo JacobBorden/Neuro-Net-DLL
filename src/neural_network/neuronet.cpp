@@ -172,7 +172,7 @@ bool NeuroNet::NeuroNetLayer::SetInput(const Matrix::Matrix<float>& pInputMatrix
 	return true;
 }
 
-NeuroNet NeuroNet::load_model(const std::string& filename)
+NeuroNet::NeuroNet NeuroNet::load_model(const std::string& filename)
 {
 	std::ifstream ifs(filename);
 	if (!ifs.is_open()) {
