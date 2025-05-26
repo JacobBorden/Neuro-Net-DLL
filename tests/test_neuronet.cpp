@@ -12,6 +12,9 @@
 #include "gtest/gtest.h"
 #include "neural_network/neuronet.h" // Access to NeuroNet and NeuroNetLayer
 #include "math/matrix.h"   // For creating Matrix objects for input
+#include <fstream>      // For std::ofstream
+#include <cstdio>       // For std::remove
+#include <stdexcept>    // For std::runtime_error
 
 // Test fixture for NeuroNet tests
 class NeuroNetTest : public ::testing::Test {
@@ -390,3 +393,127 @@ TEST_F(NeuroNetTest, ActivationNone) {
 }
 
 // --- End of Activation Function Tests ---
+
+TEST_F(NeuroNetTest, Serialization) {
+    const std::string test_filename = "test_model_serialization.json";
+    const std::string empty_filename = "empty_test.json";
+    const std::string malformed_filename = "malformed_test.json";
+
+    // 1. Create and configure the original model
+    NeuroNet::NeuroNet original_model;
+    original_model.SetInputSize(10);
+    original_model.ResizeNeuroNet(2); // 2 layers
+
+    // Configure layer 0
+    original_model.ResizeLayer(0, 5); // Layer 0: 10 inputs, 5 outputs
+    original_model.NeuroNetVector[0].SetActivationFunction(NeuroNet::ActivationFunctionType::ReLU);
+    NeuroNet::LayerWeights lw0;
+    lw0.WeightCount = 10 * 5;
+    for(int k=0; k < lw0.WeightCount; ++k) lw0.WeightsVector.push_back(static_cast<float>(k + 1) * 0.05f);
+    original_model.NeuroNetVector[0].SetWeights(lw0);
+    NeuroNet::LayerBiases lb0;
+    lb0.BiasCount = 5;
+    for(int k=0; k < lb0.BiasCount; ++k) lb0.BiasVector.push_back(static_cast<float>(k + 1) * 0.1f);
+    original_model.NeuroNetVector[0].SetBiases(lb0);
+
+    // Configure layer 1
+    original_model.ResizeLayer(1, 3); // Layer 1: 5 inputs (from L0), 3 outputs
+    original_model.NeuroNetVector[1].SetActivationFunction(NeuroNet::ActivationFunctionType::Softmax);
+    NeuroNet::LayerWeights lw1;
+    lw1.WeightCount = 5 * 3;
+    for(int k=0; k < lw1.WeightCount; ++k) lw1.WeightsVector.push_back(static_cast<float>(k + 1) * -0.03f);
+    original_model.NeuroNetVector[1].SetWeights(lw1);
+    NeuroNet::LayerBiases lb1;
+    lb1.BiasCount = 3;
+    for(int k=0; k < lb1.BiasCount; ++k) lb1.BiasVector.push_back(static_cast<float>(k + 1) * -0.05f);
+    original_model.NeuroNetVector[1].SetBiases(lb1);
+
+    // Store original properties for comparison
+    // Note: Direct access to InputSize and LayerCount is not available,
+    // we verify these by checking the structure of the loaded model (number of layers, their sizes)
+    std::vector<NeuroNet::LayerWeights> original_weights_list = original_model.get_all_layer_weights();
+    std::vector<NeuroNet::LayerBiases> original_biases_list = original_model.get_all_layer_biases();
+    std::vector<int> original_layer_sizes;
+    std::vector<NeuroNet::ActivationFunctionType> original_activations;
+    original_layer_sizes.push_back(original_model.NeuroNetVector[0].LayerSize());
+    original_layer_sizes.push_back(original_model.NeuroNetVector[1].LayerSize());
+    original_activations.push_back(original_model.NeuroNetVector[0].get_activation_type());
+    original_activations.push_back(original_model.NeuroNetVector[1].get_activation_type());
+    int original_overall_input_size = 10; // This was set initially
+
+    // 2. Save the model
+    EXPECT_TRUE(original_model.save_model(test_filename));
+
+    // 3. Load the model
+    NeuroNet::NeuroNet loaded_model = NeuroNet::NeuroNet::load_model(test_filename);
+
+    // 4. Compare
+    // Verify overall structure implicitly by checking layer details
+    ASSERT_EQ(loaded_model.NeuroNetVector.size(), 2) << "Loaded model should have 2 layers.";
+    EXPECT_EQ(loaded_model.InputSize, original_overall_input_size) << "Loaded model input size mismatch.";
+
+
+    std::vector<NeuroNet::LayerWeights> loaded_weights_list = loaded_model.get_all_layer_weights();
+    std::vector<NeuroNet::LayerBiases> loaded_biases_list = loaded_model.get_all_layer_biases();
+
+    ASSERT_EQ(loaded_weights_list.size(), original_weights_list.size());
+    for (size_t i = 0; i < original_weights_list.size(); ++i) {
+        EXPECT_EQ(loaded_model.NeuroNetVector[i].LayerSize(), original_layer_sizes[i]);
+        EXPECT_EQ(loaded_model.NeuroNetVector[i].get_activation_type(), original_activations[i]);
+        
+        ASSERT_EQ(loaded_weights_list[i].WeightsVector.size(), original_weights_list[i].WeightsVector.size());
+        for (size_t j = 0; j < original_weights_list[i].WeightsVector.size(); ++j) {
+            EXPECT_FLOAT_EQ(loaded_weights_list[i].WeightsVector[j], original_weights_list[i].WeightsVector[j]);
+        }
+
+        ASSERT_EQ(loaded_biases_list[i].BiasVector.size(), original_biases_list[i].BiasVector.size());
+        for (size_t j = 0; j < original_biases_list[i].BiasVector.size(); ++j) {
+            EXPECT_FLOAT_EQ(loaded_biases_list[i].BiasVector[j], original_biases_list[i].BiasVector[j]);
+        }
+    }
+    
+    // Check layer input sizes (derived check)
+    // Layer 0 input should be the network's input size
+    // Layer 1 input should be Layer 0's output size
+    // This is implicitly tested if SetWeights and SetBiases succeed during load, as they depend on correct
+    // internal matrix sizes which NeuroNetLayer::ResizeLayer sets up.
+    // NeuroNet::ResizeLayer inside load_model is responsible for setting layer input sizes correctly.
+
+    // 5. Test error handling for load_model
+    EXPECT_THROW(NeuroNet::NeuroNet::load_model("non_existent_file.json"), std::runtime_error);
+
+    // Test with an empty file
+    std::ofstream ofs_empty(empty_filename);
+    ofs_empty.close();
+    EXPECT_THROW(NeuroNet::NeuroNet::load_model(empty_filename), std::runtime_error);
+    std::remove(empty_filename.c_str());
+
+    // Test with a malformed JSON file (e.g., missing layer_count)
+    std::ofstream ofs_malformed(malformed_filename);
+    ofs_malformed << "{ \"input_size\": 5 }"; // Missing layer_count
+    ofs_malformed.close();
+    EXPECT_THROW(NeuroNet::NeuroNet::load_model(malformed_filename), std::runtime_error);
+    std::remove(malformed_filename.c_str());
+    
+    // Test with a JSON file with missing weights data
+    std::ofstream ofs_missing_weights(malformed_filename); // Reuse filename
+    ofs_missing_weights << R"({
+        "input_size": 10,
+        "layer_count": 1,
+        "layers": [
+            {
+                "input_size": 10,
+                "layer_size": 5,
+                "activation_function": 1,
+                "biases": {"rows":1, "cols":5, "data": [0.1,0.1,0.1,0.1,0.1]}
+            }
+        ]
+    })";
+    ofs_missing_weights.close();
+    EXPECT_THROW(NeuroNet::NeuroNet::load_model(malformed_filename), std::runtime_error);
+    std::remove(malformed_filename.c_str());
+
+
+    // 6. Cleanup
+    std::remove(test_filename.c_str());
+}

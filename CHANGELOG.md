@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased] - 2025-05-23
 
 ### Added
+- **NeuroNet Model Serialization & Deserialization:**
+    - Implemented `NeuroNet::save_model()` to export models (weights, architecture, parameters) to a human-readable JSON format.
+    - Implemented `NeuroNet::load_model()` to import models from the JSON format.
+    - Added `NeuroNetLayer::get_activation_type()` to facilitate serialization.
+    - Comprehensive unit tests for saving and loading models, ensuring data integrity and error handling for invalid files/formats.
+    - Documented the serialization process, JSON format, and usage examples in `README.md`.
+- **JSON Library Unit Tests:**
+    - Created a new test suite (`tests/test_json.cpp`) for the JSON library (`src/utilities/json/`).
+    - Added extensive tests covering:
+        - JSON parsing of various data types, arrays, objects, and nested structures.
+        - JSON serialization of `Json::Value` objects to strings.
+        - `Json::Value` API for data type handling (type checking, value retrieval, member access, array manipulation).
+        - JSON parser error handling for malformed or invalid input.
+    - Integrated these tests into the existing CMake build system (within the `test_neuronet` executable).
 - Pluggable activation functions (None, ReLU, LeakyReLU, ELU, Softmax) for `NeuroNetLayer`. Layers now apply the selected activation function after the linear transformation.
 - `ActivationFunctionType` enum to specify activation types.
 - `NeuroNetLayer::SetActivationFunction()` method.

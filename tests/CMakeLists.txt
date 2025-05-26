@@ -2,7 +2,7 @@
 include(CTest)
 
 # Define the NeuroNet test executable
-add_executable(test_neuronet test_neuronet.cpp)
+add_executable(test_neuronet test_neuronet.cpp test_json.cpp)
 target_link_libraries(test_neuronet PRIVATE neuronet GTest::gtest) 
 add_test(NAME test_neuronet COMMAND test_neuronet)
 

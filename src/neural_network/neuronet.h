@@ -14,6 +14,7 @@
 #include "../math/matrix.h" // For Matrix class usage
 #include <vector>   // For std::vector usage
 #include <string>   // For potential string usage in future extensions
+#include "../utilities/json/json.hpp" // For Json::Value
 
 namespace NeuroNet
 {
@@ -151,6 +152,12 @@ namespace NeuroNet
 		 * @param pActivationFunction The type of activation function to use (e.g., ReLU, Softmax).
 		 */
 		void SetActivationFunction(ActivationFunctionType pActivationFunction);
+
+		/**
+		 * @brief Gets the activation function type for this layer.
+		 * @return ActivationFunctionType The activation function type.
+		 */
+		ActivationFunctionType get_activation_type() const;
 
 	private:
 		int vLayerSize = 0; ///< Number of neurons in this layer.
@@ -317,6 +324,21 @@ namespace NeuroNet
 		 * @return bool True if biases were set successfully, false if the vector size doesn't match total biases.
 		 */
 		bool set_all_biases_flat(const std::vector<float>& all_biases_flat);
+
+		/**
+		 * @brief Saves the neural network model to a JSON file.
+		 * @param filename The path to the file where the model will be saved.
+		 * @return True if saving was successful, false otherwise.
+		 */
+		bool save_model(const std::string& filename) const;
+
+		/**
+		 * @brief Loads a neural network model from a JSON file.
+		 * @param filename The path to the file from which the model will be loaded.
+		 * @return A NeuroNet object populated with the loaded data.
+		 * @throws std::runtime_error if loading fails (e.g., file not found, JSON parsing error, invalid format).
+		 */
+		static NeuroNet load_model(const std::string& filename);
 
 	private:
 		int InputSize = 0; ///< Number of input features for the entire network.

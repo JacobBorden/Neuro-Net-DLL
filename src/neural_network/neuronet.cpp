@@ -13,6 +13,9 @@
 #include <stdexcept> // For std::runtime_error or other exceptions if needed
 #include <cmath>     // For std::exp and std::max
 // #include "pch.h" // Precompiled header (if used, ensure it's appropriate for the project) - REMOVED
+#include <fstream> // For std::ofstream
+#include <vector>  // For std::vector, though often included via neuronet.h indirectly
+#include "../utilities/json/json.hpp" // For Json::Value, ensure path is correct from this file's location
 
 // --- NeuroNetLayer Method Implementations ---
 
@@ -53,6 +56,10 @@ void NeuroNet::NeuroNetLayer::ResizeLayer(int pInputSize, int pLayerSize) {
 	this->Weights.WeightsVector.clear(); // Clear old data; new data must be set explicitly.
 	this->Biases.BiasCount = this->vLayerSize;
 	this->Biases.BiasVector.clear(); // Clear old data.
+}
+
+NeuroNet::ActivationFunctionType NeuroNet::NeuroNetLayer::get_activation_type() const {
+	return this->vActivationFunction;
 }
 
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyReLU(const Matrix::Matrix<float>& input) {
@@ -162,6 +169,178 @@ bool NeuroNet::NeuroNetLayer::SetInput(const Matrix::Matrix<float>& pInputMatrix
 		return false; // Input dimensions do not match layer's expected input dimensions.
 	}
 	this->InputMatrix = pInputMatrix;
+	return true;
+}
+
+NeuroNet NeuroNet::load_model(const std::string& filename)
+{
+	std::ifstream ifs(filename);
+	if (!ifs.is_open()) {
+		throw std::runtime_error("Failed to open model file: " + filename);
+	}
+
+	Json::Value root;
+	Json::CharReaderBuilder reader_builder;
+	std::string errs;
+	if (!Json::parseFromStream(reader_builder, ifs, &root, &errs)) {
+		throw std::runtime_error("Failed to parse JSON from model file: " + filename + "\nErrors: " + errs);
+	}
+
+	NeuroNet model;
+
+	// 1. Deserialize NeuroNet global parameters
+	if (!root.isMember("input_size") || !root["input_size"].isInt() ||
+		!root.isMember("layer_count") || !root["layer_count"].isInt()) {
+		throw std::runtime_error("Invalid JSON format: missing input_size or layer_count.");
+	}
+	int input_size = root["input_size"].asInt();
+	int layer_count = root["layer_count"].asInt();
+
+	model.SetInputSize(input_size);
+	model.ResizeNeuroNet(layer_count); // Resizes NeuroNetVector
+
+	// 2. Deserialize Layers
+	if (!root.isMember("layers") || !root["layers"].isArray()) {
+		throw std::runtime_error("Invalid JSON format: missing 'layers' array.");
+	}
+	const Json::Value& layers_array = root["layers"];
+	if (layers_array.size() != static_cast<unsigned int>(layer_count)) {
+		throw std::runtime_error("Layer count mismatch in JSON data.");
+	}
+
+	for (int i = 0; i < layer_count; ++i)
+	{
+		const Json::Value& layer_json = layers_array[i];
+		
+		if (!layer_json.isMember("layer_size") || !layer_json["layer_size"].isInt() ||
+			!layer_json.isMember("input_size") || !layer_json["input_size"].isInt() || // Though input_size for layer is derivable, good to check
+			!layer_json.isMember("activation_function") || !layer_json["activation_function"].isInt() ||
+			!layer_json.isMember("weights") || !layer_json["weights"].isObject() ||
+			!layer_json.isMember("biases") || !layer_json["biases"].isObject()) {
+			throw std::runtime_error("Invalid layer format in JSON for layer " + std::to_string(i));
+		}
+
+		int layer_output_size = layer_json["layer_size"].asInt();
+		// The layer's actual input size is determined by NeuroNet::ResizeLayer correctly.
+		// We call ResizeLayer which sets up the layer's internal input size.
+		model.ResizeLayer(i, layer_output_size); 
+		
+		NeuroNetLayer& current_layer = model.NeuroNetVector[i]; // Get reference to the layer
+
+		// Activation Function
+		int activation_int = layer_json["activation_function"].asInt();
+		current_layer.SetActivationFunction(static_cast<ActivationFunctionType>(activation_int));
+
+		// --- Weights ---
+		const Json::Value& weights_json = layer_json["weights"];
+		if (!weights_json.isMember("rows") || !weights_json["rows"].isInt() ||
+			!weights_json.isMember("cols") || !weights_json["cols"].isInt() ||
+			!weights_json.isMember("data") || !weights_json["data"].isArray()){
+			throw std::runtime_error("Invalid weights format for layer " + std::to_string(i));
+		}
+		// Dimensions are mostly for validation here, as SetWeights uses LayerWeights (flat vector)
+		// int w_rows = weights_json["rows"].asInt(); 
+		// int w_cols = weights_json["cols"].asInt();
+		const Json::Value& weights_data_json = weights_json["data"];
+		
+		LayerWeights layer_weights;
+		layer_weights.WeightCount = weights_data_json.size();
+		for (const auto& w_val : weights_data_json) {
+			if (!w_val.isNumeric()) throw std::runtime_error("Non-numeric weight value in layer " + std::to_string(i));
+			layer_weights.WeightsVector.push_back(w_val.asFloat());
+		}
+		if (!current_layer.SetWeights(layer_weights)) {
+			 throw std::runtime_error("Failed to set weights for layer " + std::to_string(i) + ". Count mismatch or other error.");
+		}
+
+		// --- Biases ---
+		const Json::Value& biases_json = layer_json["biases"];
+		 if (!biases_json.isMember("rows") || !biases_json["rows"].isInt() ||
+			!biases_json.isMember("cols") || !biases_json["cols"].isInt() ||
+			!biases_json.isMember("data") || !biases_json["data"].isArray()){
+			throw std::runtime_error("Invalid biases format for layer " + std::to_string(i));
+		}
+		// int b_rows = biases_json["rows"].asInt();
+		// int b_cols = biases_json["cols"].asInt();
+		const Json::Value& biases_data_json = biases_json["data"];
+
+		LayerBiases layer_biases;
+		layer_biases.BiasCount = biases_data_json.size();
+		for (const auto& b_val : biases_data_json) {
+			 if (!b_val.isNumeric()) throw std::runtime_error("Non-numeric bias value in layer " + std::to_string(i));
+			layer_biases.BiasVector.push_back(b_val.asFloat());
+		}
+		if (!current_layer.SetBiases(layer_biases)) {
+			 throw std::runtime_error("Failed to set biases for layer " + std::to_string(i) + ". Count mismatch or other error.");
+		}
+	}
+	ifs.close();
+	return model;
+}
+
+bool NeuroNet::NeuroNet::save_model(const std::string& filename) const
+{
+	Json::Value root; // The root JSON object
+
+	// 1. Serialize NeuroNet global parameters
+	root["input_size"] = this->InputSize;
+	root["layer_count"] = this->LayerCount;
+
+	// 2. Serialize Layers
+	Json::Value layers_array(Json::arrayValue); 
+
+	for (int i = 0; i < this->LayerCount; ++i)
+	{
+		const NeuroNetLayer& layer = this->NeuroNetVector[i];
+		Json::Value layer_json;
+
+		int current_layer_input_size = (i == 0) ? this->InputSize : this->NeuroNetVector[i-1].LayerSize();
+		layer_json["input_size"] = current_layer_input_size;
+		layer_json["layer_size"] = layer.LayerSize(); // Output size of the layer
+		
+		layer_json["activation_function"] = static_cast<int>(layer.get_activation_type());
+
+		// --- Weights ---
+		Json::Value weights_json;
+		const auto& weights_data = layer.get_weights(); 
+		weights_json["rows"] = current_layer_input_size; 
+		weights_json["cols"] = layer.LayerSize();    
+		Json::Value weights_data_json(Json::arrayValue);
+		for (float w : weights_data.WeightsVector) {
+			weights_data_json.append(w);
+		}
+		weights_json["data"] = weights_data_json;
+		layer_json["weights"] = weights_json;
+
+		// --- Biases ---
+		Json::Value biases_json;
+		const auto& biases_data = layer.get_biases(); 
+		biases_json["rows"] = 1; 
+		biases_json["cols"] = layer.LayerSize(); 
+		Json::Value biases_data_json(Json::arrayValue);
+		for (float b : biases_data.BiasVector) {
+			biases_data_json.append(b);
+		}
+		biases_json["data"] = biases_data_json;
+		layer_json["biases"] = biases_json;
+		
+		layers_array.append(layer_json);
+	}
+	root["layers"] = layers_array;
+
+	// 3. Write to file
+	std::ofstream ofs(filename);
+	if (!ofs.is_open()) {
+		// Consider logging an error here if a logging mechanism exists
+		return false; 
+	}
+	
+	Json::StreamWriterBuilder builder;
+	builder["indentation"] = "  "; 
+	std::unique_ptr<Json::StreamWriter> writer(builder.newStreamWriter());
+	writer->write(root, &ofs);
+	
+	ofs.close();
 	return true;
 }
 
