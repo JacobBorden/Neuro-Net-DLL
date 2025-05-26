@@ -14,7 +14,6 @@
 #include "../math/matrix.h" // For Matrix class usage
 #include <vector>   // For std::vector usage
 #include <string>   // For potential string usage in future extensions
-#include "../utilities/json/json.hpp" // For Json::Value
 
 namespace NeuroNet
 {
@@ -339,6 +338,22 @@ namespace NeuroNet
 		 * @throws std::runtime_error if loading fails (e.g., file not found, JSON parsing error, invalid format).
 		 */
 		static NeuroNet load_model(const std::string& filename);
+
+		/**
+		 * @brief Gets a reference to a specific layer in the network.
+		 * @param index The index of the layer to retrieve.
+		 * @return NeuroNetLayer& A reference to the layer.
+		 * @throws std::out_of_range if the index is out of bounds.
+		 */
+		NeuroNetLayer& getLayer(int index);
+
+		/**
+		 * @brief Gets a const reference to a specific layer in the network.
+		 * @param index The index of the layer to retrieve.
+		 * @return const NeuroNetLayer& A const reference to the layer.
+		 * @throws std::out_of_range if the index is out of bounds.
+		 */
+		const NeuroNetLayer& getLayer(int index) const;
 
 	private:
 		int InputSize = 0; ///< Number of input features for the entire network.

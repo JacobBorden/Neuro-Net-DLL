@@ -172,6 +172,20 @@ bool NeuroNet::NeuroNetLayer::SetInput(const Matrix::Matrix<float>& pInputMatrix
 	return true;
 }
 
+NeuroNet::NeuroNetLayer& NeuroNet::NeuroNet::getLayer(int index) {
+    if (index < 0 || static_cast<size_t>(index) >= this->NeuroNetVector.size()) {
+        throw std::out_of_range("Layer index out of bounds in getLayer(). Requested index: " + std::to_string(index) + ", Layer count: " + std::to_string(this->NeuroNetVector.size()));
+    }
+    return this->NeuroNetVector[index];
+}
+
+const NeuroNet::NeuroNetLayer& NeuroNet::NeuroNet::getLayer(int index) const {
+    if (index < 0 || static_cast<size_t>(index) >= this->NeuroNetVector.size()) {
+        throw std::out_of_range("Layer index out of bounds in getLayer() const. Requested index: " + std::to_string(index) + ", Layer count: " + std::to_string(this->NeuroNetVector.size()));
+    }
+    return this->NeuroNetVector[index];
+}
+
 NeuroNet::NeuroNet NeuroNet::load_model(const std::string& filename)
 {
 	std::ifstream ifs(filename);
@@ -225,7 +239,7 @@ NeuroNet::NeuroNet NeuroNet::load_model(const std::string& filename)
 		// We call ResizeLayer which sets up the layer's internal input size.
 		model.ResizeLayer(i, layer_output_size); 
 		
-		NeuroNetLayer& current_layer = model.NeuroNetVector[i]; // Get reference to the layer
+		NeuroNetLayer& current_layer = model.getLayer(i); // Get reference to the layer using the new getter
 
 		// Activation Function
 		int activation_int = layer_json["activation_function"].asInt();
@@ -352,7 +366,7 @@ int NeuroNet::NeuroNetLayer::BiasCount() {
 	return this->Biases.BiasCount;
 }
 
-int NeuroNet::NeuroNetLayer::LayerSize() {
+int NeuroNet::NeuroNetLayer::LayerSize() const {
 	return this->vLayerSize;
 }
 
