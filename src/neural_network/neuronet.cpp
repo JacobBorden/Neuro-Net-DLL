@@ -13,6 +13,10 @@
 #include <stdexcept> // For std::runtime_error or other exceptions if needed
 #include <cmath>     // For std::exp and std::max
 // #include "pch.h" // Precompiled header (if used, ensure it's appropriate for the project) - REMOVED
+#include <fstream> // For std::ofstream
+#include <vector>  // For std::vector, though often included via neuronet.h indirectly
+#include "../utilities/json/json.hpp"
+#include "../utilities/json/json_exception.hpp" // Added for JsonParseException
 
 // --- NeuroNetLayer Method Implementations ---
 
@@ -53,6 +57,10 @@ void NeuroNet::NeuroNetLayer::ResizeLayer(int pInputSize, int pLayerSize) {
 	this->Weights.WeightsVector.clear(); // Clear old data; new data must be set explicitly.
 	this->Biases.BiasCount = this->vLayerSize;
 	this->Biases.BiasVector.clear(); // Clear old data.
+}
+
+NeuroNet::ActivationFunctionType NeuroNet::NeuroNetLayer::get_activation_type() const {
+	return this->vActivationFunction;
 }
 
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyReLU(const Matrix::Matrix<float>& input) {
@@ -165,6 +173,252 @@ bool NeuroNet::NeuroNetLayer::SetInput(const Matrix::Matrix<float>& pInputMatrix
 	return true;
 }
 
+NeuroNet::NeuroNetLayer& NeuroNet::NeuroNet::getLayer(int index) {
+    if (index < 0 || static_cast<size_t>(index) >= this->NeuroNetVector.size()) {
+        throw std::out_of_range("Layer index out of bounds in getLayer(). Requested index: " + std::to_string(index) + ", Layer count: " + std::to_string(this->NeuroNetVector.size()));
+    }
+    return this->NeuroNetVector[index];
+}
+
+const NeuroNet::NeuroNetLayer& NeuroNet::NeuroNet::getLayer(int index) const {
+    if (index < 0 || static_cast<size_t>(index) >= this->NeuroNetVector.size()) {
+        throw std::out_of_range("Layer index out of bounds in getLayer() const. Requested index: " + std::to_string(index) + ", Layer count: " + std::to_string(this->NeuroNetVector.size()));
+    }
+    return this->NeuroNetVector[index];
+}
+
+NeuroNet::NeuroNet NeuroNet::NeuroNet::load_model(const std::string& filename)
+{
+	std::ifstream ifs(filename);
+	if (!ifs.is_open()) {
+		throw std::runtime_error("Failed to open model file: " + filename);
+	}
+	std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+	ifs.close(); // Close the file stream after reading
+
+	JsonValue root;
+	try {
+		root = JsonParser::Parse(content);
+	} catch (const JsonParseException& e) {
+		throw std::runtime_error("Failed to parse JSON from model file: " + filename + "\nErrors: " + e.what());
+	}
+
+	NeuroNet model; // Correctly use NeuroNet, not NeuroNet::NeuroNet for local variable
+
+	// 1. Deserialize NeuroNet global parameters
+	if (root.type != JsonValueType::Object ||
+		root.GetObject().count("input_size") == 0 || root.GetObject().at("input_size")->type != JsonValueType::Number ||
+		root.GetObject().count("layer_count") == 0 || root.GetObject().at("layer_count")->type != JsonValueType::Number) {
+		throw std::runtime_error("Invalid JSON format: missing or invalid input_size or layer_count.");
+	}
+	int input_size = static_cast<int>(root.GetObject().at("input_size")->GetNumber());
+	int layer_count = static_cast<int>(root.GetObject().at("layer_count")->GetNumber());
+
+	model.SetInputSize(input_size);
+	model.ResizeNeuroNet(layer_count); // Resizes NeuroNetVector
+
+	// 2. Deserialize Layers
+	if (root.GetObject().count("layers") == 0 || root.GetObject().at("layers")->type != JsonValueType::Array) {
+		throw std::runtime_error("Invalid JSON format: missing 'layers' array.");
+	}
+	const std::vector<JsonValue>& layers_array = root.GetObject().at("layers")->GetArray();
+	if (layers_array.size() != static_cast<size_t>(layer_count)) { // Use size_t for comparison with vector::size()
+		throw std::runtime_error("Layer count mismatch in JSON data.");
+	}
+
+	for (int i = 0; i < layer_count; ++i)
+	{
+		const JsonValue& layer_json = layers_array[i];
+		if (layer_json.type != JsonValueType::Object) {
+			throw std::runtime_error("Invalid layer format (not an object) in JSON for layer " + std::to_string(i));
+		}
+		
+		const auto& layer_obj = layer_json.GetObject(); // Use a reference for convenience
+		if (layer_obj.count("layer_size") == 0 || layer_obj.at("layer_size")->type != JsonValueType::Number ||
+			layer_obj.count("input_size") == 0 || layer_obj.at("input_size")->type != JsonValueType::Number ||
+			layer_obj.count("activation_function") == 0 || layer_obj.at("activation_function")->type != JsonValueType::Number ||
+			layer_obj.count("weights") == 0 || layer_obj.at("weights")->type != JsonValueType::Object ||
+			layer_obj.count("biases") == 0 || layer_obj.at("biases")->type != JsonValueType::Object) {
+			throw std::runtime_error("Invalid layer format in JSON for layer " + std::to_string(i) + ": missing or invalid type for key members.");
+		}
+
+		int layer_output_size = static_cast<int>(layer_obj.at("layer_size")->GetNumber());
+		model.ResizeLayer(i, layer_output_size); 
+		
+		NeuroNetLayer& current_layer = model.getLayer(i);
+
+		int activation_int = static_cast<int>(layer_obj.at("activation_function")->GetNumber());
+		current_layer.SetActivationFunction(static_cast<ActivationFunctionType>(activation_int));
+
+		// --- Weights ---
+		const JsonValue& weights_json_val = *layer_obj.at("weights"); // Dereference pointer
+		if (weights_json_val.type != JsonValueType::Object) throw std::runtime_error("Weights is not an object for layer " + std::to_string(i));
+		const auto& weights_obj = weights_json_val.GetObject();
+
+		if (weights_obj.count("rows") == 0 || weights_obj.at("rows")->type != JsonValueType::Number ||
+			weights_obj.count("cols") == 0 || weights_obj.at("cols")->type != JsonValueType::Number ||
+			weights_obj.count("data") == 0 || weights_obj.at("data")->type != JsonValueType::Array) {
+			throw std::runtime_error("Invalid weights format for layer " + std::to_string(i));
+		}
+		const std::vector<JsonValue>& weights_data_array = weights_obj.at("data")->GetArray();
+		
+		LayerWeights layer_weights;
+		layer_weights.WeightCount = weights_data_array.size();
+		for (const auto& w_val_json : weights_data_array) { // Iterate over JsonValue
+			if (w_val_json.type != JsonValueType::Number) throw std::runtime_error("Non-numeric weight value in layer " + std::to_string(i));
+			layer_weights.WeightsVector.push_back(static_cast<float>(w_val_json.GetNumber()));
+		}
+		if (!current_layer.SetWeights(layer_weights)) {
+			 throw std::runtime_error("Failed to set weights for layer " + std::to_string(i) + ". Count mismatch or other error.");
+		}
+
+		// --- Biases ---
+		const JsonValue& biases_json_val = *layer_obj.at("biases"); // Dereference pointer
+		if (biases_json_val.type != JsonValueType::Object) throw std::runtime_error("Biases is not an object for layer " + std::to_string(i));
+		const auto& biases_obj = biases_json_val.GetObject();
+
+		if (biases_obj.count("rows") == 0 || biases_obj.at("rows")->type != JsonValueType::Number ||
+			biases_obj.count("cols") == 0 || biases_obj.at("cols")->type != JsonValueType::Number ||
+			biases_obj.count("data") == 0 || biases_obj.at("data")->type != JsonValueType::Array) {
+			throw std::runtime_error("Invalid biases format for layer " + std::to_string(i));
+		}
+		const std::vector<JsonValue>& biases_data_array = biases_obj.at("data")->GetArray();
+
+		LayerBiases layer_biases;
+		layer_biases.BiasCount = biases_data_array.size();
+		for (const auto& b_val_json : biases_data_array) { // Iterate over JsonValue
+			 if (b_val_json.type != JsonValueType::Number) throw std::runtime_error("Non-numeric bias value in layer " + std::to_string(i));
+			layer_biases.BiasVector.push_back(static_cast<float>(b_val_json.GetNumber()));
+		}
+		if (!current_layer.SetBiases(layer_biases)) {
+			 throw std::runtime_error("Failed to set biases for layer " + std::to_string(i) + ". Count mismatch or other error.");
+		}
+	}
+	return model;
+}
+
+// Helper to create and set a number JsonValue in an object
+// Ensures dynamic allocation for JsonValue members in objects, as per custom library's object_value map.
+static void SetJsonNumber(JsonValue& parent_object, const std::string& key, double number_value) {
+    JsonValue* val = new JsonValue(); // Dynamically allocate
+    val->SetNumber(number_value);
+    parent_object.InsertIntoObject(key, val); // InsertIntoObject stores the pointer
+}
+
+// Helper to create and set an object JsonValue in an object
+// Returns a pointer to the created object for further modification
+static JsonValue* CreateJsonObjectInObject(JsonValue& parent_object, const std::string& key) {
+    JsonValue* obj_val = new JsonValue(); // Dynamically allocate
+    obj_val->SetObject();
+    parent_object.InsertIntoObject(key, obj_val);
+    return obj_val;
+}
+
+// Helper to create and set an array JsonValue in an object
+// Returns a pointer to the created array for further modification
+static JsonValue* CreateJsonArrayInObject(JsonValue& parent_object, const std::string& key) {
+    JsonValue* arr_val = new JsonValue(); // Dynamically allocate
+    arr_val->SetArray();
+    parent_object.InsertIntoObject(key, arr_val);
+    return arr_val; 
+}
+
+
+bool NeuroNet::NeuroNet::save_model(const std::string& filename) const
+{
+	JsonValue root; 
+    root.SetObject();
+
+	// 1. Serialize NeuroNet global parameters
+    SetJsonNumber(root, "input_size", static_cast<double>(this->InputSize));
+    SetJsonNumber(root, "layer_count", static_cast<double>(this->LayerCount));
+
+	// 2. Serialize Layers
+    // Create the main 'layers' array within the root object
+    JsonValue* layers_array_json_val_ptr = CreateJsonArrayInObject(root, "layers");
+
+	for (int i = 0; i < this->LayerCount; ++i)
+	{
+		const NeuroNetLayer& layer = this->NeuroNetVector[i];
+		JsonValue layer_json_val; // This will be an element of layers_array_json_val_ptr
+        layer_json_val.SetObject(); // This layer_json_val itself is an object
+
+		int current_layer_input_size = (i == 0) ? this->InputSize : this->NeuroNetVector[i-1].LayerSize();
+        SetJsonNumber(layer_json_val, "input_size", static_cast<double>(current_layer_input_size));
+        SetJsonNumber(layer_json_val, "layer_size", static_cast<double>(layer.LayerSize()));
+		SetJsonNumber(layer_json_val, "activation_function", static_cast<double>(layer.get_activation_type()));
+
+		// --- Weights ---
+        // Create 'weights' object within layer_json_val
+		JsonValue* weights_obj_ptr = CreateJsonObjectInObject(layer_json_val, "weights");
+		const auto& weights_data = layer.get_weights(); 
+        SetJsonNumber(*weights_obj_ptr, "rows", static_cast<double>(current_layer_input_size));
+        SetJsonNumber(*weights_obj_ptr, "cols", static_cast<double>(layer.LayerSize()));
+        
+        // Create 'data' array within 'weights' object
+        JsonValue* weights_data_arr_ptr = CreateJsonArrayInObject(*weights_obj_ptr, "data");
+		for (float w : weights_data.WeightsVector) {
+            JsonValue w_val; w_val.SetNumber(w); // w_val is temporary, its value copied
+			weights_data_arr_ptr->GetArray().push_back(w_val); // push_back copies w_val
+		}
+        
+		// --- Biases ---
+        // Create 'biases' object within layer_json_val
+		JsonValue* biases_obj_ptr = CreateJsonObjectInObject(layer_json_val, "biases");
+		const auto& biases_data = layer.get_biases(); 
+        SetJsonNumber(*biases_obj_ptr, "rows", 1.0); // Biases typically have 1 row
+        SetJsonNumber(*biases_obj_ptr, "cols", static_cast<double>(layer.LayerSize()));
+        
+        // Create 'data' array within 'biases' object
+        JsonValue* biases_data_arr_ptr = CreateJsonArrayInObject(*biases_obj_ptr, "data");
+		for (float b : biases_data.BiasVector) {
+            JsonValue b_val; b_val.SetNumber(b);
+			biases_data_arr_ptr->GetArray().push_back(b_val);
+		}
+		
+        // Add the fully constructed layer_json_val to the main 'layers' array
+		layers_array_json_val_ptr->GetArray().push_back(layer_json_val);
+	}
+
+	// 3. Write to file
+	std::ofstream ofs(filename);
+	if (!ofs.is_open()) {
+        // NOTE: Potential memory leak here if we return early, as dynamically allocated
+        // JsonValue objects (via new in SetJsonNumber, CreateJsonObjectInObject, etc.)
+        // are not cleaned up by this function. A robust solution would require
+        // a RAII wrapper or a recursive deletion function for the JsonValue structure
+        // if an error occurs after allocations have begun.
+		return false; 
+	}
+	
+    ofs << root.ToString(); // Use the ToString method from custom JsonValue
+	
+	ofs.close();
+
+    // IMPORTANT: Clean up dynamically allocated JsonValue objects.
+    // The custom JsonValue::object_value stores JsonValue*. These were allocated with 'new'.
+    // This is a simplified cleanup; a real scenario needs a recursive destructor in JsonValue
+    // or a dedicated cleanup utility.
+    for (auto& pair : root.GetObject()) { // For "input_size", "layer_count", "layers"
+        if (pair.first == "layers") {
+            JsonValue* layers_array = pair.second;
+            for (JsonValue& layer_val : layers_array->GetArray()) { // Each layer_val is an object
+                for (auto& layer_prop_pair : layer_val.GetObject()) {
+                    if (layer_prop_pair.first == "weights" || layer_prop_pair.first == "biases") {
+                        JsonValue* wb_object = layer_prop_pair.second; // This is the object for weights/biases
+                        for (auto& wb_prop_pair : wb_object->GetObject()) { // rows, cols, data
+                             delete wb_prop_pair.second; // Delete JsonValue* for rows, cols, data array
+                        }
+                    }
+                    delete layer_prop_pair.second; // Delete JsonValue* for input_size, layer_size, activation_function, weights obj, biases obj
+                }
+            }
+        }
+        delete pair.second; // Delete JsonValue* for input_size, layer_count, layers array itself
+    }
+	return true;
+}
+
 int NeuroNet::NeuroNetLayer::WeightCount() {
 	return this->Weights.WeightCount;
 }
@@ -173,7 +427,7 @@ int NeuroNet::NeuroNetLayer::BiasCount() {
 	return this->Biases.BiasCount;
 }
 
-int NeuroNet::NeuroNetLayer::LayerSize() {
+int NeuroNet::NeuroNetLayer::LayerSize() const {
 	return this->vLayerSize;
 }
 

@@ -1,12 +1,16 @@
 # Enable CTest
 include(CTest)
+include(GoogleTest)
 
-# Define the NeuroNet test executable
-add_executable(test_neuronet test_neuronet.cpp)
-target_link_libraries(test_neuronet PRIVATE neuronet GTest::gtest) 
-add_test(NAME test_neuronet COMMAND test_neuronet)
+# Define the test executable
+add_executable(runTests
+    test_neuronet.cpp
+    test_genetic_algorithm.cpp
+    test_json.cpp
+)
 
-# Define the Genetic Algorithm test executable
-add_executable(test_genetic_algorithm test_genetic_algorithm.cpp)
-target_link_libraries(test_genetic_algorithm PRIVATE neuronet GTest::gtest_main) 
-add_test(NAME test_genetic_algorithm COMMAND test_genetic_algorithm)
+# Link libraries
+target_link_libraries(runTests PRIVATE neuronet GTest::gtest_main)
+
+# Discover and add tests
+gtest_discover_tests(runTests)

@@ -24,20 +24,24 @@ This section provides details on the core classes and data structures used in th
     *   `get_all_layer_biases()`, `set_all_layer_biases(...)`: Access and modify the biases of all layers, typically as a vector of `LayerBiases` structs.
     *   `get_all_weights_flat()`, `set_all_weights_flat(...)`: Get or set all network weights as a single flat vector of floats, useful for optimization algorithms.
     *   `get_all_biases_flat()`, `set_all_biases_flat(...)`: Get or set all network biases as a single flat vector of floats.
+    *   `save_model(const std::string& filename) const`: Saves the network structure and parameters to a JSON file.
+    *   `static NeuroNet load_model(const std::string& filename)`: Loads a network from a JSON file.
 *   **Source:** Defined in `src/neural_network/neuronet.h`.
 
 ### `NeuroNet::NeuroNetLayer` Class
 
 *   **Role:** The `NeuroNetLayer` class represents an individual layer within a `NeuroNet`. It's a fundamental building block of the network.
-*   **Responsibilities:** Each `NeuroNetLayer` instance manages its own set of weights and biases. Its primary responsibility is to perform the forward propagation calculation: taking an input matrix, multiplying it by its weight matrix, adding its bias matrix, and producing an output matrix.
+*   **Responsibilities:** Each `NeuroNetLayer` instance manages its own set of weights and biases. Its primary responsibility is to perform the forward propagation calculation: taking an input matrix, multiplying it by its weight matrix, adding its bias matrix, and producing an output matrix. It also handles applying a configured activation function.
 *   **Interaction:** The `NeuroNet` class contains a `std::vector<NeuroNetLayer>` to store and manage all the layers that constitute the network. When `NeuroNet::GetOutput()` is called, it iteratively passes the output of one layer as the input to the next.
 *   **Key Functionalities:**
     *   `ResizeLayer(int pInputSize, int pLayerSize)`: Configures the dimensions of the layer's weight and bias matrices.
     *   `SetInput(const Matrix::Matrix<float>& pInputMatrix)`: Sets the input for this specific layer.
-    *   `CalculateOutput()`: Computes the layer's output based on its current input, weights, and biases.
+    *   `CalculateOutput()`: Computes the layer's output based on its current input, weights, biases, and selected activation function.
     *   `ReturnOutputMatrix()`: Returns the last computed output matrix.
     *   `SetWeights(LayerWeights pWeights)`, `get_weights()`: Set or get the layer's weights.
     *   `SetBiases(LayerBiases pBiases)`, `get_biases()`: Set or get the layer's biases.
+    *   `SetActivationFunction(ActivationFunctionType pActivationFunction)`: Sets the activation function for the layer.
+    *   `get_activation_type() const`: Gets the currently configured activation function type.
 *   **Source:** Defined in `src/neural_network/neuronet.h`.
 
 ### `NeuroNet::LayerWeights` and `NeuroNet::LayerBiases` Structs
@@ -70,11 +74,11 @@ This section provides details on the core classes and data structures used in th
 `NeuroNetLayer` now supports pluggable activation functions. You can set an activation function for each layer individually. After the standard linear transformation `(InputMatrix * WeightMatrix) + BiasMatrix`, the selected activation function is applied to the result.
 
 Supported activation functions (defined in `NeuroNet::ActivationFunctionType`):
-- `None`: No activation (linear output). This is the default.
-- `ReLU`: Rectified Linear Unit. Output is `max(0, x)`.
-- `LeakyReLU`: Leaky Rectified Linear Unit. Output is `x` if `x > 0`, otherwise `alpha*x` (current alpha = 0.01).
-- `ELU`: Exponential Linear Unit. Output is `x` if `x > 0`, otherwise `alpha*(exp(x)-1)` (current alpha = 1.0).
-- `Softmax`: Softmax function. Normalizes outputs to a probability distribution, suitable for output layers in classification tasks.
+- `None` (0): No activation (linear output). This is the default.
+- `ReLU` (1): Rectified Linear Unit. Output is `max(0, x)`.
+- `LeakyReLU` (2): Leaky Rectified Linear Unit. Output is `x` if `x > 0`, otherwise `alpha*x` (current alpha = 0.01).
+- `ELU` (3): Exponential Linear Unit. Output is `x` if `x > 0`, otherwise `alpha*(exp(x)-1)` (current alpha = 1.0).
+- `Softmax` (4): Softmax function. Normalizes outputs to a probability distribution, suitable for output layers in classification tasks.
 
 ### Example Usage:
 
@@ -121,6 +125,119 @@ int main() {
     return 0;
 }
 
+```
+
+## Model Serialization
+
+This library supports saving and loading NeuroNet models to and from a human-readable JSON format. This allows for model persistence, inspection, and transfer.
+
+### JSON Format
+
+The NeuroNet model is serialized into a JSON object with the following structure:
+
+```json
+{
+  "input_size": <integer>,      // Number of input features for the network
+  "layer_count": <integer>,     // Total number of layers in the network
+  "layers": [                   // Array of layer objects
+    {
+      "input_size": <integer>,  // Number of inputs for this specific layer
+      "layer_size": <integer>,  // Number of neurons (outputs) in this layer
+      "activation_function": <integer>, // Integer code for ActivationFunctionType (0: None, 1: ReLU, 2: LeakyReLU, 3: ELU, 4: Softmax - refer to src/neural_network/neuronet.h for exact mapping)
+      "weights": {
+        "rows": <integer>,      // Number of rows in the weight matrix (equal to layer's input_size)
+        "cols": <integer>,      // Number of columns in the weight matrix (equal to layer_size)
+        "data": [<float>, ...]  // Flattened array of weight values (row-major order)
+      },
+      "biases": {
+        "rows": <integer>,      // Number of rows in the bias matrix (typically 1)
+        "cols": <integer>,      // Number of columns in the bias matrix (equal to layer_size)
+        "data": [<float>, ...]  // Flattened array of bias values
+      }
+    },
+    // ... more layers ...
+  ]
+}
+```
+
+### Usage
+
+#### Saving a Model
+
+To save a `NeuroNet` model to a file, use the `save_model` member function.
+
+```cpp
+#include "neural_network/neuronet.h" // Adjust path as needed
+#include <string>
+#include <iostream> // For std::cout, std::cerr
+
+// Assuming 'my_model' is an instance of NeuroNet::NeuroNet
+// and is already configured and trained.
+
+int main() {
+    // Example: Create a simple model to save
+    NeuroNet::NeuroNet my_model;
+    my_model.SetInputSize(2);
+    my_model.ResizeNeuroNet(1);
+    my_model.ResizeLayer(0,1);
+    my_model.NeuroNetVector[0].SetActivationFunction(NeuroNet::ActivationFunctionType::ReLU); // Example activation
+
+    // Add some dummy weights/biases for a complete file
+    NeuroNet::LayerWeights lw; 
+    lw.WeightCount = 2*1; 
+    lw.WeightsVector = {0.5f, -0.5f};
+    my_model.NeuroNetVector[0].SetWeights(lw);
+
+    NeuroNet::LayerBiases lb; 
+    lb.BiasCount = 1; 
+    lb.BiasVector = {0.1f};
+    my_model.NeuroNetVector[0].SetBiases(lb);
+
+    std::string filename = "my_neural_network.json";
+    bool success = my_model.save_model(filename);
+
+    if (success) {
+        std::cout << "Model saved successfully to " << filename << std::endl;
+    } else {
+        std::cerr << "Error saving model to " << filename << std::endl;
+    }
+    return 0;
+}
+```
+
+#### Loading a Model
+
+To load a `NeuroNet` model from a file, use the static `load_model` function. This function returns a new `NeuroNet` object.
+
+```cpp
+#include "neural_network/neuronet.h" // Adjust path as needed
+#include <string>
+#include <stdexcept> // For std::runtime_error
+#include <iostream>  // For std::cout, std::cerr
+
+// Assuming "my_neural_network.json" exists from the saving example.
+int main() {
+    std::string load_filename = "my_neural_network.json"; 
+    NeuroNet::NeuroNet loaded_model;
+
+    try {
+        loaded_model = NeuroNet::NeuroNet::load_model(load_filename);
+        std::cout << "Model loaded successfully from " << load_filename << std::endl;
+        
+        // Model loaded successfully, use 'loaded_model'
+        // Example: Print basic info about the loaded model
+        std::cout << "Loaded model input size: " << loaded_model.InputSize << std::endl;
+        std::cout << "Loaded model has " << loaded_model.NeuroNetVector.size() << " layers." << std::endl;
+        if (!loaded_model.NeuroNetVector.empty()) {
+            std::cout << "First layer output size: " << loaded_model.NeuroNetVector[0].LayerSize() << std::endl;
+            std::cout << "First layer activation: " << static_cast<int>(loaded_model.NeuroNetVector[0].get_activation_type()) << std::endl;
+        }
+
+    } catch (const std::runtime_error& e) {
+        std::cerr << "Error loading model: " << e.what() << std::endl;
+    }
+    return 0;
+}
 ```
 
 ## Usage Examples
@@ -424,12 +541,14 @@ This section provides guidelines for users who want to extend the NeuroNet libra
 
 Before making significant modifications, it's recommended to thoroughly understand the existing class structures, particularly `NeuroNet::NeuroNet` and `NeuroNet::NeuroNetLayer`.
 
-*   **Activation Functions:**
-    *   Currently, the `NeuroNetLayer::CalculateOutput` method performs a linear transformation: `(InputMatrix * WeightMatrix) + BiasMatrix`. It does **not** internally apply an activation function (e.g., ReLU, sigmoid, tanh).
-    *   If you require activation functions, you would typically apply them **after** retrieving the output from a layer or the final output from the `NeuroNet`.
-    *   To integrate activation functions more directly into the layer's calculation:
-        *   You could modify the `NeuroNetLayer::CalculateOutput` method to include an activation function. This could be a hardcoded function or, for more flexibility, you could add a member to `NeuroNetLayer` (e.g., a `std::function` or an enum) to specify the activation function to be applied.
-        *   The `Matrix` class would need to support element-wise application of these functions, or you would implement this in `NeuroNetLayer` after the matrix addition.
+*   **Activation Functions:** (This part is now updated by the library)
+    *   The `NeuroNetLayer::CalculateOutput` method now applies the configured activation function after the linear transformation.
+    *   Supported functions are listed in the "Activation Functions" section.
+    *   To add new activation functions:
+        1.  Add a new value to the `ActivationFunctionType` enum in `src/neural_network/neuronet.h`.
+        2.  Implement the corresponding private helper method in `NeuroNetLayer` (e.g., `ApplyMyNewFunction`).
+        3.  Add a case for your new function type in `NeuroNetLayer::CalculateOutput`.
+        4.  Update documentation and serialization logic if necessary.
 
 *   **New Layer Types:**
     *   The current `NeuroNetLayer` provides a standard fully connected layer. To introduce specialized layer behaviors (e.g., convolutional layers, recurrent layers):
@@ -457,6 +576,7 @@ Before making significant modifications, it's recommended to thoroughly understa
         *   `neural_network/neuronet.h` (for `NeuroNet::NeuroNet`, `NeuroNet::NeuroNetLayer`, etc.)
         *   `optimization/genetic_algorithm.h` (for `Optimization::GeneticAlgorithm`)
         *   `math/matrix.h` (as this is used in the interfaces, e.g. `NeuroNet::SetInput()`)
+        *   `utilities/json/json.hpp` (if you interact with serialization or need JSON utilities, though it's included by `neuronet.h`)
 
 *   **Include Paths:**
     *   You need to configure your compiler's include paths so it can find the library's header files. This typically involves adding the `src` directory (or a custom install directory if you set one up) of the NeuroNet library to your project's include directories.
@@ -489,15 +609,20 @@ Before making significant modifications, it's recommended to thoroughly understa
 ### 3. Dependencies
 
 *   **Matrix Library:**
-    *   The NeuroNet library has a crucial dependency on the `Matrix` class, which is expected to be located in `src/math/matrix.h`. (Note: The README previously mentioned `dependencies/matrix`, but the include in `neuronet.h` is `../math/matrix.h`, implying it's relative to `src/neural_network/` and thus `src/math/matrix.h` from the project root).
+    *   The NeuroNet library has a crucial dependency on the `Matrix` class, which is expected to be located in `src/math/matrix.h`.
     *   This `matrix.h` file provides the `Matrix::Matrix<T>` template class used for all underlying mathematical operations.
+*   **Custom JSON Library:**
+    *   The library utilizes a custom JSON parsing and manipulation library located in `src/utilities/json/` (specifically `json.hpp` for the interface and `json.cpp` for the implementation). This library is used for model serialization and deserialization.
+    *   It provides functionalities for parsing JSON strings into a `JsonValue` structure and serializing `JsonValue` objects back to strings.
 *   **Setup:**
-    *   **If building NeuroNet library yourself:** The `matrix.h` is part of this repository in `src/math/`. No separate compilation or linking is needed for the matrix library itself as it appears to be header-only. Ensure it's present at the correct path.
-    *   **If integrating NeuroNet into your project:** You need to ensure that your compiler can also find `src/math/matrix.h` when it compiles your code that uses NeuroNet headers, as NeuroNet's public headers (like `neuronet.h`) include `matrix.h`. This means the `src` directory (or specifically `src/math/`) from the NeuroNet library should be in your include paths.
+    *   **If building NeuroNet library yourself:** `matrix.h` (header-only) and the custom JSON library (`json.hpp` and `json.cpp`) are part of this repository. The custom JSON implementation (`json.cpp`) is compiled directly into the NeuroNet library.
+    *   **If integrating NeuroNet into your project:** You need to ensure that your compiler can find `src/math/matrix.h` and `src/utilities/json/json.hpp` when it compiles your code that uses NeuroNet headers, as NeuroNet's public headers (like `neuronet.h`) include them. This means the `src` directory from the NeuroNet library (or a relevant install path for headers) should be in your include paths. The JSON library's compiled code will be part of the NeuroNet library you link against.
 
 ## Features
 
 *   Customizable Neural Network architecture (`NeuroNet`, `NeuroNetLayer`).
+*   Pluggable activation functions per layer (ReLU, LeakyReLU, ELU, Softmax, None).
+*   Model serialization to and from JSON format (`save_model`, `load_model`).
 *   Genetic Algorithm (`GeneticAlgorithm`) for evolving network weights and biases.
 *   Matrix library (`Matrix`) for numerical computations.
 *   Built with CMake.
@@ -539,23 +664,9 @@ This will build the `neuronet` static library and the test executables.
 ## Running Tests
 
 The project includes a suite of unit tests to ensure functionality and correctness. Tests are located in the `tests/` directory, primarily in `tests/test_neuronet.cpp`.
+The tests are built using Google Test.
 
-### Test Frameworks
-
-The tests in `tests/test_neuronet.cpp` currently utilize two C++ testing frameworks:
-- **Google Test:** Used for the original suite of tests covering core `NeuroNet` and `NeuroNetLayer` functionalities.
-- **Catch2:** Introduced for newer tests, specifically for the activation functions in `NeuroNetLayer`.
-
-### Current Status and Build Instructions
-
-**Important Note on Build Issues:**
-There are ongoing challenges with the CMake build system configuration concerning the Catch2 framework. Specifically, the `catch.hpp` header file, which is required for Catch2 tests, may not be correctly located during the compilation process. This issue prevents the Catch2-based tests (including the activation function tests) from being compiled and run. Resolution of this build configuration is pending.
-
-The `tests/test_neuronet.cpp` file includes the `CATCH_CONFIG_MAIN` macro, which designates Catch2 to provide the `main()` function for the test executable. The original Google Test `main()` function is present in the file but is commented out to avoid conflicts. If the Catch2 header issue were resolved, the current setup would prioritize running Catch2 tests.
-
-Successfully running both sets of tests from a single executable, or selecting between them, would require further adjustments to the CMake configuration and potentially the test file structure.
-
-**General Steps to Build and Run Tests (once build issues are resolved):**
+**General Steps to Build and Run Tests:**
 
 1.  Ensure your development environment is set up with a C++ compiler and CMake.
 2.  Navigate to your build directory (or create one if it doesn't exist):
@@ -585,5 +696,4 @@ Successfully running both sets of tests from a single executable, or selecting b
         # From the build directory
         ctest
         ```
-
-Further work is required on the CMake configuration to seamlessly support the dual test framework setup or to fully transition to and stabilize a single framework.
+The previous mention of Catch2 has been removed as the tests primarily use Google Test.

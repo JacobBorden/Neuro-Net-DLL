@@ -15,6 +15,11 @@
 #include <vector>   // For std::vector usage
 #include <string>   // For potential string usage in future extensions
 
+// Forward declare the specific GTest generated class
+// This should be in the global namespace or the namespace GTest places it.
+// Assuming global namespace for now based on GTest's typical behavior.
+class NeuroNetTest_Serialization_Test; 
+
 namespace NeuroNet
 {
 	/**
@@ -118,7 +123,7 @@ namespace NeuroNet
 		 * @brief Gets the size of this layer (number of neurons).
 		 * @return int The number of neurons in this layer.
 		 */
-		int LayerSize();
+		int LayerSize() const;
 
 		/**
 		 * @brief Sets the weights for this layer.
@@ -151,6 +156,12 @@ namespace NeuroNet
 		 * @param pActivationFunction The type of activation function to use (e.g., ReLU, Softmax).
 		 */
 		void SetActivationFunction(ActivationFunctionType pActivationFunction);
+
+		/**
+		 * @brief Gets the activation function type for this layer.
+		 * @return ActivationFunctionType The activation function type.
+		 */
+		ActivationFunctionType get_activation_type() const;
 
 	private:
 		int vLayerSize = 0; ///< Number of neurons in this layer.
@@ -201,6 +212,9 @@ namespace NeuroNet
 	class NeuroNet
 	{
 	public:
+		// Friend the specific GTest generated class
+		friend class ::NeuroNetTest_Serialization_Test; // Use :: for global scope
+
 		/**
 		 * @brief Default constructor for NeuroNet.
 		 * Initializes an empty network with no layers.
@@ -317,6 +331,37 @@ namespace NeuroNet
 		 * @return bool True if biases were set successfully, false if the vector size doesn't match total biases.
 		 */
 		bool set_all_biases_flat(const std::vector<float>& all_biases_flat);
+
+		/**
+		 * @brief Saves the neural network model to a JSON file.
+		 * @param filename The path to the file where the model will be saved.
+		 * @return True if saving was successful, false otherwise.
+		 */
+		bool save_model(const std::string& filename) const;
+
+		/**
+		 * @brief Loads a neural network model from a JSON file.
+		 * @param filename The path to the file from which the model will be loaded.
+		 * @return A NeuroNet object populated with the loaded data.
+		 * @throws std::runtime_error if loading fails (e.g., file not found, JSON parsing error, invalid format).
+		 */
+		static NeuroNet load_model(const std::string& filename);
+
+		/**
+		 * @brief Gets a reference to a specific layer in the network.
+		 * @param index The index of the layer to retrieve.
+		 * @return NeuroNetLayer& A reference to the layer.
+		 * @throws std::out_of_range if the index is out of bounds.
+		 */
+		NeuroNetLayer& getLayer(int index);
+
+		/**
+		 * @brief Gets a const reference to a specific layer in the network.
+		 * @param index The index of the layer to retrieve.
+		 * @return const NeuroNetLayer& A const reference to the layer.
+		 * @throws std::out_of_range if the index is out of bounds.
+		 */
+		const NeuroNetLayer& getLayer(int index) const;
 
 	private:
 		int InputSize = 0; ///< Number of input features for the entire network.
