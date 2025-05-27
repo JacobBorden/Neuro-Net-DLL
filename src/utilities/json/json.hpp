@@ -16,6 +16,7 @@
 #include <vector>
 #include <stdexcept> // For potential use in JsonValue, though JsonParseException is primary
 #include <cmath>     // For std::to_string on numbers, potentially for number parsing aspects
+#include <climits>   // For LLONG_MIN and LLONG_MAX
 #include "json_exception.hpp" // For JsonParseException
 
 /**
@@ -83,10 +84,40 @@ struct JsonValue{
 			case JsonValueType::Number:
 				// Note: std::to_string for double might have precision issues or fixed notation.
                 // For full JSON compliance, a more sophisticated number-to-string conversion might be needed.
+                // Let's try to remove trailing zeros for a cleaner output for whole numbers
+                if (std::fmod(number_value, 1.0) == 0.0) {
+                    // Check if the number is too large for long long to avoid overflow
+                    if (number_value >= static_cast<double>(LLONG_MIN) && number_value <= static_cast<double>(LLONG_MAX)) {
+                        return std::to_string(static_cast<long long>(number_value));
+                    }
+                }
 				return std::to_string(number_value);
 			case JsonValueType::String:
-                // Basic string escaping for quotes. A full implementation would handle all JSON string escapes (e.g., \n, \t, \\, \uXXXX).
-				return "\"" + string_value + "\""; // Simplified: needs proper escape handling for characters within string_value
+				{
+					std::string escaped_string = "\"";
+					for (char c : string_value) {
+						switch (c) {
+							case '"':  escaped_string += "\\\""; break;
+							case '\\': escaped_string += "\\\\"; break;
+							case '\b': escaped_string += "\\b"; break;
+							case '\f': escaped_string += "\\f"; break;
+							case '\n': escaped_string += "\\n"; break;
+							case '\r': escaped_string += "\\r"; break;
+							case '\t': escaped_string += "\\t"; break;
+							default:
+								if (c >= 0 && c < 0x20) { // Control characters
+									char buf[7];
+									snprintf(buf, sizeof(buf), "\\u%04X", static_cast<unsigned char>(c)); // Cast to unsigned char for snprintf
+									escaped_string += buf;
+								} else {
+									escaped_string += c;
+								}
+								break;
+						}
+					}
+					escaped_string += "\"";
+					return escaped_string;
+				}
 			case JsonValueType::Array:
 				return ArrayToString(array_value);
 			case JsonValueType::Object:
@@ -180,7 +211,7 @@ struct JsonValue{
      * @warning The map stores raw pointers (`JsonValue*`). Callers are responsible for memory management
      * of these pointed-to `JsonValue` objects if they were dynamically allocated.
      */
-	std::unordered_map<std::string, JsonValue*> &GetObJect(){return object_value;} // Typo: GetObJect -> GetObject
+	std::unordered_map<std::string, JsonValue*>& GetObject(){return object_value;} // Typo fixed: GetObJect -> GetObject
     /**
      * @brief Gets the underlying std::unordered_map<std::string, JsonValue*> for an Object type (const version).
      * @pre The JsonValue must be of type JsonValueType::Object. Behavior is undefined otherwise.

@@ -236,11 +236,6 @@ TEST_F(NeuroNetTest, NeuroNetAllLayerWeightsBiases) {
     EXPECT_FLOAT_EQ(retrieved_all_b[1].BiasVector[0], -0.3f);
 }
 
-// Main function for running tests (needed if not using gtest_main)
-int main(int argc, char **argv) {
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}
 // Removed */ block comment marker
 
 
