@@ -1,5 +1,6 @@
 #include "gtest/gtest.h"
-#include "../src/utilities/json/json.hpp" // Adjust path if necessary based on where the test executable is built from
+#include "../src/utilities/json/json.hpp"
+#include "../src/utilities/json/json_exception.hpp"
 #include <string>
 #include <vector>
 #include <stdexcept> // For std::runtime_error (if testing exceptions)
@@ -18,282 +19,283 @@ protected:
 
 // Placeholder for the first test
 TEST_F(JsonLibTest, InitialTest) {
-    SUCCEED(); // Indicates the test setup is working
+    // Basic test to ensure parsing a simple valid JSON doesn't throw.
+    EXPECT_NO_THROW({
+        JsonValue val = JsonParser::Parse("null");
+        ASSERT_EQ(val.type, JsonValueType::Null);
+    });
+    SUCCEED(); // Indicates the test setup is working, and basic parsing works
 }
 
 // Example of how to start adding actual tests (will be fleshed out in next steps)
 TEST_F(JsonLibTest, ParsingNull) {
-    Json::Value root;
-    Json::Reader reader;
-    bool parsingSuccessful = reader.parse("null", root);
-    ASSERT_TRUE(parsingSuccessful);
-    ASSERT_TRUE(root.isNull());
+    try {
+        JsonValue root = JsonParser::Parse("null");
+        ASSERT_EQ(root.type, JsonValueType::Null);
+    } catch (const JsonParseException& e) {
+        FAIL() << "Parsing null threw an exception: " << e.what();
+    }
 }
 
 // --- Basic JSON Type Parsing Tests ---
 
 TEST_F(JsonLibTest, ParseStringValues) {
-    Json::Value root;
-    Json::Reader reader;
-
     // Simple string
     const std::string json_simple_string = "\"hello world\"";
-    ASSERT_TRUE(reader.parse(json_simple_string, root));
-    ASSERT_TRUE(root.isString());
-    EXPECT_EQ(root.asString(), "hello world");
+    JsonValue root_simple = JsonParser::Parse(json_simple_string);
+    ASSERT_EQ(root_simple.type, JsonValueType::String);
+    EXPECT_EQ(root_simple.GetString(), "hello world");
 
     // Empty string
     const std::string json_empty_string = "\"\"";
-    ASSERT_TRUE(reader.parse(json_empty_string, root));
-    ASSERT_TRUE(root.isString());
-    EXPECT_EQ(root.asString(), "");
+    JsonValue root_empty = JsonParser::Parse(json_empty_string);
+    ASSERT_EQ(root_empty.type, JsonValueType::String);
+    EXPECT_EQ(root_empty.GetString(), "");
 
     // String with escapes
+    // The custom parser needs to correctly handle standard JSON escapes.
+    // Assuming ParseString correctly unescapes:
     const std::string json_escaped_string = "\"line1\\nline2\\t\\\"quoted\\\"\"";
-    ASSERT_TRUE(reader.parse(json_escaped_string, root));
-    ASSERT_TRUE(root.isString());
-    EXPECT_EQ(root.asString(), "line1\nline2\t\"quoted\"");
+    JsonValue root_escaped = JsonParser::Parse(json_escaped_string);
+    ASSERT_EQ(root_escaped.type, JsonValueType::String);
+    EXPECT_EQ(root_escaped.GetString(), "line1\nline2\t\"quoted\"");
 }
 
 TEST_F(JsonLibTest, ParseNumericValues) {
-    Json::Value root;
-    Json::Reader reader;
-
     // Integer
-    ASSERT_TRUE(reader.parse("123", root));
-    ASSERT_TRUE(root.isInt());
-    EXPECT_EQ(root.asInt(), 123);
+    JsonValue root_int = JsonParser::Parse("123");
+    ASSERT_EQ(root_int.type, JsonValueType::Number);
+    EXPECT_DOUBLE_EQ(root_int.GetNumber(), 123.0);
 
     // Negative Integer
-    ASSERT_TRUE(reader.parse("-45", root));
-    ASSERT_TRUE(root.isInt());
-    EXPECT_EQ(root.asInt(), -45);
+    JsonValue root_neg_int = JsonParser::Parse("-45");
+    ASSERT_EQ(root_neg_int.type, JsonValueType::Number);
+    EXPECT_DOUBLE_EQ(root_neg_int.GetNumber(), -45.0);
     
     // Zero
-    ASSERT_TRUE(reader.parse("0", root));
-    ASSERT_TRUE(root.isInt()); // Or isUInt() depending on jsoncpp version specifics for 0
-    EXPECT_EQ(root.asInt(), 0);
+    JsonValue root_zero = JsonParser::Parse("0");
+    ASSERT_EQ(root_zero.type, JsonValueType::Number);
+    EXPECT_DOUBLE_EQ(root_zero.GetNumber(), 0.0);
 
     // Floating-point
-    ASSERT_TRUE(reader.parse("3.141", root));
-    ASSERT_TRUE(root.isDouble());
-    EXPECT_DOUBLE_EQ(root.asDouble(), 3.141);
+    JsonValue root_float = JsonParser::Parse("3.141");
+    ASSERT_EQ(root_float.type, JsonValueType::Number);
+    EXPECT_DOUBLE_EQ(root_float.GetNumber(), 3.141);
 
     // Negative Floating-point
-    ASSERT_TRUE(reader.parse("-0.001", root));
-    ASSERT_TRUE(root.isDouble());
-    EXPECT_DOUBLE_EQ(root.asDouble(), -0.001);
+    JsonValue root_neg_float = JsonParser::Parse("-0.001");
+    ASSERT_EQ(root_neg_float.type, JsonValueType::Number);
+    EXPECT_DOUBLE_EQ(root_neg_float.GetNumber(), -0.001);
 
     // Scientific notation
-    ASSERT_TRUE(reader.parse("1.2e5", root));
-    ASSERT_TRUE(root.isDouble());
-    EXPECT_DOUBLE_EQ(root.asDouble(), 120000.0);
+    JsonValue root_sci_pos = JsonParser::Parse("1.2e5");
+    ASSERT_EQ(root_sci_pos.type, JsonValueType::Number);
+    EXPECT_DOUBLE_EQ(root_sci_pos.GetNumber(), 120000.0);
 
-    ASSERT_TRUE(reader.parse("1.23e-2", root));
-    ASSERT_TRUE(root.isDouble());
-    EXPECT_DOUBLE_EQ(root.asDouble(), 0.0123);
+    JsonValue root_sci_neg = JsonParser::Parse("1.23e-2");
+    ASSERT_EQ(root_sci_neg.type, JsonValueType::Number);
+    EXPECT_DOUBLE_EQ(root_sci_neg.GetNumber(), 0.0123);
 }
 
 TEST_F(JsonLibTest, ParseBooleanValues) {
-    Json::Value root;
-    Json::Reader reader;
+    JsonValue root_true = JsonParser::Parse("true");
+    ASSERT_EQ(root_true.type, JsonValueType::Boolean);
+    EXPECT_EQ(root_true.GetBoolean(), true);
+    EXPECT_TRUE(root_true.GetBoolean());
 
-    ASSERT_TRUE(reader.parse("true", root));
-    ASSERT_TRUE(root.isBool());
-    EXPECT_EQ(root.asBool(), true);
-    EXPECT_TRUE(root.asBool());
-
-
-    ASSERT_TRUE(reader.parse("false", root));
-    ASSERT_TRUE(root.isBool());
-    EXPECT_EQ(root.asBool(), false);
-    EXPECT_FALSE(root.asBool());
+    JsonValue root_false = JsonParser::Parse("false");
+    ASSERT_EQ(root_false.type, JsonValueType::Boolean);
+    EXPECT_EQ(root_false.GetBoolean(), false);
+    EXPECT_FALSE(root_false.GetBoolean());
 }
 
 // --- JSON Array Parsing Tests ---
 
 TEST_F(JsonLibTest, ParseEmptyArray) {
-    Json::Value root;
-    Json::Reader reader;
     const std::string json_array = "[]";
-    ASSERT_TRUE(reader.parse(json_array, root));
-    ASSERT_TRUE(root.isArray());
-    EXPECT_EQ(root.size(), 0);
+    JsonValue root = JsonParser::Parse(json_array);
+    ASSERT_EQ(root.type, JsonValueType::Array);
+    EXPECT_EQ(root.GetArray().size(), 0);
 }
 
 TEST_F(JsonLibTest, ParseArrayOfNumbers) {
-    Json::Value root;
-    Json::Reader reader;
     const std::string json_array = "[1, 2, 3, -50, 0]";
-    ASSERT_TRUE(reader.parse(json_array, root));
-    ASSERT_TRUE(root.isArray());
-    ASSERT_EQ(root.size(), 5);
-    EXPECT_EQ(root[0].asInt(), 1);
-    EXPECT_EQ(root[1].asInt(), 2);
-    EXPECT_EQ(root[2].asInt(), 3);
-    EXPECT_EQ(root[3].asInt(), -50);
-    EXPECT_EQ(root[4].asInt(), 0);
+    JsonValue root = JsonParser::Parse(json_array);
+    ASSERT_EQ(root.type, JsonValueType::Array);
+    ASSERT_EQ(root.GetArray().size(), 5);
+    EXPECT_DOUBLE_EQ(root.GetArray()[0].GetNumber(), 1.0);
+    EXPECT_DOUBLE_EQ(root.GetArray()[1].GetNumber(), 2.0);
+    EXPECT_DOUBLE_EQ(root.GetArray()[2].GetNumber(), 3.0);
+    EXPECT_DOUBLE_EQ(root.GetArray()[3].GetNumber(), -50.0);
+    EXPECT_DOUBLE_EQ(root.GetArray()[4].GetNumber(), 0.0);
 }
 
 TEST_F(JsonLibTest, ParseArrayOfStrings) {
-    Json::Value root;
-    Json::Reader reader;
     const std::string json_array = "[\"a\", \"b\", \"c\", \"hello world\", \"\"]";
-    ASSERT_TRUE(reader.parse(json_array, root));
-    ASSERT_TRUE(root.isArray());
-    ASSERT_EQ(root.size(), 5);
-    EXPECT_EQ(root[0].asString(), "a");
-    EXPECT_EQ(root[1].asString(), "b");
-    EXPECT_EQ(root[2].asString(), "c");
-    EXPECT_EQ(root[3].asString(), "hello world");
-    EXPECT_EQ(root[4].asString(), "");
+    JsonValue root = JsonParser::Parse(json_array);
+    ASSERT_EQ(root.type, JsonValueType::Array);
+    ASSERT_EQ(root.GetArray().size(), 5);
+    EXPECT_EQ(root.GetArray()[0].GetString(), "a");
+    EXPECT_EQ(root.GetArray()[1].GetString(), "b");
+    EXPECT_EQ(root.GetArray()[2].GetString(), "c");
+    EXPECT_EQ(root.GetArray()[3].GetString(), "hello world");
+    EXPECT_EQ(root.GetArray()[4].GetString(), "");
 }
 
 TEST_F(JsonLibTest, ParseArrayOfMixedTypes) {
-    Json::Value root;
-    Json::Reader reader;
     const std::string json_array = "[1, \"hello\", true, null, 3.14]";
-    ASSERT_TRUE(reader.parse(json_array, root));
-    ASSERT_TRUE(root.isArray());
-    ASSERT_EQ(root.size(), 5);
-    EXPECT_EQ(root[0].asInt(), 1);
-    EXPECT_TRUE(root[0].isInt());
-    EXPECT_EQ(root[1].asString(), "hello");
-    EXPECT_TRUE(root[1].isString());
-    EXPECT_EQ(root[2].asBool(), true);
-    EXPECT_TRUE(root[2].isBool());
-    EXPECT_TRUE(root[3].isNull());
-    EXPECT_DOUBLE_EQ(root[4].asDouble(), 3.14);
-    EXPECT_TRUE(root[4].isDouble());
+    JsonValue root = JsonParser::Parse(json_array);
+    ASSERT_EQ(root.type, JsonValueType::Array);
+    ASSERT_EQ(root.GetArray().size(), 5);
+
+    EXPECT_EQ(root.GetArray()[0].type, JsonValueType::Number);
+    EXPECT_DOUBLE_EQ(root.GetArray()[0].GetNumber(), 1.0);
+
+    EXPECT_EQ(root.GetArray()[1].type, JsonValueType::String);
+    EXPECT_EQ(root.GetArray()[1].GetString(), "hello");
+
+    EXPECT_EQ(root.GetArray()[2].type, JsonValueType::Boolean);
+    EXPECT_EQ(root.GetArray()[2].GetBoolean(), true);
+
+    EXPECT_EQ(root.GetArray()[3].type, JsonValueType::Null);
+
+    EXPECT_EQ(root.GetArray()[4].type, JsonValueType::Number);
+    EXPECT_DOUBLE_EQ(root.GetArray()[4].GetNumber(), 3.14);
 }
 
 TEST_F(JsonLibTest, ParseArrayWithNestedArrays) {
-    Json::Value root;
-    Json::Reader reader;
     const std::string json_array = "[[1, 2], [3, 4], []]";
-    ASSERT_TRUE(reader.parse(json_array, root));
-    ASSERT_TRUE(root.isArray());
-    ASSERT_EQ(root.size(), 3);
+    JsonValue root = JsonParser::Parse(json_array);
+    ASSERT_EQ(root.type, JsonValueType::Array);
+    ASSERT_EQ(root.GetArray().size(), 3);
 
-    ASSERT_TRUE(root[0].isArray());
-    ASSERT_EQ(root[0].size(), 2);
-    EXPECT_EQ(root[0][0].asInt(), 1);
-    EXPECT_EQ(root[0][1].asInt(), 2);
+    const JsonValue& first_nested_array = root.GetArray()[0];
+    ASSERT_EQ(first_nested_array.type, JsonValueType::Array);
+    ASSERT_EQ(first_nested_array.GetArray().size(), 2);
+    EXPECT_EQ(first_nested_array.GetArray()[0].type, JsonValueType::Number);
+    EXPECT_DOUBLE_EQ(first_nested_array.GetArray()[0].GetNumber(), 1.0);
+    EXPECT_EQ(first_nested_array.GetArray()[1].type, JsonValueType::Number);
+    EXPECT_DOUBLE_EQ(first_nested_array.GetArray()[1].GetNumber(), 2.0);
 
-    ASSERT_TRUE(root[1].isArray());
-    ASSERT_EQ(root[1].size(), 2);
-    EXPECT_EQ(root[1][0].asInt(), 3);
-    EXPECT_EQ(root[1][1].asInt(), 4);
+    const JsonValue& second_nested_array = root.GetArray()[1];
+    ASSERT_EQ(second_nested_array.type, JsonValueType::Array);
+    ASSERT_EQ(second_nested_array.GetArray().size(), 2);
+    EXPECT_EQ(second_nested_array.GetArray()[0].type, JsonValueType::Number);
+    EXPECT_DOUBLE_EQ(second_nested_array.GetArray()[0].GetNumber(), 3.0);
+    EXPECT_EQ(second_nested_array.GetArray()[1].type, JsonValueType::Number);
+    EXPECT_DOUBLE_EQ(second_nested_array.GetArray()[1].GetNumber(), 4.0);
     
-    ASSERT_TRUE(root[2].isArray());
-    EXPECT_EQ(root[2].size(), 0);
+    const JsonValue& third_nested_array = root.GetArray()[2];
+    ASSERT_EQ(third_nested_array.type, JsonValueType::Array);
+    EXPECT_EQ(third_nested_array.GetArray().size(), 0);
 }
 
 TEST_F(JsonLibTest, ParseArrayWithNestedObjects) {
-    Json::Value root;
-    Json::Reader reader;
     const std::string json_array = "[{\"key1\": \"value1\"}, {\"key2\": 123, \"key3\": true}]";
-    ASSERT_TRUE(reader.parse(json_array, root));
-    ASSERT_TRUE(root.isArray());
-    ASSERT_EQ(root.size(), 2);
+    JsonValue root = JsonParser::Parse(json_array);
+    ASSERT_EQ(root.type, JsonValueType::Array);
+    ASSERT_EQ(root.GetArray().size(), 2);
 
-    ASSERT_TRUE(root[0].isObject());
-    ASSERT_TRUE(root[0].isMember("key1"));
-    EXPECT_EQ(root[0]["key1"].asString(), "value1");
+    const JsonValue& first_nested_object_val = root.GetArray()[0];
+    ASSERT_EQ(first_nested_object_val.type, JsonValueType::Object);
+    ASSERT_GT(first_nested_object_val.GetObject().count("key1"), 0);
+    EXPECT_EQ(first_nested_object_val.GetObject().at("key1")->type, JsonValueType::String);
+    EXPECT_EQ(first_nested_object_val.GetObject().at("key1")->GetString(), "value1");
 
-    ASSERT_TRUE(root[1].isObject());
-    ASSERT_TRUE(root[1].isMember("key2"));
-    EXPECT_EQ(root[1]["key2"].asInt(), 123);
-    ASSERT_TRUE(root[1].isMember("key3"));
-    EXPECT_EQ(root[1]["key3"].asBool(), true);
+    const JsonValue& second_nested_object_val = root.GetArray()[1];
+    ASSERT_EQ(second_nested_object_val.type, JsonValueType::Object);
+    ASSERT_GT(second_nested_object_val.GetObject().count("key2"), 0);
+    EXPECT_EQ(second_nested_object_val.GetObject().at("key2")->type, JsonValueType::Number);
+    EXPECT_DOUBLE_EQ(second_nested_object_val.GetObject().at("key2")->GetNumber(), 123.0);
+    ASSERT_GT(second_nested_object_val.GetObject().count("key3"), 0);
+    EXPECT_EQ(second_nested_object_val.GetObject().at("key3")->type, JsonValueType::Boolean);
+    EXPECT_EQ(second_nested_object_val.GetObject().at("key3")->GetBoolean(), true);
 }
 
 // --- JSON Object Parsing Tests ---
 
 TEST_F(JsonLibTest, ParseEmptyObject) {
-    Json::Value root;
-    Json::Reader reader;
     const std::string json_object = "{}";
-    ASSERT_TRUE(reader.parse(json_object, root));
-    ASSERT_TRUE(root.isObject());
-    EXPECT_EQ(root.size(), 0); // Json::Value::size() for objects returns member count
+    JsonValue root = JsonParser::Parse(json_object);
+    ASSERT_EQ(root.type, JsonValueType::Object);
+    EXPECT_EQ(root.GetObject().size(), 0);
 }
 
 TEST_F(JsonLibTest, ParseObjectSimpleKeyValuePairs) {
-    Json::Value root;
-    Json::Reader reader;
     const std::string json_object = "{\"name\": \"John Doe\", \"age\": 30, \"isStudent\": false, \"car\": null, \"score\": 95.5}";
-    ASSERT_TRUE(reader.parse(json_object, root));
-    ASSERT_TRUE(root.isObject());
+    JsonValue root = JsonParser::Parse(json_object);
+    ASSERT_EQ(root.type, JsonValueType::Object);
     
-    ASSERT_TRUE(root.isMember("name"));
-    EXPECT_EQ(root["name"].asString(), "John Doe");
-    ASSERT_TRUE(root["name"].isString());
+    ASSERT_GT(root.GetObject().count("name"), 0);
+    EXPECT_EQ(root.GetObject().at("name")->type, JsonValueType::String);
+    EXPECT_EQ(root.GetObject().at("name")->GetString(), "John Doe");
 
-    ASSERT_TRUE(root.isMember("age"));
-    EXPECT_EQ(root["age"].asInt(), 30);
-    ASSERT_TRUE(root["age"].isInt());
+    ASSERT_GT(root.GetObject().count("age"), 0);
+    EXPECT_EQ(root.GetObject().at("age")->type, JsonValueType::Number);
+    EXPECT_DOUBLE_EQ(root.GetObject().at("age")->GetNumber(), 30.0);
 
-    ASSERT_TRUE(root.isMember("isStudent"));
-    EXPECT_EQ(root["isStudent"].asBool(), false);
-    ASSERT_TRUE(root["isStudent"].isBool());
+    ASSERT_GT(root.GetObject().count("isStudent"), 0);
+    EXPECT_EQ(root.GetObject().at("isStudent")->type, JsonValueType::Boolean);
+    EXPECT_EQ(root.GetObject().at("isStudent")->GetBoolean(), false);
 
-    ASSERT_TRUE(root.isMember("car"));
-    EXPECT_TRUE(root["car"].isNull());
+    ASSERT_GT(root.GetObject().count("car"), 0);
+    EXPECT_EQ(root.GetObject().at("car")->type, JsonValueType::Null);
     
-    ASSERT_TRUE(root.isMember("score"));
-    EXPECT_DOUBLE_EQ(root["score"].asDouble(), 95.5);
-    ASSERT_TRUE(root["score"].isDouble());
+    ASSERT_GT(root.GetObject().count("score"), 0);
+    EXPECT_EQ(root.GetObject().at("score")->type, JsonValueType::Number);
+    EXPECT_DOUBLE_EQ(root.GetObject().at("score")->GetNumber(), 95.5);
 }
 
 TEST_F(JsonLibTest, ParseObjectWithNestedObjects) {
-    Json::Value root;
-    Json::Reader reader;
     const std::string json_object = "{\"person\": {\"name\": \"Jane\", \"age\": 25, \"address\": {\"street\": \"123 Main St\", \"city\": \"Anytown\"}}, \"city\": \"New York\"}";
-    ASSERT_TRUE(reader.parse(json_object, root));
-    ASSERT_TRUE(root.isObject());
+    JsonValue root = JsonParser::Parse(json_object);
+    ASSERT_EQ(root.type, JsonValueType::Object);
 
-    ASSERT_TRUE(root.isMember("person"));
-    ASSERT_TRUE(root["person"].isObject());
-    EXPECT_EQ(root["person"]["name"].asString(), "Jane");
-    EXPECT_EQ(root["person"]["age"].asInt(), 25);
+    ASSERT_GT(root.GetObject().count("person"), 0);
+    const JsonValue& person = *root.GetObject().at("person");
+    ASSERT_EQ(person.type, JsonValueType::Object);
+    EXPECT_EQ(person.GetObject().at("name")->GetString(), "Jane");
+    EXPECT_DOUBLE_EQ(person.GetObject().at("age")->GetNumber(), 25.0);
 
-    ASSERT_TRUE(root["person"]["address"].isObject());
-    EXPECT_EQ(root["person"]["address"]["street"].asString(), "123 Main St");
-    EXPECT_EQ(root["person"]["address"]["city"].asString(), "Anytown");
+    ASSERT_GT(person.GetObject().count("address"), 0);
+    const JsonValue& address = *person.GetObject().at("address");
+    ASSERT_EQ(address.type, JsonValueType::Object);
+    EXPECT_EQ(address.GetObject().at("street")->GetString(), "123 Main St");
+    EXPECT_EQ(address.GetObject().at("city")->GetString(), "Anytown");
     
-    ASSERT_TRUE(root.isMember("city"));
-    EXPECT_EQ(root["city"].asString(), "New York");
+    ASSERT_GT(root.GetObject().count("city"), 0);
+    EXPECT_EQ(root.GetObject().at("city")->type, JsonValueType::String);
+    EXPECT_EQ(root.GetObject().at("city")->GetString(), "New York");
 }
 
 TEST_F(JsonLibTest, ParseObjectWithNestedArrays) {
-    Json::Value root;
-    Json::Reader reader;
     const std::string json_object = "{\"data\": [1, 2, 3, 4.5], \"info\": {\"status\": \"active\", \"codes\": [\"X\", \"Y\"]}}";
-    ASSERT_TRUE(reader.parse(json_object, root));
-    ASSERT_TRUE(root.isObject());
+    JsonValue root = JsonParser::Parse(json_object);
+    ASSERT_EQ(root.type, JsonValueType::Object);
 
-    ASSERT_TRUE(root.isMember("data"));
-    ASSERT_TRUE(root["data"].isArray());
-    ASSERT_EQ(root["data"].size(), 4);
-    EXPECT_EQ(root["data"][0].asInt(), 1);
-    EXPECT_EQ(root["data"][1].asInt(), 2);
-    EXPECT_EQ(root["data"][2].asInt(), 3);
-    EXPECT_DOUBLE_EQ(root["data"][3].asDouble(), 4.5);
+    ASSERT_GT(root.GetObject().count("data"), 0);
+    const JsonValue& data_array = *root.GetObject().at("data");
+    ASSERT_EQ(data_array.type, JsonValueType::Array);
+    ASSERT_EQ(data_array.GetArray().size(), 4);
+    EXPECT_DOUBLE_EQ(data_array.GetArray()[0].GetNumber(), 1.0);
+    EXPECT_DOUBLE_EQ(data_array.GetArray()[1].GetNumber(), 2.0);
+    EXPECT_DOUBLE_EQ(data_array.GetArray()[2].GetNumber(), 3.0);
+    EXPECT_DOUBLE_EQ(data_array.GetArray()[3].GetNumber(), 4.5);
 
-    ASSERT_TRUE(root.isMember("info"));
-    ASSERT_TRUE(root["info"].isObject());
-    EXPECT_EQ(root["info"]["status"].asString(), "active");
+    ASSERT_GT(root.GetObject().count("info"), 0);
+    const JsonValue& info_object = *root.GetObject().at("info");
+    ASSERT_EQ(info_object.type, JsonValueType::Object);
+    EXPECT_EQ(info_object.GetObject().at("status")->GetString(), "active");
     
-    ASSERT_TRUE(root["info"]["codes"].isArray());
-    ASSERT_EQ(root["info"]["codes"].size(), 2);
-    EXPECT_EQ(root["info"]["codes"][0].asString(), "X");
-    EXPECT_EQ(root["info"]["codes"][1].asString(), "Y");
+    ASSERT_GT(info_object.GetObject().count("codes"), 0);
+    const JsonValue& codes_array = *info_object.GetObject().at("codes");
+    ASSERT_EQ(codes_array.type, JsonValueType::Array);
+    ASSERT_EQ(codes_array.GetArray().size(), 2);
+    EXPECT_EQ(codes_array.GetArray()[0].GetString(), "X");
+    EXPECT_EQ(codes_array.GetArray()[1].GetString(), "Y");
 }
 
 TEST_F(JsonLibTest, ParseComplexNestedStructure) {
-    Json::Value root;
-    Json::Reader reader;
     const std::string json_complex = R"({
         "id": "user123",
         "profile": {
@@ -314,684 +316,609 @@ TEST_F(JsonLibTest, ParseComplexNestedStructure) {
         "status": null
     })";
     
-    ASSERT_TRUE(reader.parse(json_complex, root));
-    ASSERT_TRUE(root.isObject());
+    JsonValue root = JsonParser::Parse(json_complex);
+    ASSERT_EQ(root.type, JsonValueType::Object);
     
-    EXPECT_EQ(root["id"].asString(), "user123");
+    EXPECT_EQ(root.GetObject().at("id")->GetString(), "user123");
     
-    ASSERT_TRUE(root["profile"].isObject());
-    EXPECT_EQ(root["profile"]["name"].asString(), "Alice Wonderland");
-    EXPECT_EQ(root["profile"]["email"].asString(), "alice@example.com");
+    const JsonValue& profile = *root.GetObject().at("profile");
+    ASSERT_EQ(profile.type, JsonValueType::Object);
+    EXPECT_EQ(profile.GetObject().at("name")->GetString(), "Alice Wonderland");
+    EXPECT_EQ(profile.GetObject().at("email")->GetString(), "alice@example.com");
     
-    ASSERT_TRUE(root["profile"]["roles"].isArray());
-    EXPECT_EQ(root["profile"]["roles"].size(), 2);
-    EXPECT_EQ(root["profile"]["roles"][0].asString(), "admin");
-    EXPECT_EQ(root["profile"]["roles"][1].asString(), "editor");
+    const JsonValue& roles = *profile.GetObject().at("roles");
+    ASSERT_EQ(roles.type, JsonValueType::Array);
+    EXPECT_EQ(roles.GetArray().size(), 2);
+    EXPECT_EQ(roles.GetArray()[0].GetString(), "admin");
+    EXPECT_EQ(roles.GetArray()[1].GetString(), "editor");
     
-    ASSERT_TRUE(root["profile"]["preferences"].isObject());
-    EXPECT_EQ(root["profile"]["preferences"]["theme"].asString(), "dark");
-    EXPECT_TRUE(root["profile"]["preferences"]["notifications"].asBool());
-    EXPECT_EQ(root["profile"]["preferences"]["max_items"].asInt(), 100);
+    const JsonValue& preferences = *profile.GetObject().at("preferences");
+    ASSERT_EQ(preferences.type, JsonValueType::Object);
+    EXPECT_EQ(preferences.GetObject().at("theme")->GetString(), "dark");
+    EXPECT_TRUE(preferences.GetObject().at("notifications")->GetBoolean());
+    EXPECT_DOUBLE_EQ(preferences.GetObject().at("max_items")->GetNumber(), 100.0);
     
-    ASSERT_TRUE(root["activity_log"].isArray());
-    ASSERT_EQ(root["activity_log"].size(), 3);
+    const JsonValue& activity_log = *root.GetObject().at("activity_log");
+    ASSERT_EQ(activity_log.type, JsonValueType::Array);
+    ASSERT_EQ(activity_log.GetArray().size(), 3);
     
-    ASSERT_TRUE(root["activity_log"][0].isObject());
-    EXPECT_EQ(root["activity_log"][0]["action"].asString(), "login");
-    EXPECT_EQ(root["activity_log"][0]["timestamp"].asString(), "2023-01-15T10:00:00Z");
+    const JsonValue& activity_log_0 = activity_log.GetArray()[0];
+    ASSERT_EQ(activity_log_0.type, JsonValueType::Object);
+    EXPECT_EQ(activity_log_0.GetObject().at("action")->GetString(), "login");
+    EXPECT_EQ(activity_log_0.GetObject().at("timestamp")->GetString(), "2023-01-15T10:00:00Z");
     
-    ASSERT_TRUE(root["activity_log"][2]["settings"].isObject());
-    EXPECT_EQ(root["activity_log"][2]["settings"]["theme"].asString(), "dark");
+    const JsonValue& activity_log_2_settings = *activity_log.GetArray()[2].GetObject().at("settings");
+    ASSERT_EQ(activity_log_2_settings.type, JsonValueType::Object);
+    EXPECT_EQ(activity_log_2_settings.GetObject().at("theme")->GetString(), "dark");
     
-    EXPECT_TRUE(root["status"].isNull());
+    EXPECT_EQ(root.GetObject().at("status")->type, JsonValueType::Null);
 }
 
 // --- JSON Serialization Tests ---
 
 TEST_F(JsonLibTest, SerializeStringValue) {
-    Json::Value val("hello world");
-    std::string json_string = val.toStyledString();
-    Json::Value parsed_back;
-    Json::Reader reader;
-    ASSERT_TRUE(reader.parse(json_string, parsed_back));
-    ASSERT_TRUE(parsed_back.isString());
-    EXPECT_EQ(parsed_back.asString(), "hello world");
+    JsonValue val;
+    val.SetString("hello world");
+    std::string json_string = val.ToString();
+    
+    JsonValue parsed_back = JsonParser::Parse(json_string);
+    ASSERT_EQ(parsed_back.type, JsonValueType::String);
+    EXPECT_EQ(parsed_back.GetString(), "hello world");
 
-    Json::Value empty_val("");
-    json_string = empty_val.toStyledString();
-    ASSERT_TRUE(reader.parse(json_string, parsed_back));
-    ASSERT_TRUE(parsed_back.isString());
-    EXPECT_EQ(parsed_back.asString(), "");
+    JsonValue empty_val;
+    empty_val.SetString("");
+    json_string = empty_val.ToString();
+    parsed_back = JsonParser::Parse(json_string);
+    ASSERT_EQ(parsed_back.type, JsonValueType::String);
+    EXPECT_EQ(parsed_back.GetString(), "");
 
-    Json::Value special_chars_val("line1\\nline2\\t\"quoted\""); // Test with already escaped string
-    json_string = special_chars_val.toStyledString();
-    ASSERT_TRUE(reader.parse(json_string, parsed_back));
-    ASSERT_TRUE(parsed_back.isString());
-    // Jsoncpp will store the actual characters, not the escape sequences.
-    // The toStyledString will then re-escape them for JSON output.
-    EXPECT_EQ(parsed_back.asString(), "line1\\nline2\\t\"quoted\""); 
+    JsonValue special_chars_val;
+    // Storing the actual characters, ToString should escape them.
+    special_chars_val.SetString("line1\nline2\t\"quoted\""); 
+    json_string = special_chars_val.ToString();
+    // Expected: "\"line1\\nline2\\t\\\"quoted\\\"\""
+    parsed_back = JsonParser::Parse(json_string);
+    ASSERT_EQ(parsed_back.type, JsonValueType::String);
+    // The GetString() should return the unescaped string.
+    EXPECT_EQ(parsed_back.GetString(), "line1\nline2\t\"quoted\"");
 }
 
 TEST_F(JsonLibTest, SerializeNumericValues) {
-    Json::Value int_val(123);
-    std::string json_string = int_val.toStyledString();
-    Json::Value parsed_back;
-    Json::Reader reader;
-    ASSERT_TRUE(reader.parse(json_string, parsed_back));
-    ASSERT_TRUE(parsed_back.isInt());
-    EXPECT_EQ(parsed_back.asInt(), 123);
+    JsonValue num_val;
+    num_val.SetNumber(123);
+    std::string json_string = num_val.ToString();
+    JsonValue parsed_back = JsonParser::Parse(json_string);
+    ASSERT_EQ(parsed_back.type, JsonValueType::Number);
+    EXPECT_DOUBLE_EQ(parsed_back.GetNumber(), 123.0);
 
-    Json::Value float_val(-45.67);
-    json_string = float_val.toStyledString();
-    ASSERT_TRUE(reader.parse(json_string, parsed_back));
-    ASSERT_TRUE(parsed_back.isDouble());
-    EXPECT_DOUBLE_EQ(parsed_back.asDouble(), -45.67);
+    num_val.SetNumber(-45.67);
+    json_string = num_val.ToString();
+    parsed_back = JsonParser::Parse(json_string);
+    ASSERT_EQ(parsed_back.type, JsonValueType::Number);
+    EXPECT_DOUBLE_EQ(parsed_back.GetNumber(), -45.67);
 
-    Json::Value zero_val(0);
-    json_string = zero_val.toStyledString();
-    ASSERT_TRUE(reader.parse(json_string, parsed_back));
-    ASSERT_TRUE(parsed_back.isInt()); // or isUInt()
-    EXPECT_EQ(parsed_back.asInt(), 0);
+    num_val.SetNumber(0);
+    json_string = num_val.ToString();
+    parsed_back = JsonParser::Parse(json_string);
+    ASSERT_EQ(parsed_back.type, JsonValueType::Number);
+    EXPECT_DOUBLE_EQ(parsed_back.GetNumber(), 0.0);
 }
 
 TEST_F(JsonLibTest, SerializeBooleanValues) {
-    Json::Value bool_true(true);
-    std::string json_string = bool_true.toStyledString();
-    Json::Value parsed_back;
-    Json::Reader reader;
-    ASSERT_TRUE(reader.parse(json_string, parsed_back));
-    ASSERT_TRUE(parsed_back.isBool());
-    EXPECT_EQ(parsed_back.asBool(), true);
+    JsonValue bool_val;
+    bool_val.SetBoolean(true);
+    std::string json_string = bool_val.ToString();
+    JsonValue parsed_back = JsonParser::Parse(json_string);
+    ASSERT_EQ(parsed_back.type, JsonValueType::Boolean);
+    EXPECT_EQ(parsed_back.GetBoolean(), true);
 
-    Json::Value bool_false(false);
-    json_string = bool_false.toStyledString();
-    ASSERT_TRUE(reader.parse(json_string, parsed_back));
-    ASSERT_TRUE(parsed_back.isBool());
-    EXPECT_EQ(parsed_back.asBool(), false);
+    bool_val.SetBoolean(false);
+    json_string = bool_val.ToString();
+    parsed_back = JsonParser::Parse(json_string);
+    ASSERT_EQ(parsed_back.type, JsonValueType::Boolean);
+    EXPECT_EQ(parsed_back.GetBoolean(), false);
 }
 
 TEST_F(JsonLibTest, SerializeNullValue) {
-    Json::Value null_val(Json::nullValue); 
-    std::string json_string = null_val.toStyledString();
-    Json::Value parsed_back;
-    Json::Reader reader;
-    ASSERT_TRUE(reader.parse(json_string, parsed_back));
-    ASSERT_TRUE(parsed_back.isNull());
+    JsonValue null_val; // Default constructor is Null
+    ASSERT_EQ(null_val.type, JsonValueType::Null);
+    std::string json_string = null_val.ToString(); // Should be "null"
+    JsonValue parsed_back = JsonParser::Parse(json_string);
+    ASSERT_EQ(parsed_back.type, JsonValueType::Null);
 }
 
 TEST_F(JsonLibTest, SerializeEmptyArray) {
-    Json::Value arr(Json::arrayValue);
-    std::string json_string = arr.toStyledString();
-    Json::Value parsed_back;
-    Json::Reader reader;
-    ASSERT_TRUE(reader.parse(json_string, parsed_back));
-    ASSERT_TRUE(parsed_back.isArray());
-    EXPECT_EQ(parsed_back.size(), 0);
+    JsonValue arr_val;
+    arr_val.SetArray(); // Initialize as an empty array
+    std::string json_string = arr_val.ToString(); // Should be "[]"
+    JsonValue parsed_back = JsonParser::Parse(json_string);
+    ASSERT_EQ(parsed_back.type, JsonValueType::Array);
+    EXPECT_EQ(parsed_back.GetArray().size(), 0);
 }
 
 TEST_F(JsonLibTest, SerializeArrayOfNumbers) {
-    Json::Value arr(Json::arrayValue);
-    arr.append(10);
-    arr.append(-20.5);
-    arr.append(0);
+    JsonValue arr_val;
+    arr_val.SetArray();
+    JsonValue num1; num1.SetNumber(10);
+    JsonValue num2; num2.SetNumber(-20.5);
+    JsonValue num3; num3.SetNumber(0);
+    arr_val.GetArray().push_back(num1);
+    arr_val.GetArray().push_back(num2);
+    arr_val.GetArray().push_back(num3);
     
-    std::string json_string = arr.toStyledString();
-    Json::Value parsed_back;
-    Json::Reader reader;
-    ASSERT_TRUE(reader.parse(json_string, parsed_back));
-    ASSERT_TRUE(parsed_back.isArray());
-    ASSERT_EQ(parsed_back.size(), 3);
-    EXPECT_EQ(parsed_back[0].asInt(), 10);
-    EXPECT_DOUBLE_EQ(parsed_back[1].asDouble(), -20.5);
-    EXPECT_EQ(parsed_back[2].asInt(), 0);
+    std::string json_string = arr_val.ToString();
+    JsonValue parsed_back = JsonParser::Parse(json_string);
+    ASSERT_EQ(parsed_back.type, JsonValueType::Array);
+    ASSERT_EQ(parsed_back.GetArray().size(), 3);
+    EXPECT_DOUBLE_EQ(parsed_back.GetArray()[0].GetNumber(), 10.0);
+    EXPECT_DOUBLE_EQ(parsed_back.GetArray()[1].GetNumber(), -20.5);
+    EXPECT_DOUBLE_EQ(parsed_back.GetArray()[2].GetNumber(), 0.0);
 }
 
 TEST_F(JsonLibTest, SerializeArrayOfStrings) {
-    Json::Value arr(Json::arrayValue);
-    arr.append("apple");
-    arr.append("");
-    arr.append("banana split");
-    
-    std::string json_string = arr.toStyledString();
-    Json::Value parsed_back;
-    Json::Reader reader;
-    ASSERT_TRUE(reader.parse(json_string, parsed_back));
-    ASSERT_TRUE(parsed_back.isArray());
-    ASSERT_EQ(parsed_back.size(), 3);
-    EXPECT_EQ(parsed_back[0].asString(), "apple");
-    EXPECT_EQ(parsed_back[1].asString(), "");
-    EXPECT_EQ(parsed_back[2].asString(), "banana split");
+    JsonValue arr_val;
+    arr_val.SetArray();
+    JsonValue str1; str1.SetString("apple");
+    JsonValue str2; str2.SetString("");
+    JsonValue str3; str3.SetString("banana split");
+    arr_val.GetArray().push_back(str1);
+    arr_val.GetArray().push_back(str2);
+    arr_val.GetArray().push_back(str3);
+        
+    std::string json_string = arr_val.ToString();
+    JsonValue parsed_back = JsonParser::Parse(json_string);
+    ASSERT_EQ(parsed_back.type, JsonValueType::Array);
+    ASSERT_EQ(parsed_back.GetArray().size(), 3);
+    EXPECT_EQ(parsed_back.GetArray()[0].GetString(), "apple");
+    EXPECT_EQ(parsed_back.GetArray()[1].GetString(), "");
+    EXPECT_EQ(parsed_back.GetArray()[2].GetString(), "banana split");
 }
 
 TEST_F(JsonLibTest, SerializeArrayOfMixedTypes) {
-    Json::Value arr(Json::arrayValue);
-    arr.append(1);
-    arr.append("test");
-    arr.append(true);
-    arr.append(Json::nullValue);
-    arr.append(12.34);
+    JsonValue arr_val;
+    arr_val.SetArray();
+    JsonValue item1; item1.SetNumber(1);
+    JsonValue item2; item2.SetString("test");
+    JsonValue item3; item3.SetBoolean(true);
+    JsonValue item4; // Null by default
+    JsonValue item5; item5.SetNumber(12.34);
 
-    std::string json_string = arr.toStyledString();
-    Json::Value parsed_back;
-    Json::Reader reader;
-    ASSERT_TRUE(reader.parse(json_string, parsed_back));
-    ASSERT_TRUE(parsed_back.isArray());
-    ASSERT_EQ(parsed_back.size(), 5);
-    EXPECT_EQ(parsed_back[0].asInt(), 1);
-    EXPECT_EQ(parsed_back[1].asString(), "test");
-    EXPECT_EQ(parsed_back[2].asBool(), true);
-    EXPECT_TRUE(parsed_back[3].isNull());
-    EXPECT_DOUBLE_EQ(parsed_back[4].asDouble(), 12.34);
+    arr_val.GetArray().push_back(item1);
+    arr_val.GetArray().push_back(item2);
+    arr_val.GetArray().push_back(item3);
+    arr_val.GetArray().push_back(item4);
+    arr_val.GetArray().push_back(item5);
+
+    std::string json_string = arr_val.ToString();
+    JsonValue parsed_back = JsonParser::Parse(json_string);
+    ASSERT_EQ(parsed_back.type, JsonValueType::Array);
+    ASSERT_EQ(parsed_back.GetArray().size(), 5);
+    EXPECT_DOUBLE_EQ(parsed_back.GetArray()[0].GetNumber(), 1.0);
+    EXPECT_EQ(parsed_back.GetArray()[1].GetString(), "test");
+    EXPECT_EQ(parsed_back.GetArray()[2].GetBoolean(), true);
+    EXPECT_EQ(parsed_back.GetArray()[3].type, JsonValueType::Null);
+    EXPECT_DOUBLE_EQ(parsed_back.GetArray()[4].GetNumber(), 12.34);
 }
 
 TEST_F(JsonLibTest, SerializeArrayWithNestedStructure) {
-    Json::Value root_array(Json::arrayValue);
+    JsonValue root_array_val;
+    root_array_val.SetArray();
     
-    Json::Value nested_array(Json::arrayValue);
-    nested_array.append(100);
-    nested_array.append(200);
-    root_array.append(nested_array);
+    JsonValue nested_array_val;
+    nested_array_val.SetArray();
+    JsonValue num100; num100.SetNumber(100);
+    JsonValue num200; num200.SetNumber(200);
+    nested_array_val.GetArray().push_back(num100);
+    nested_array_val.GetArray().push_back(num200);
+    root_array_val.GetArray().push_back(nested_array_val);
 
-    Json::Value nested_object(Json::objectValue);
-    nested_object["prop"] = "value_in_nested_object";
-    root_array.append(nested_object);
+    JsonValue nested_object_val;
+    nested_object_val.SetObject();
+    JsonValue prop_val; prop_val.SetString("value_in_nested_object");
+    // For objects, InsertIntoObject takes a pointer. Manage memory carefully.
+    // For testing, it's safer to build string and parse, or use stack objects if parser supports it.
+    // The current ToString() and Parse() approach for other tests is better.
+    // Let's build this via string for robust testing of ToString for objects within arrays.
+    // This part is complex due to JsonValue* in map.
+    // Re-evaluate how to test serialization of complex nested objects/arrays.
+    // The current ToString will handle it if structure is built.
+    // The custom library requires manual memory management for JsonValue* in object maps.
+    // This test will be easier by constructing the string and parsing it.
+    // Let's re-construct the string and parse it to verify ToString.
+    // Simpler approach: build the object, then ToString, then parse back.
+    // The following is how one might build it, but is tricky with memory for test.
+    // nested_object_val.InsertIntoObject("prop", new JsonValue(prop_val));
+    // root_array_val.GetArray().push_back(nested_object_val);
+    //
+    // Safer: Construct expected JSON string then parse, or parse a string and then ToString it.
+    // Let's parse a string, then ToString it, then parse it back.
+    std::string original_json_str = "[[100, 200], {\"prop\": \"value_in_nested_object\"}]";
+    JsonValue original_parsed = JsonParser::Parse(original_json_str);
 
-    std::string json_string = root_array.toStyledString();
-    Json::Value parsed_back;
-    Json::Reader reader;
-    ASSERT_TRUE(reader.parse(json_string, parsed_back));
-    ASSERT_TRUE(parsed_back.isArray());
-    ASSERT_EQ(parsed_back.size(), 2);
+    std::string json_string = original_parsed.ToString();
+    JsonValue parsed_back = JsonParser::Parse(json_string);
 
-    ASSERT_TRUE(parsed_back[0].isArray());
-    ASSERT_EQ(parsed_back[0].size(), 2);
-    EXPECT_EQ(parsed_back[0][0].asInt(), 100);
-    EXPECT_EQ(parsed_back[0][1].asInt(), 200);
+    ASSERT_EQ(parsed_back.type, JsonValueType::Array);
+    ASSERT_EQ(parsed_back.GetArray().size(), 2);
 
-    ASSERT_TRUE(parsed_back[1].isObject());
-    ASSERT_TRUE(parsed_back[1].isMember("prop"));
-    EXPECT_EQ(parsed_back[1]["prop"].asString(), "value_in_nested_object");
+    const auto& p_nested_array = parsed_back.GetArray()[0];
+    ASSERT_EQ(p_nested_array.type, JsonValueType::Array);
+    ASSERT_EQ(p_nested_array.GetArray().size(), 2);
+    EXPECT_DOUBLE_EQ(p_nested_array.GetArray()[0].GetNumber(), 100.0);
+    EXPECT_DOUBLE_EQ(p_nested_array.GetArray()[1].GetNumber(), 200.0);
+
+    const auto& p_nested_object = parsed_back.GetArray()[1];
+    ASSERT_EQ(p_nested_object.type, JsonValueType::Object);
+    ASSERT_TRUE(p_nested_object.GetObject().count("prop") > 0);
+    EXPECT_EQ(p_nested_object.GetObject().at("prop")->GetString(), "value_in_nested_object");
 }
 
 
 TEST_F(JsonLibTest, SerializeEmptyObject) {
-    Json::Value obj(Json::objectValue);
-    std::string json_string = obj.toStyledString();
-    Json::Value parsed_back;
-    Json::Reader reader;
-    ASSERT_TRUE(reader.parse(json_string, parsed_back));
-    ASSERT_TRUE(parsed_back.isObject());
-    EXPECT_EQ(parsed_back.size(), 0);
+    JsonValue obj_val;
+    obj_val.SetObject(); // Initialize as an empty object
+    std::string json_string = obj_val.ToString(); // Should be "{}"
+    JsonValue parsed_back = JsonParser::Parse(json_string);
+    ASSERT_EQ(parsed_back.type, JsonValueType::Object);
+    EXPECT_EQ(parsed_back.GetObject().size(), 0);
 }
 
 TEST_F(JsonLibTest, SerializeSimpleObject) {
-    Json::Value obj(Json::objectValue);
-    obj["name"] = "Alice";
-    obj["age"] = 30;
-    obj["active"] = true;
-    obj["city"] = Json::nullValue;
-    obj["score"] = 99.9;
+    // Build through string and parse, then ToString and parse back.
+    // This avoids manual JsonValue* management for object values in test setup.
+    std::string original_json_str = "{\"name\": \"Alice\", \"age\": 30, \"active\": true, \"city\": null, \"score\": 99.9}";
+    JsonValue original_parsed = JsonParser::Parse(original_json_str);
 
-    std::string json_string = obj.toStyledString();
-    Json::Value parsed_back;
-    Json::Reader reader;
-    ASSERT_TRUE(reader.parse(json_string, parsed_back));
-    ASSERT_TRUE(parsed_back.isObject());
-    ASSERT_TRUE(parsed_back.isMember("name"));
-    EXPECT_EQ(parsed_back["name"].asString(), "Alice");
-    EXPECT_EQ(parsed_back["age"].asInt(), 30);
-    EXPECT_EQ(parsed_back["active"].asBool(), true);
-    EXPECT_TRUE(parsed_back["city"].isNull());
-    EXPECT_DOUBLE_EQ(parsed_back["score"].asDouble(), 99.9);
+    std::string json_string = original_parsed.ToString();
+    JsonValue parsed_back = JsonParser::Parse(json_string);
+
+    ASSERT_EQ(parsed_back.type, JsonValueType::Object);
+    ASSERT_GT(parsed_back.GetObject().count("name"), 0);
+    EXPECT_EQ(parsed_back.GetObject().at("name")->GetString(), "Alice");
+    ASSERT_GT(parsed_back.GetObject().count("age"), 0);
+    EXPECT_DOUBLE_EQ(parsed_back.GetObject().at("age")->GetNumber(), 30.0);
+    ASSERT_GT(parsed_back.GetObject().count("active"), 0);
+    EXPECT_EQ(parsed_back.GetObject().at("active")->GetBoolean(), true);
+    ASSERT_GT(parsed_back.GetObject().count("city"), 0);
+    EXPECT_EQ(parsed_back.GetObject().at("city")->type, JsonValueType::Null);
+    ASSERT_GT(parsed_back.GetObject().count("score"), 0);
+    EXPECT_DOUBLE_EQ(parsed_back.GetObject().at("score")->GetNumber(), 99.9);
 }
 
 TEST_F(JsonLibTest, SerializeObjectWithNestedStructure) {
-    Json::Value root(Json::objectValue);
-    root["id"] = "item123";
+    std::string original_json_str = R"({
+        "id": "item123",
+        "details": {"color": "blue", "quantity": 50},
+        "tags": ["electronics", "consumer", {"special_tag": "clearance"}]
+    })";
+    JsonValue original_parsed = JsonParser::Parse(original_json_str);
+    std::string json_string = original_parsed.ToString();
+    JsonValue parsed_back = JsonParser::Parse(json_string);
+
+    ASSERT_EQ(parsed_back.type, JsonValueType::Object);
+    EXPECT_EQ(parsed_back.GetObject().at("id")->GetString(), "item123");
     
-    Json::Value details(Json::objectValue);
-    details["color"] = "blue";
-    details["quantity"] = 50;
-    root["details"] = details;
+    const auto& details = *parsed_back.GetObject().at("details");
+    ASSERT_EQ(details.type, JsonValueType::Object);
+    EXPECT_EQ(details.GetObject().at("color")->GetString(), "blue");
+    EXPECT_DOUBLE_EQ(details.GetObject().at("quantity")->GetNumber(), 50.0);
 
-    Json::Value tags(Json::arrayValue);
-    tags.append("electronics");
-    tags.append("consumer");
-    Json::Value nested_tag_obj(Json::objectValue);
-    nested_tag_obj["special_tag"] = "clearance";
-    tags.append(nested_tag_obj);
-    root["tags"] = tags;
-
-    std::string json_string = root.toStyledString();
-    Json::Value parsed_back;
-    Json::Reader reader;
-    ASSERT_TRUE(reader.parse(json_string, parsed_back));
-
-    ASSERT_TRUE(parsed_back.isObject());
-    EXPECT_EQ(parsed_back["id"].asString(), "item123");
-    
-    ASSERT_TRUE(parsed_back["details"].isObject());
-    EXPECT_EQ(parsed_back["details"]["color"].asString(), "blue");
-    EXPECT_EQ(parsed_back["details"]["quantity"].asInt(), 50);
-
-    ASSERT_TRUE(parsed_back["tags"].isArray());
-    ASSERT_EQ(parsed_back["tags"].size(), 3);
-    EXPECT_EQ(parsed_back["tags"][0].asString(), "electronics");
-    EXPECT_EQ(parsed_back["tags"][1].asString(), "consumer");
-    ASSERT_TRUE(parsed_back["tags"][2].isObject());
-    EXPECT_EQ(parsed_back["tags"][2]["special_tag"].asString(), "clearance");
+    const auto& tags = *parsed_back.GetObject().at("tags");
+    ASSERT_EQ(tags.type, JsonValueType::Array);
+    ASSERT_EQ(tags.GetArray().size(), 3);
+    EXPECT_EQ(tags.GetArray()[0].GetString(), "electronics");
+    EXPECT_EQ(tags.GetArray()[1].GetString(), "consumer");
+    const auto& nested_tag_obj = tags.GetArray()[2];
+    ASSERT_EQ(nested_tag_obj.type, JsonValueType::Object);
+    EXPECT_EQ(nested_tag_obj.GetObject().at("special_tag")->GetString(), "clearance");
 }
 
-TEST_F(JsonLibTest, SerializeComplexNestedStructureRoundTrip) { // Renamed from example
-    Json::Value root(Json::objectValue);
-    root["id"] = 123;
-    Json::Value data(Json::objectValue);
-    Json::Value points(Json::arrayValue);
-    points.append(10);
-    points.append(20);
-    points.append(30);
-    data["points"] = points;
-    data["valid"] = true;
-    root["data"] = data;
-    Json::Value tags(Json::arrayValue);
-    tags.append("TagA");
-    tags.append("TagB");
-    root["tags"] = tags;
-    root["name"] = "Complex Test Object";
-    root["value"] = Json::nullValue;
+TEST_F(JsonLibTest, SerializeComplexNestedStructureRoundTrip) { 
+    std::string original_json_str = R"({
+        "id": 123,
+        "data": {
+            "points": [10, 20, 30],
+            "valid": true
+        },
+        "tags": ["TagA", "TagB"],
+        "name": "Complex Test Object",
+        "value": null
+    })";
+    JsonValue original_parsed = JsonParser::Parse(original_json_str);
+    std::string json_string = original_parsed.ToString();
+    JsonValue parsed_back = JsonParser::Parse(json_string);
 
-
-    std::string json_string = root.toStyledString();
-    Json::Value parsed_back;
-    Json::Reader reader;
-    ASSERT_TRUE(reader.parse(json_string, parsed_back));
-
-    ASSERT_TRUE(parsed_back.isObject());
-    EXPECT_EQ(parsed_back["id"].asInt(), 123);
-    EXPECT_EQ(parsed_back["name"].asString(), "Complex Test Object");
-    EXPECT_TRUE(parsed_back["value"].isNull());
+    ASSERT_EQ(parsed_back.type, JsonValueType::Object);
+    EXPECT_DOUBLE_EQ(parsed_back.GetObject().at("id")->GetNumber(), 123.0);
+    EXPECT_EQ(parsed_back.GetObject().at("name")->GetString(), "Complex Test Object");
+    EXPECT_EQ(parsed_back.GetObject().at("value")->type, JsonValueType::Null);
     
-    ASSERT_TRUE(parsed_back["data"].isObject());
-    EXPECT_TRUE(parsed_back["data"]["points"].isArray());
-    EXPECT_EQ(parsed_back["data"]["points"].size(), 3);
-    EXPECT_EQ(parsed_back["data"]["points"][0].asInt(), 10);
-    EXPECT_EQ(parsed_back["data"]["points"][1].asInt(), 20);
-    EXPECT_EQ(parsed_back["data"]["points"][2].asInt(), 30);
-    EXPECT_TRUE(parsed_back["data"]["valid"].asBool());
+    const auto& data = *parsed_back.GetObject().at("data");
+    ASSERT_EQ(data.type, JsonValueType::Object);
+    const auto& points = *data.GetObject().at("points");
+    ASSERT_EQ(points.type, JsonValueType::Array);
+    EXPECT_EQ(points.GetArray().size(), 3);
+    EXPECT_DOUBLE_EQ(points.GetArray()[0].GetNumber(), 10.0);
+    EXPECT_DOUBLE_EQ(points.GetArray()[1].GetNumber(), 20.0);
+    EXPECT_DOUBLE_EQ(points.GetArray()[2].GetNumber(), 30.0);
+    EXPECT_TRUE(data.GetObject().at("valid")->GetBoolean());
 
-    ASSERT_TRUE(parsed_back["tags"].isArray());
-    EXPECT_EQ(parsed_back["tags"].size(), 2);
-    EXPECT_EQ(parsed_back["tags"][0].asString(), "TagA");
-    EXPECT_EQ(parsed_back["tags"][1].asString(), "TagB");
+    const auto& tags = *parsed_back.GetObject().at("tags");
+    ASSERT_EQ(tags.type, JsonValueType::Array);
+    EXPECT_EQ(tags.GetArray().size(), 2);
+    EXPECT_EQ(tags.GetArray()[0].GetString(), "TagA");
+    EXPECT_EQ(tags.GetArray()[1].GetString(), "TagB");
 }
 
-// --- Json::Value API Tests ---
+// --- JsonValue API Tests (adapted from Json::Value) ---
 
 TEST_F(JsonLibTest, TypeCheckingMethods) {
-    Json::Value str_val("hello");
-    EXPECT_TRUE(str_val.isString());
-    EXPECT_FALSE(str_val.isInt());
-    EXPECT_FALSE(str_val.isUInt());
-    EXPECT_FALSE(str_val.isDouble());
-    EXPECT_FALSE(str_val.isBool());
-    EXPECT_FALSE(str_val.isArray());
-    EXPECT_FALSE(str_val.isObject());
-    EXPECT_FALSE(str_val.isNull());
-    EXPECT_FALSE(str_val.isNumeric()); // String is not numeric
+    JsonValue str_val; str_val.SetString("hello");
+    EXPECT_EQ(str_val.type, JsonValueType::String);
+    EXPECT_NE(str_val.type, JsonValueType::Number);
+    EXPECT_NE(str_val.type, JsonValueType::Boolean);
+    EXPECT_NE(str_val.type, JsonValueType::Array);
+    EXPECT_NE(str_val.type, JsonValueType::Object);
+    EXPECT_NE(str_val.type, JsonValueType::Null);
 
-    Json::Value int_val(123);
-    EXPECT_FALSE(int_val.isString());
-    EXPECT_TRUE(int_val.isInt());
-    EXPECT_TRUE(int_val.isUInt()); // Positive int is also uint
-    EXPECT_TRUE(int_val.isDouble()); // Int can be represented as double
-    EXPECT_FALSE(int_val.isBool());
-    EXPECT_FALSE(int_val.isArray());
-    EXPECT_FALSE(int_val.isObject());
-    EXPECT_FALSE(int_val.isNull());
-    EXPECT_TRUE(int_val.isNumeric());
+    JsonValue num_val; num_val.SetNumber(123);
+    EXPECT_NE(num_val.type, JsonValueType::String);
+    EXPECT_EQ(num_val.type, JsonValueType::Number);
+    EXPECT_NE(num_val.type, JsonValueType::Boolean);
+    EXPECT_NE(num_val.type, JsonValueType::Array);
+    EXPECT_NE(num_val.type, JsonValueType::Object);
+    EXPECT_NE(num_val.type, JsonValueType::Null);
 
-    Json::Value uint_val(123u);
-    EXPECT_FALSE(uint_val.isString());
-    EXPECT_TRUE(uint_val.isInt()); // UInt can be Int if in range
-    EXPECT_TRUE(uint_val.isUInt());
-    EXPECT_TRUE(uint_val.isDouble()); // UInt can be represented as double
-    EXPECT_FALSE(uint_val.isBool());
-    EXPECT_FALSE(uint_val.isArray());
-    EXPECT_FALSE(uint_val.isObject());
-    EXPECT_FALSE(uint_val.isNull());
-    EXPECT_TRUE(uint_val.isNumeric());
+    // Note: Custom library has only JsonValueType::Number (double)
+    // No specific Int/UInt type checks like jsoncpp's isInt/isUInt/isDouble separately
+    // isNumeric() concept is implicitly covered by type == JsonValueType::Number
 
-    Json::Value double_val(3.14);
-    EXPECT_FALSE(double_val.isString());
-    EXPECT_FALSE(double_val.isInt()); // Double is not strictly Int
-    EXPECT_FALSE(double_val.isUInt()); // Double is not strictly UInt
-    EXPECT_TRUE(double_val.isDouble());
-    EXPECT_FALSE(double_val.isBool());
-    EXPECT_FALSE(double_val.isArray());
-    EXPECT_FALSE(double_val.isObject());
-    EXPECT_FALSE(double_val.isNull());
-    EXPECT_TRUE(double_val.isNumeric());
+    JsonValue bool_val; bool_val.SetBoolean(true);
+    EXPECT_NE(bool_val.type, JsonValueType::String);
+    EXPECT_NE(bool_val.type, JsonValueType::Number);
+    EXPECT_EQ(bool_val.type, JsonValueType::Boolean);
+    EXPECT_NE(bool_val.type, JsonValueType::Array);
+    EXPECT_NE(bool_val.type, JsonValueType::Object);
+    EXPECT_NE(bool_val.type, JsonValueType::Null);
 
-    Json::Value bool_val(true);
-    EXPECT_FALSE(bool_val.isString());
-    EXPECT_FALSE(bool_val.isInt());
-    EXPECT_FALSE(bool_val.isUInt());
-    EXPECT_FALSE(bool_val.isDouble());
-    EXPECT_TRUE(bool_val.isBool());
-    EXPECT_FALSE(bool_val.isArray());
-    EXPECT_FALSE(bool_val.isObject());
-    EXPECT_FALSE(bool_val.isNull());
-    EXPECT_FALSE(bool_val.isNumeric()); // Bool is not numeric by jsoncpp's definition
+    JsonValue arr_val; arr_val.SetArray();
+    EXPECT_NE(arr_val.type, JsonValueType::String);
+    EXPECT_NE(arr_val.type, JsonValueType::Number);
+    EXPECT_NE(arr_val.type, JsonValueType::Boolean);
+    EXPECT_EQ(arr_val.type, JsonValueType::Array);
+    EXPECT_NE(arr_val.type, JsonValueType::Object);
+    EXPECT_NE(arr_val.type, JsonValueType::Null);
+    EXPECT_TRUE(arr_val.IsArray()); // Test helper method too
 
-    Json::Value array_val(Json::arrayValue);
-    EXPECT_FALSE(array_val.isString());
-    EXPECT_FALSE(array_val.isInt());
-    EXPECT_FALSE(array_val.isUInt());
-    EXPECT_FALSE(array_val.isDouble());
-    EXPECT_FALSE(array_val.isBool());
-    EXPECT_TRUE(array_val.isArray());
-    EXPECT_FALSE(array_val.isObject());
-    EXPECT_FALSE(array_val.isNull());
-    EXPECT_FALSE(array_val.isNumeric());
+    JsonValue obj_val; obj_val.SetObject();
+    EXPECT_NE(obj_val.type, JsonValueType::String);
+    EXPECT_NE(obj_val.type, JsonValueType::Number);
+    EXPECT_NE(obj_val.type, JsonValueType::Boolean);
+    EXPECT_NE(obj_val.type, JsonValueType::Array);
+    EXPECT_EQ(obj_val.type, JsonValueType::Object);
+    EXPECT_NE(obj_val.type, JsonValueType::Null);
+    EXPECT_TRUE(obj_val.IsObject()); // Test helper method too
 
-    Json::Value object_val(Json::objectValue);
-    EXPECT_FALSE(object_val.isString());
-    EXPECT_FALSE(object_val.isInt());
-    EXPECT_FALSE(object_val.isUInt());
-    EXPECT_FALSE(object_val.isDouble());
-    EXPECT_FALSE(object_val.isBool());
-    EXPECT_FALSE(object_val.isArray());
-    EXPECT_TRUE(object_val.isObject());
-    EXPECT_FALSE(object_val.isNull());
-    EXPECT_FALSE(object_val.isNumeric());
-
-    Json::Value null_val(Json::nullValue); // Or Json::Value()
-    EXPECT_FALSE(null_val.isString());
-    EXPECT_FALSE(null_val.isInt());
-    EXPECT_FALSE(null_val.isUInt());
-    EXPECT_FALSE(null_val.isDouble());
-    EXPECT_FALSE(null_val.isBool());
-    EXPECT_FALSE(null_val.isArray());
-    EXPECT_FALSE(null_val.isObject());
-    EXPECT_TRUE(null_val.isNull());
-    EXPECT_FALSE(null_val.isNumeric());
+    JsonValue null_val; // Default is Null
+    EXPECT_NE(null_val.type, JsonValueType::String);
+    EXPECT_NE(null_val.type, JsonValueType::Number);
+    EXPECT_NE(null_val.type, JsonValueType::Boolean);
+    EXPECT_NE(null_val.type, JsonValueType::Array);
+    EXPECT_NE(null_val.type, JsonValueType::Object);
+    EXPECT_EQ(null_val.type, JsonValueType::Null);
 }
 
-TEST_F(JsonLibTest, ValueRetrievalAsType) {
-    Json::Value str_val("hello");
-    EXPECT_EQ(str_val.asString(), "hello");
-    EXPECT_EQ(str_val.asInt(), 0); // Default for failed conversion
-    EXPECT_EQ(str_val.asUInt(), 0u);
-    EXPECT_DOUBLE_EQ(str_val.asDouble(), 0.0);
-    EXPECT_EQ(str_val.asBool(), false);
+TEST_F(JsonLibTest, ValueRetrievalMethods) { // Renamed from ValueRetrievalAsType
+    JsonValue str_val; str_val.SetString("hello");
+    EXPECT_EQ(str_val.GetString(), "hello");
+    // For non-string types, GetString() behavior is undefined by current .hpp; assume it might throw or return empty.
+    // For other GetType() methods, they should only be called if type matches.
+    // Example: EXPECT_THROW(str_val.GetNumber(), std::logic_error); // Or similar if getters assert type
 
-    Json::Value int_val(123);
-    EXPECT_EQ(int_val.asString(), "123"); // Jsoncpp converts numbers to string
-    EXPECT_EQ(int_val.asInt(), 123);
-    EXPECT_EQ(int_val.asUInt(), 123u);
-    EXPECT_DOUBLE_EQ(int_val.asDouble(), 123.0);
-    EXPECT_EQ(int_val.asBool(), true); // Non-zero numbers are true
+    JsonValue num_val; num_val.SetNumber(123.45);
+    EXPECT_DOUBLE_EQ(num_val.GetNumber(), 123.45);
+    // GetString() for number: ToString() handles this.
+    // EXPECT_EQ(num_val.ToString(), "123.450000"); // Exact string form of double.
 
-    Json::Value int_zero_val(0);
-    EXPECT_EQ(int_zero_val.asBool(), false); // Zero is false
+    JsonValue bool_true_val; bool_true_val.SetBoolean(true);
+    EXPECT_EQ(bool_true_val.GetBoolean(), true);
+    // EXPECT_EQ(bool_true_val.ToString(), "true");
 
-    Json::Value double_val(3.14);
-    // Behavior of asString for double might vary in precision
-    // EXPECT_EQ(double_val.asString(), "3.14"); 
-    EXPECT_EQ(double_val.asInt(), 3); // Truncates
-    EXPECT_EQ(double_val.asUInt(), 3u);
-    EXPECT_DOUBLE_EQ(double_val.asDouble(), 3.14);
-    EXPECT_EQ(double_val.asBool(), true); // Non-zero is true
-
-    Json::Value bool_true_val(true);
-    EXPECT_EQ(bool_true_val.asString(), "true");
-    EXPECT_EQ(bool_true_val.asInt(), 1);
-    EXPECT_EQ(bool_true_val.asUInt(), 1u);
-    EXPECT_DOUBLE_EQ(bool_true_val.asDouble(), 1.0);
-    EXPECT_EQ(bool_true_val.asBool(), true);
-
-    Json::Value bool_false_val(false);
-    EXPECT_EQ(bool_false_val.asString(), "false");
-    EXPECT_EQ(bool_false_val.asInt(), 0);
-    EXPECT_EQ(bool_false_val.asUInt(), 0u);
-    EXPECT_DOUBLE_EQ(bool_false_val.asDouble(), 0.0);
-    EXPECT_EQ(bool_false_val.asBool(), false);
+    JsonValue bool_false_val; bool_false_val.SetBoolean(false);
+    EXPECT_EQ(bool_false_val.GetBoolean(), false);
+    // EXPECT_EQ(bool_false_val.ToString(), "false");
     
-    Json::Value null_val(Json::nullValue);
-    EXPECT_EQ(null_val.asString(), ""); // Default for null
-    EXPECT_EQ(null_val.asInt(), 0);
-    EXPECT_EQ(null_val.asUInt(), 0u);
-    EXPECT_DOUBLE_EQ(null_val.asDouble(), 0.0);
-    EXPECT_EQ(null_val.asBool(), false);
+    JsonValue null_val; // Default Null
+    // GetString(), GetNumber(), GetBoolean() on a Null type: behavior is undefined by .hpp.
+    // Test ToString() for null
+    EXPECT_EQ(null_val.ToString(), "null");
 
-    // Array and Object to other types (typically default/empty)
-    Json::Value array_val(Json::arrayValue);
-    EXPECT_EQ(array_val.asString(), "");
-    EXPECT_EQ(array_val.asInt(), 0);
-    EXPECT_FALSE(array_val.asBool());
-
-    Json::Value object_val(Json::objectValue);
-    EXPECT_EQ(object_val.asString(), "");
-    EXPECT_EQ(object_val.asInt(), 0);
-    EXPECT_FALSE(object_val.asBool());
+    // Array and Object retrieval:
+    // GetArray() and GetObject() are tested in their respective parsing/serialization tests.
+    // Attempting to GetArray() on a non-array type should ideally throw.
+    JsonValue not_array; not_array.SetString("test");
+    // EXPECT_THROW(not_array.GetArray(), JsonValueException); // Or std::logic_error
 }
 
 TEST_F(JsonLibTest, ObjectMemberHandlingAndSize) {
-    Json::Value obj(Json::objectValue);
-    EXPECT_EQ(obj.size(), 0u); // Size of empty object
+    JsonValue obj_val;
+    obj_val.SetObject();
+    EXPECT_EQ(obj_val.GetObject().size(), 0u);
 
-    obj["name"] = "Test Object";
-    obj["count"] = 101;
-    obj["valid"] = true;
+    // For setting members, we'd typically parse a string or use InsertIntoObject.
+    // Since InsertIntoObject requires new JsonValue*, let's parse.
+    obj_val = JsonParser::Parse("{\"name\": \"Test Object\", \"count\": 101, \"valid\": true}");
+    
+    EXPECT_GT(obj_val.GetObject().count("name"), 0u);
+    EXPECT_GT(obj_val.GetObject().count("count"), 0u);
+    EXPECT_GT(obj_val.GetObject().count("valid"), 0u);
+    EXPECT_EQ(obj_val.GetObject().count("non_existent_key"), 0u);
+    EXPECT_EQ(obj_val.GetObject().count("Name"), 0u); // Case-sensitive
 
-    EXPECT_TRUE(obj.isMember("name"));
-    EXPECT_TRUE(obj.isMember("count"));
-    EXPECT_TRUE(obj.isMember("valid"));
-    EXPECT_FALSE(obj.isMember("non_existent_key"));
-    EXPECT_FALSE(obj.isMember("Name")); // Case-sensitive
+    EXPECT_EQ(obj_val.GetObject().size(), 3u);
+    EXPECT_EQ(obj_val.GetObject().at("name")->GetString(), "Test Object");
+    EXPECT_DOUBLE_EQ(obj_val.GetObject().at("count")->GetNumber(), 101.0);
+    EXPECT_EQ(obj_val.GetObject().at("valid")->GetBoolean(), true);
 
-    EXPECT_EQ(obj.size(), 3u);
-    EXPECT_EQ(obj["name"].asString(), "Test Object");
-    EXPECT_EQ(obj["count"].asInt(), 101);
-    EXPECT_EQ(obj["valid"].asBool(), true);
-
-    // Accessing non-existent key creates a null member
-    EXPECT_TRUE(obj["new_key_access"].isNull()); 
-    EXPECT_TRUE(obj.isMember("new_key_access")); // Now it's a member
-    EXPECT_EQ(obj.size(), 4u); // Size increased
+    // Accessing non-existent key with .at() throws std::out_of_range
+    EXPECT_THROW(obj_val.GetObject().at("new_key_access"), std::out_of_range);
+    // Count remains the same, no null member is added automatically like jsoncpp
+    EXPECT_EQ(obj_val.GetObject().size(), 3u); 
+    EXPECT_EQ(obj_val.GetObject().count("new_key_access"), 0u);
 }
 
 TEST_F(JsonLibTest, ArrayAppendAndSize) {
-    Json::Value arr(Json::arrayValue);
-    EXPECT_EQ(arr.size(), 0u);
-    EXPECT_TRUE(arr.empty()); // JsonCpp specific
+    JsonValue arr_val;
+    arr_val.SetArray();
+    EXPECT_EQ(arr_val.GetArray().size(), 0u);
+    // EXPECT_TRUE(arr_val.GetArray().empty()); // Standard vector method
 
-    arr.append("first_element");
-    EXPECT_EQ(arr.size(), 1u);
-    EXPECT_FALSE(arr.empty());
-    EXPECT_EQ(arr[0].asString(), "first_element");
+    JsonValue str_el; str_el.SetString("first_element");
+    arr_val.GetArray().push_back(str_el);
+    EXPECT_EQ(arr_val.GetArray().size(), 1u);
+    // EXPECT_FALSE(arr_val.GetArray().empty());
+    EXPECT_EQ(arr_val.GetArray()[0].GetString(), "first_element");
 
-    arr.append(202);
-    EXPECT_EQ(arr.size(), 2u);
-    EXPECT_EQ(arr[1].asInt(), 202);
+    JsonValue num_el; num_el.SetNumber(202);
+    arr_val.GetArray().push_back(num_el);
+    EXPECT_EQ(arr_val.GetArray().size(), 2u);
+    EXPECT_DOUBLE_EQ(arr_val.GetArray()[1].GetNumber(), 202.0);
 
-    Json::Value nested_obj(Json::objectValue);
-    nested_obj["id"] = "nested_id_001";
-    arr.append(nested_obj);
-    EXPECT_EQ(arr.size(), 3u);
-    ASSERT_TRUE(arr[2].isObject());
-    EXPECT_EQ(arr[2]["id"].asString(), "nested_id_001");
+    // For nested object:
+    // JsonValue nested_obj_el; nested_obj_el.SetObject();
+    // JsonValue id_val; id_val.SetString("nested_id_001");
+    // nested_obj_el.InsertIntoObject("id", new JsonValue(id_val)); // Memory management
+    // arr_val.GetArray().push_back(nested_obj_el);
+    // Instead, parse a string for complex elements to avoid manual `new` in tests
+    JsonValue nested_obj_parsed = JsonParser::Parse("{\"id\": \"nested_id_001\"}");
+    arr_val.GetArray().push_back(nested_obj_parsed);
 
-    arr.append(Json::nullValue);
-    EXPECT_EQ(arr.size(), 4u);
-    EXPECT_TRUE(arr[3].isNull());
+    EXPECT_EQ(arr_val.GetArray().size(), 3u);
+    ASSERT_EQ(arr_val.GetArray()[2].type, JsonValueType::Object);
+    EXPECT_EQ(arr_val.GetArray()[2].GetObject().at("id")->GetString(), "nested_id_001");
+
+    JsonValue null_el; // Default null
+    arr_val.GetArray().push_back(null_el);
+    EXPECT_EQ(arr_val.GetArray().size(), 4u);
+    EXPECT_EQ(arr_val.GetArray()[3].type, JsonValueType::Null);
 }
 
 TEST_F(JsonLibTest, NullValueSpecifics) {
-    Json::Value default_constructed_val; // Default constructor creates a null value
-    EXPECT_TRUE(default_constructed_val.isNull());
-    EXPECT_FALSE(default_constructed_val.isString());
-    EXPECT_FALSE(default_constructed_val.isNumeric());
+    JsonValue default_constructed_val; // Default constructor creates a null value
+    EXPECT_EQ(default_constructed_val.type, JsonValueType::Null);
+    // GetString(), GetNumber() etc. on Null is undefined by hpp, check ToString()
+    EXPECT_EQ(default_constructed_val.ToString(), "null");
 
-    Json::Value explicit_null_val(Json::nullValue);
-    EXPECT_TRUE(explicit_null_val.isNull());
+    JsonValue explicit_null_val(JsonValueType::Null); // Explicit constructor
+    EXPECT_EQ(explicit_null_val.type, JsonValueType::Null);
 
-    Json::Value int_val(55);
-    EXPECT_FALSE(int_val.isNull());
+    JsonValue num_val; num_val.SetNumber(55);
+    EXPECT_NE(num_val.type, JsonValueType::Null);
     
-    int_val = Json::Value(); // Assigning a default-constructed (null) value
-    EXPECT_TRUE(int_val.isNull());
+    num_val = JsonValue(); // Assigning a default-constructed (null) value
+    EXPECT_EQ(num_val.type, JsonValueType::Null);
 
-    int_val = 77; // Reassign to non-null
-    EXPECT_FALSE(int_val.isNull());
-    int_val = Json::nullValue; // Assigning explicit null
-    EXPECT_TRUE(int_val.isNull());
+    num_val.SetNumber(77); // Reassign to non-null
+    EXPECT_NE(num_val.type, JsonValueType::Null);
+    num_val = JsonValue(JsonValueType::Null); // Assigning explicit null type
+    EXPECT_EQ(num_val.type, JsonValueType::Null);
 }
 
 // --- JSON Parsing Error Handling Tests ---
 
 TEST_F(JsonLibTest, ParseErrorIncompleteObject) {
-    Json::Value root;
-    Json::Reader reader;
     // Missing closing brace
-    EXPECT_FALSE(reader.parse("{\"key\": \"value\"", root)); 
+    EXPECT_THROW(JsonParser::Parse("{\"key\": \"value\""), JsonParseException);
     // Missing closing brace and value is incomplete
-    EXPECT_FALSE(reader.parse("{\"key\": \"value", root)); 
+    EXPECT_THROW(JsonParser::Parse("{\"key\": \"value"), JsonParseException);
     // Missing key, only colon
-    EXPECT_FALSE(reader.parse("{: \"value\"}", root)); 
+    EXPECT_THROW(JsonParser::Parse("{: \"value\"}"), JsonParseException);
     // Missing value after key
-    EXPECT_FALSE(reader.parse("{\"key\": }", root)); 
+    EXPECT_THROW(JsonParser::Parse("{\"key\": }"), JsonParseException);
 }
 
 TEST_F(JsonLibTest, ParseErrorIncompleteArray) {
-    Json::Value root;
-    Json::Reader reader;
     // Missing closing bracket
-    EXPECT_FALSE(reader.parse("[1, 2, 3", root)); 
-    // Missing closing bracket and value is incomplete
-    EXPECT_FALSE(reader.parse("[1, \"hello", root)); 
+    EXPECT_THROW(JsonParser::Parse("[1, 2, 3"), JsonParseException);
+    // Missing closing bracket and value is incomplete (string context)
+    EXPECT_THROW(JsonParser::Parse("[1, \"hello"), JsonParseException);
 }
 
 TEST_F(JsonLibTest, ParseErrorMissingComma) {
-    Json::Value root;
-    Json::Reader reader;
     // Missing comma in object
-    EXPECT_FALSE(reader.parse("{\"key1\": \"v1\" \"key2\": \"v2\"}", root)); 
+    EXPECT_THROW(JsonParser::Parse("{\"key1\": \"v1\" \"key2\": \"v2\"}"), JsonParseException);
     // Missing comma in array
-    EXPECT_FALSE(reader.parse("[1 2]", root)); 
-    EXPECT_FALSE(reader.parse("[\"a\" \"b\"]", root));
+    EXPECT_THROW(JsonParser::Parse("[1 2]"), JsonParseException);
+    EXPECT_THROW(JsonParser::Parse("[\"a\" \"b\"]"), JsonParseException);
 }
 
 TEST_F(JsonLibTest, ParseBehaviorTrailingComma) {
-    Json::Value root;
-    Json::Reader reader;
-    // JsonCpp's Json::Reader is lenient with trailing commas by default.
-    
-    // Object with trailing comma
+    // Standard JSON does not allow trailing commas. The custom parser should enforce this.
     const std::string json_object_trailing_comma = "{\"key\": \"value\",}";
-    EXPECT_TRUE(reader.parse(json_object_trailing_comma, root));
-    ASSERT_TRUE(root.isObject());
-    EXPECT_TRUE(root.isMember("key"));
-    EXPECT_EQ(root["key"].asString(), "value");
+    EXPECT_THROW(JsonParser::Parse(json_object_trailing_comma), JsonParseException);
 
-    // Array with trailing comma
     const std::string json_array_trailing_comma = "[1, 2, 3,]";
-    EXPECT_TRUE(reader.parse(json_array_trailing_comma, root));
-    ASSERT_TRUE(root.isArray());
-    ASSERT_EQ(root.size(), 3);
-    EXPECT_EQ(root[0].asInt(), 1);
-    EXPECT_EQ(root[1].asInt(), 2);
-    EXPECT_EQ(root[2].asInt(), 3);
+    EXPECT_THROW(JsonParser::Parse(json_array_trailing_comma), JsonParseException);
 }
 
 TEST_F(JsonLibTest, ParseErrorUnquotedKey) {
-    Json::Value root;
-    Json::Reader reader;
     // Standard JSON requires keys to be strings (quoted).
-    // JsonCpp's default reader might be lenient here too, but strict JSON expects failure.
-    // JsonCpp's Json::Reader is actually strict about unquoted keys.
-    EXPECT_FALSE(reader.parse("{key: \"value\"}", root));
+    EXPECT_THROW(JsonParser::Parse("{key: \"value\"}"), JsonParseException);
 }
 
 TEST_F(JsonLibTest, ParseErrorInvalidString) {
-    Json::Value root;
-    Json::Reader reader;
     // Unterminated string
-    EXPECT_FALSE(reader.parse("\"unterminated string", root)); 
-    // Invalid escape sequence (e.g., \x is not standard JSON, though some parsers extend)
-    // JsonCpp seems to allow some non-standard escapes like \', but let's test an clearly invalid one.
-    // For this test, an unterminated string is a clearer error for standard JSON.
-    // A string with an invalid unicode escape:
-    EXPECT_FALSE(reader.parse("\"\\u123X\"", root));
+    EXPECT_THROW(JsonParser::Parse("\"unterminated string"), JsonParseException);
+    // Invalid escape sequence (e.g., \x is not standard JSON)
+    // The custom parser's ParseString should handle this.
+    EXPECT_THROW(JsonParser::Parse("\"\\x\""), JsonParseException); // Example of an invalid escape
+    // Invalid unicode escape
+    EXPECT_THROW(JsonParser::Parse("\"\\u123X\""), JsonParseException);
 }
 
 TEST_F(JsonLibTest, ParseErrorInvalidNumber) {
-    Json::Value root;
-    Json::Reader reader;
-    EXPECT_FALSE(reader.parse("1.2.3", root));          // Multiple decimal points
-    EXPECT_FALSE(reader.parse("1ee4", root));           // Invalid scientific notation (double 'e')
-    EXPECT_FALSE(reader.parse("--5", root));            // Double negative
-    EXPECT_FALSE(reader.parse("1.e", root));            // Incomplete scientific notation
-    EXPECT_FALSE(reader.parse("0123", root));           // Octal-like numbers are not standard (leading zero on non-zero number)
-                                                        // JsonCpp's Reader allows this by default.
-                                                        // To make it fail, features would need to be set.
-                                                        // For this test, we focus on universally accepted errors.
-    EXPECT_FALSE(reader.parse("NaN", root));            // NaN is not standard JSON for numbers
-    EXPECT_FALSE(reader.parse("Infinity", root));       // Infinity is not standard JSON
+    EXPECT_THROW(JsonParser::Parse("1.2.3"), JsonParseException);      // Multiple decimal points
+    EXPECT_THROW(JsonParser::Parse("1ee4"), JsonParseException);       // Invalid scientific notation (double 'e')
+    EXPECT_THROW(JsonParser::Parse("--5"), JsonParseException);        // Double negative
+    EXPECT_THROW(JsonParser::Parse("1.e"), JsonParseException);        // Incomplete scientific notation
+    // Standard JSON does not allow leading zeros on non-zero numbers (e.g. 0123 is not valid for number 123)
+    // The custom parser should enforce this if it's strictly following JSON.
+    EXPECT_THROW(JsonParser::Parse("0123"), JsonParseException);
+    // NaN and Infinity are not standard JSON.
+    EXPECT_THROW(JsonParser::Parse("NaN"), JsonParseException);
+    EXPECT_THROW(JsonParser::Parse("Infinity"), JsonParseException);
 }
 
 TEST_F(JsonLibTest, ParseErrorInvalidKeyword) {
-    Json::Value root;
-    Json::Reader reader;
-    EXPECT_FALSE(reader.parse("ture", root));  // Misspelled true
-    EXPECT_FALSE(reader.parse("flase", root)); // Misspelled false
-    EXPECT_FALSE(reader.parse("nul", root));   // Misspelled null
-    EXPECT_FALSE(reader.parse("TRUE", root));  // Keywords are case-sensitive
-    EXPECT_FALSE(reader.parse("False", root));
-    EXPECT_FALSE(reader.parse("Null", root));
+    EXPECT_THROW(JsonParser::Parse("ture"), JsonParseException);  // Misspelled true
+    EXPECT_THROW(JsonParser::Parse("flase"), JsonParseException); // Misspelled false
+    EXPECT_THROW(JsonParser::Parse("nul"), JsonParseException);   // Misspelled null
+    EXPECT_THROW(JsonParser::Parse("TRUE"), JsonParseException);  // Keywords are case-sensitive
+    EXPECT_THROW(JsonParser::Parse("False"), JsonParseException);
+    EXPECT_THROW(JsonParser::Parse("Null"), JsonParseException);
 }
 
 TEST_F(JsonLibTest, ParseErrorMismatchedBrackets) {
-    Json::Value root;
-    Json::Reader reader;
-    EXPECT_FALSE(reader.parse("{\"key\": [1, 2)}", root)); // Mismatched array closing in object
-    EXPECT_FALSE(reader.parse("[{\"key\": \"v\"}]", root)); // Mismatched object closing in array (this is valid)
-    EXPECT_FALSE(reader.parse("{\"a\": 1]", root)); // Mismatched object closing
-    EXPECT_FALSE(reader.parse("[\"a\", 2}", root)); // Mismatched array closing
+    EXPECT_THROW(JsonParser::Parse("{\"key\": [1, 2)}"), JsonParseException); // Mismatched array closing in object
+    // This one is valid: "[{\"key\": \"v\"}]" - an array with one object element.
+    // Let's test actual mismatches:
+    EXPECT_THROW(JsonParser::Parse("{\"a\": 1]"), JsonParseException); // Mismatched object closing
+    EXPECT_THROW(JsonParser::Parse("[\"a\", 2}"), JsonParseException); // Mismatched array closing
 }
 
 TEST_F(JsonLibTest, ParseErrorUnexpectedToken) {
-    Json::Value root;
-    Json::Reader reader;
-    EXPECT_FALSE(reader.parse("{\"key\": \"value\"} unexpected_token", root)); // Extra token after root object
-    EXPECT_FALSE(reader.parse("[1, 2] unexpected_token", root));             // Extra token after root array
-    EXPECT_FALSE(reader.parse("{\"key\": \"value\"} 123", root));
-    EXPECT_FALSE(reader.parse("[1,2] \"abc\"", root));
-    EXPECT_FALSE(reader.parse("true false", root)); // Multiple roots without being in an array/object
+    EXPECT_THROW(JsonParser::Parse("{\"key\": \"value\"} unexpected_token"), JsonParseException); // Extra token after root object
+    EXPECT_THROW(JsonParser::Parse("[1, 2] unexpected_token"), JsonParseException);             // Extra token after root array
+    EXPECT_THROW(JsonParser::Parse("{\"key\": \"value\"} 123"), JsonParseException);
+    EXPECT_THROW(JsonParser::Parse("[1,2] \"abc\""), JsonParseException);
+    EXPECT_THROW(JsonParser::Parse("true false"), JsonParseException); // Multiple roots without being in an array/object
 }
 
 TEST_F(JsonLibTest, ParseErrorEmptyInput) {
-    Json::Value root;
-    Json::Reader reader;
-    EXPECT_FALSE(reader.parse("", root)); // Empty string is not valid JSON
+    EXPECT_THROW(JsonParser::Parse(""), JsonParseException); // Empty string is not valid JSON
 }
 
 TEST_F(JsonLibTest, ParseErrorOnlyWhitespace) {
-    Json::Value root;
-    Json::Reader reader;
-    // JsonCpp's Reader might parse whitespace to a null value or fail.
-    // Standard JSON should fail.
-    // JsonCpp's Reader actually successfully parses whitespace-only strings as a null value if it's all whitespace.
-    // If there's any non-JSON token, it fails.
-    // For the purpose of "error handling", an empty or whitespace-only string is not a *valid document*
-    // by strict interpretation, but Json::Reader might produce a null value.
-    // Let's test for failure if we expect strict parsing of a valid document.
-    // However, reader.parse("   ", root) returns true and root is null.
-    // To test for failure, there should be some non-whitespace invalid token.
-    // The "EmptyInput" test covers the truly empty string case.
-    // A string with only whitespace is successfully parsed to a null value by Json::Reader.
-    // This behavior is specific to JsonCpp's Reader.
-    // Let's confirm this leniency:
-    EXPECT_TRUE(reader.parse("   \t\n   ", root));
-    EXPECT_TRUE(root.isNull());
+    // Whitespace is skipped, but then an empty string results, which is not valid JSON.
+    EXPECT_THROW(JsonParser::Parse("   \t\n   "), JsonParseException);
 }

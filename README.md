@@ -611,11 +611,12 @@ Before making significant modifications, it's recommended to thoroughly understa
 *   **Matrix Library:**
     *   The NeuroNet library has a crucial dependency on the `Matrix` class, which is expected to be located in `src/math/matrix.h`.
     *   This `matrix.h` file provides the `Matrix::Matrix<T>` template class used for all underlying mathematical operations.
-*   **JSON for Modern C++:**
-    *   The library uses `json.hpp` (from `src/utilities/json/`) for model serialization and deserialization. This is a header-only library.
+*   **Custom JSON Library:**
+    *   The library utilizes a custom JSON parsing and manipulation library located in `src/utilities/json/` (specifically `json.hpp` for the interface and `json.cpp` for the implementation). This library is used for model serialization and deserialization.
+    *   It provides functionalities for parsing JSON strings into a `JsonValue` structure and serializing `JsonValue` objects back to strings.
 *   **Setup:**
-    *   **If building NeuroNet library yourself:** `matrix.h` and `json.hpp` are part of this repository. No separate compilation or linking is needed for these as they are header-only. Ensure they are present at their correct paths.
-    *   **If integrating NeuroNet into your project:** You need to ensure that your compiler can also find `src/math/matrix.h` and `src/utilities/json/json.hpp` when it compiles your code that uses NeuroNet headers, as NeuroNet's public headers (like `neuronet.h`) include them. This means the `src` directory from the NeuroNet library should be in your include paths.
+    *   **If building NeuroNet library yourself:** `matrix.h` (header-only) and the custom JSON library (`json.hpp` and `json.cpp`) are part of this repository. The custom JSON implementation (`json.cpp`) is compiled directly into the NeuroNet library.
+    *   **If integrating NeuroNet into your project:** You need to ensure that your compiler can find `src/math/matrix.h` and `src/utilities/json/json.hpp` when it compiles your code that uses NeuroNet headers, as NeuroNet's public headers (like `neuronet.h`) include them. This means the `src` directory from the NeuroNet library (or a relevant install path for headers) should be in your include paths. The JSON library's compiled code will be part of the NeuroNet library you link against.
 
 ## Features
 

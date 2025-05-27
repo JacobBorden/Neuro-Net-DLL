@@ -15,6 +15,11 @@
 #include <vector>   // For std::vector usage
 #include <string>   // For potential string usage in future extensions
 
+// Forward declare the specific GTest generated class
+// This should be in the global namespace or the namespace GTest places it.
+// Assuming global namespace for now based on GTest's typical behavior.
+class NeuroNetTest_Serialization_Test; 
+
 namespace NeuroNet
 {
 	/**
@@ -207,6 +212,9 @@ namespace NeuroNet
 	class NeuroNet
 	{
 	public:
+		// Friend the specific GTest generated class
+		friend class ::NeuroNetTest_Serialization_Test; // Use :: for global scope
+
 		/**
 		 * @brief Default constructor for NeuroNet.
 		 * Initializes an empty network with no layers.

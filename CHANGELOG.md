@@ -25,10 +25,12 @@ All notable changes to this project will be documented in this file.
 - Private helper methods in `NeuroNetLayer` for applying each activation function.
 
 ### Changed
+- Replaced `jsoncpp` library with a custom internal JSON library (`src/utilities/json/`) for handling JSON data. This affects model saving/loading, test suites, and CMake configuration. The custom library (`json.hpp`, `json.cpp`) is now compiled directly into the main `neuronet` library.
 - `NeuroNetLayer::CalculateOutput()` now incorporates the selected activation function.
 - Default constructor `NeuroNetLayer()` initializes with `ActivationFunctionType::None`.
 - Updated Doxygen comments in `neuronet.h` and `neuronet.cpp` for new activation function features.
-- Updated `README.md` with a new section explaining activation functions and providing usage examples.
+- Updated `README.md` with a new section explaining activation functions and providing usage examples, and updated dependency information to reflect the custom JSON library.
+- Updated Doxygen comments in `src/utilities/json/json.hpp` to fully document the custom JSON library's API.
 
 ## [Previous Version - e.g., 0.2.0] - 2025-05-23 (Date of previous changes if known, or adjust as needed)
 
