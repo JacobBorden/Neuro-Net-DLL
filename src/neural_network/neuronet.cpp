@@ -15,8 +15,14 @@
 // #include "pch.h" // Precompiled header (if used, ensure it's appropriate for the project) - REMOVED
 #include <fstream> // For std::ofstream
 #include <vector>  // For std::vector, though often included via neuronet.h indirectly
+#include <iostream>  // For std::cout (used in benchmarking)
+#include "../utilities/timer.h" // For Timer class
 #include "../utilities/json/json.hpp"
 #include "../utilities/json/json_exception.hpp" // Added for JsonParseException
+
+// Define ENABLE_BENCHMARKING to enable timing of neural network operations.
+// This can be defined in project settings or uncommented here for testing.
+// #define ENABLE_BENCHMARKING
 
 // --- NeuroNetLayer Method Implementations ---
 
@@ -126,10 +132,24 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplySoftmax(const Matrix::Matrix
 
 
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::CalculateOutput() {
+#ifdef ENABLE_BENCHMARKING
+    utilities::Timer layer_timer;
+    layer_timer.start();
+#endif
+
 	if (InputMatrix.cols() == 0 || WeightMatrix.rows() == 0 || BiasMatrix.cols() == 0) {
 		// Or throw an exception, or return an empty matrix with error status
 		// For now, returning the current (possibly uninitialized) OutputMatrix.
 		// Consider adding error handling or preconditions.
+#ifdef ENABLE_BENCHMARKING
+        // Even if returning early due to uninitialized state, stop the timer.
+        layer_timer.stop();
+        // Layer index is not directly available here without modification to the function signature
+        // or making NeuroNetLayer aware of its index.
+        // For now, a generic message or one using LayerSize as a proxy identifier.
+        std::cout << "NeuroNetLayer::CalculateOutput() (Layer with output size " << this->vLayerSize 
+                  << ", potentially uninitialized) took: " << layer_timer.elapsed_microseconds() << " us" << std::endl;
+#endif
 	}
 	// Calculate the linear transformation part: (InputMatrix * WeightMatrix) + BiasMatrix
 	this->OutputMatrix = (this->InputMatrix * this->WeightMatrix) + this->BiasMatrix;
@@ -157,6 +177,12 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::CalculateOutput() {
             break;
     }
 
+#ifdef ENABLE_BENCHMARKING
+    layer_timer.stop();
+    // As above, layer index isn't directly available. Using LayerSize as a proxy.
+    std::cout << "NeuroNetLayer::CalculateOutput() (Layer with output size " << this->vLayerSize 
+              << ") took: " << layer_timer.elapsed_microseconds() << " us" << std::endl;
+#endif
 	return this->OutputMatrix;
 }
 
@@ -566,7 +592,17 @@ bool NeuroNet::NeuroNet::SetInput(const Matrix::Matrix<float>& pInputMatrix) {
 }
 
 Matrix::Matrix<float> NeuroNet::NeuroNet::GetOutput() {
+#ifdef ENABLE_BENCHMARKING
+    utilities::Timer total_forward_pass_timer;
+    total_forward_pass_timer.start();
+#endif
+
 	if (this->NeuroNetVector.empty()) {
+#ifdef ENABLE_BENCHMARKING
+        total_forward_pass_timer.stop();
+        std::cout << "NeuroNet::GetOutput() (Total Forward Pass - No Layers) took: " 
+                  << total_forward_pass_timer.elapsed_milliseconds() << " ms" << std::endl;
+#endif
 		return Matrix::Matrix<float>(); // Return an empty matrix if no layers.
 	}
     if (this->LayerCount == 0 && !this->NeuroNetVector.empty()){
@@ -581,6 +617,7 @@ Matrix::Matrix<float> NeuroNet::NeuroNet::GetOutput() {
 
 
 	// Process first layer
+	// Note: NeuroNetLayer::CalculateOutput() will print its own timing if ENABLE_BENCHMARKING is defined.
 	this->NeuroNetVector[0].CalculateOutput();
 
 	// Process subsequent layers
@@ -588,9 +625,17 @@ Matrix::Matrix<float> NeuroNet::NeuroNet::GetOutput() {
     // However, the design relies on LayerCount. If ResizeNeuroNet is used correctly, they should match.
 	for (size_t i = 1; i < this->NeuroNetVector.size(); i++) { // Iterate up to actual number of layers present
 		this->NeuroNetVector[i].SetInput(this->NeuroNetVector[i - 1].ReturnOutputMatrix());
-		this->NeuroNetVector[i].CalculateOutput();
+		this->NeuroNetVector[i].CalculateOutput(); // This will also print its timing.
 	}
-	return this->NeuroNetVector.back().ReturnOutputMatrix(); // Output of the last layer
+    
+    Matrix::Matrix<float> final_output = this->NeuroNetVector.back().ReturnOutputMatrix();
+
+#ifdef ENABLE_BENCHMARKING
+    total_forward_pass_timer.stop();
+    std::cout << "NeuroNet::GetOutput() (Total Forward Pass for " << this->NeuroNetVector.size() << " layers) took: " 
+              << total_forward_pass_timer.elapsed_milliseconds() << " ms" << std::endl;
+#endif
+	return final_output; // Output of the last layer
 }
 
 // --- Helper Method Implementations for NeuroNetLayer ---

@@ -13,6 +13,11 @@
 #include <algorithm> // For std::shuffle, std::transform, std::min_element, std::max_element, std::sort
 #include <limits>    // For std::numeric_limits
 #include <stdexcept> // For std::runtime_error (optional, for error handling)
+#include "../utilities/timer.h" // For Timer class
+
+// Define ENABLE_BENCHMARKING to enable timing of genetic algorithm operations.
+// This can be defined in project settings or uncommented here for testing.
+// #define ENABLE_BENCHMARKING
 
 namespace Optimization {
 
@@ -113,8 +118,16 @@ void Optimization::GeneticAlgorithm::initialize_population() {
  * that update is handled in `evolve_one_generation` after selection and other operations.
  */
 void Optimization::GeneticAlgorithm::evaluate_fitness(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function) {
+#ifdef ENABLE_BENCHMARKING
+    utilities::Timer eval_timer;
+    eval_timer.start();
+#endif
     if (population_.empty()) {
         // Or throw std::runtime_error("Population is empty, cannot evaluate fitness.");
+#ifdef ENABLE_BENCHMARKING
+        eval_timer.stop();
+        std::cout << "GeneticAlgorithm::evaluate_fitness() (Population Empty) took: " << eval_timer.elapsed_milliseconds() << " ms" << std::endl;
+#endif
         return;
     }
     fitness_scores_.resize(population_.size());
@@ -131,6 +144,11 @@ void Optimization::GeneticAlgorithm::evaluate_fitness(const std::function<double
     }
     // Note: The overall best_individual_ and best_fitness_score_ (across all generations)
     // are updated in evolve_one_generation after new individuals might be created.
+#ifdef ENABLE_BENCHMARKING
+    eval_timer.stop();
+    std::cout << "GeneticAlgorithm::evaluate_fitness() (Population Size: " << population_.size() 
+              << ") took: " << eval_timer.elapsed_milliseconds() << " ms" << std::endl;
+#endif
 }
 
 /**
@@ -183,8 +201,16 @@ const NeuroNet::NeuroNet& Optimization::GeneticAlgorithm::tournament_selection(i
  * The `population_` member is updated with the new generation.
  */
 void Optimization::GeneticAlgorithm::selection() {
+#ifdef ENABLE_BENCHMARKING
+    utilities::Timer selection_timer;
+    selection_timer.start();
+#endif
     if (population_.empty() || fitness_scores_.empty() || fitness_scores_.size() != population_.size()) {
         // Or throw std::runtime_error("Population or fitness scores are not ready for selection.");
+#ifdef ENABLE_BENCHMARKING
+        selection_timer.stop();
+        std::cout << "GeneticAlgorithm::selection() (Population/Fitness Scores Empty or Mismatched) took: " << selection_timer.elapsed_milliseconds() << " ms" << std::endl;
+#endif
         return;
     }
 
@@ -235,6 +261,10 @@ void Optimization::GeneticAlgorithm::selection() {
         }
     }
     population_ = new_population; // Replace old population with the new one.
+#ifdef ENABLE_BENCHMARKING
+    selection_timer.stop();
+    std::cout << "GeneticAlgorithm::selection() took: " << selection_timer.elapsed_milliseconds() << " ms" << std::endl;
+#endif
 }
 
 /**
@@ -247,6 +277,10 @@ void Optimization::GeneticAlgorithm::selection() {
  * @return std::vector<NeuroNet> A vector containing two new offspring NeuroNet individuals.
  */
 std::vector<NeuroNet::NeuroNet> Optimization::GeneticAlgorithm::crossover(const NeuroNet::NeuroNet& parent1, const NeuroNet::NeuroNet& parent2) {
+#ifdef ENABLE_BENCHMARKING
+    utilities::Timer crossover_timer;
+    crossover_timer.start();
+#endif
     NeuroNet::NeuroNet offspring1 = template_network_; // Ensure offspring have the correct structure.
     NeuroNet::NeuroNet offspring2 = template_network_;
 
@@ -295,6 +329,10 @@ std::vector<NeuroNet::NeuroNet> Optimization::GeneticAlgorithm::crossover(const 
         offspring2.set_all_biases_flat(p2_biases);
     }
 
+#ifdef ENABLE_BENCHMARKING
+    crossover_timer.stop();
+    std::cout << "GeneticAlgorithm::crossover() took: " << crossover_timer.elapsed_microseconds() << " us" << std::endl;
+#endif
     return {offspring1, offspring2};
 }
 
@@ -306,6 +344,10 @@ std::vector<NeuroNet::NeuroNet> Optimization::GeneticAlgorithm::crossover(const 
  * @param individual The NeuroNet to mutate (modified in place).
  */
 void Optimization::GeneticAlgorithm::mutate(NeuroNet::NeuroNet& individual) {
+#ifdef ENABLE_BENCHMARKING
+    utilities::Timer mutate_timer;
+    mutate_timer.start();
+#endif
     std::uniform_real_distribution<double> prob_dist(0.0, 1.0); // For checking against mutation_rate_
     std::uniform_real_distribution<float> mutation_val_dist(-0.1f, 0.1f); // Magnitude of mutation
 
@@ -330,6 +372,10 @@ void Optimization::GeneticAlgorithm::mutate(NeuroNet::NeuroNet& individual) {
         }
     }
     individual.set_all_biases_flat(biases);
+#ifdef ENABLE_BENCHMARKING
+    mutate_timer.stop();
+    std::cout << "GeneticAlgorithm::mutate() took: " << mutate_timer.elapsed_microseconds() << " us" << std::endl;
+#endif
 }
 
 /**

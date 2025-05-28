@@ -131,6 +131,18 @@ int main() {
 
 This library supports saving and loading NeuroNet models to and from a human-readable JSON format. This allows for model persistence, inspection, and transfer.
 
+## Performance Benchmarking and Optimization
+
+This library includes tools and features for performance analysis and optimization:
+
+*   **Timing Instrumentation:** Instrumentation for core operations such as matrix multiplication, neural network forward pass (full pass and per-layer), and key genetic algorithm steps (selection, crossover, mutation, evaluation) has been added. This allows for detailed performance monitoring.
+*   **Activation:** To enable the timing output from this instrumentation, the project must be compiled with the `ENABLE_BENCHMARKING` macro defined. You can define this in your build system or by adding `#define ENABLE_BENCHMARKING` at the top of specific `.cpp` files before including library headers.
+*   **Benchmark Scenarios:** The file `tests/test_benchmarks.cpp` provides example usage of the instrumented features and serves as a suite for running these benchmarks. It demonstrates how to set up and execute tests for matrix operations, neural network forward passes of varying sizes, and genetic algorithm operations.
+*   **OpenMP Optimization:** Matrix multiplication (`Matrix<T>::operator*`) has been parallelized using OpenMP to leverage multi-core processors for improved performance, especially with large matrices.
+*   **Compiling with OpenMP:** To benefit from this parallelization, the project must be compiled with OpenMP support enabled. This typically involves setting a compiler flag (e.g., `/openmp` for MSVC, `-fopenmp` for GCC/Clang).
+
+Refer to `tests/test_benchmarks.cpp` for an example of how to run these benchmarks.
+
 ### JSON Format
 
 The NeuroNet model is serialized into a JSON object with the following structure:
@@ -625,6 +637,7 @@ Before making significant modifications, it's recommended to thoroughly understa
 *   Model serialization to and from JSON format (`save_model`, `load_model`).
 *   Genetic Algorithm (`GeneticAlgorithm`) for evolving network weights and biases.
 *   Matrix library (`Matrix`) for numerical computations.
+*   OpenMP-based parallelization for matrix multiplication.
 *   Built with CMake.
 *   Unit tests using Google Test.
 
@@ -658,6 +671,7 @@ Before making significant modifications, it's recommended to thoroughly understa
     # Or, on Windows with MSVC
     # cmake --build .
     ```
+    **Note on OpenMP:** To enable OpenMP for parallelized matrix multiplication, ensure your compiler supports OpenMP and set the appropriate compiler flags (e.g., `/openmp` for MSVC, `-fopenmp` for GCC/Clang). This might be done by modifying the `CMAKE_CXX_FLAGS` in CMake or setting environment variables before configuring.
 
 This will build the `neuronet` static library and the test executables.
 
