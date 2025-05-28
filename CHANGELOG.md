@@ -23,6 +23,13 @@ All notable changes to this project will be documented in this file.
 - `ActivationFunctionType` enum to specify activation types.
 - `NeuroNetLayer::SetActivationFunction()` method.
 - Private helper methods in `NeuroNetLayer` for applying each activation function.
+- Performance benchmarking capabilities:
+    - Timer utility (`src/utilities/timer.h`) for measuring execution time.
+    - Instrumentation for core operations: matrix multiplication, neural network forward pass, and genetic algorithm steps (crossover, mutation, selection, evaluation).
+    - Benchmark scenarios (`tests/test_benchmarks.cpp`) to exercise instrumented operations.
+    - `ENABLE_BENCHMARKING` macro to control timing code compilation.
+- Optimization:
+    - Parallelized matrix multiplication (`Matrix<T>::operator*`) using OpenMP for improved performance on multi-core systems.
 
 ### Changed
 - Replaced `jsoncpp` library with a custom internal JSON library (`src/utilities/json/`) for handling JSON data. This affects model saving/loading, test suites, and CMake configuration. The custom library (`json.hpp`, `json.cpp`) is now compiled directly into the main `neuronet` library.

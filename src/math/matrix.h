@@ -21,6 +21,13 @@
 #include <cmath>     // For std::exp (in SigmoidMatrix), std::abs
 #include <random>    // For std::mt19937, std::uniform_real_distribution (in Randomize)
 #include <chrono>    // For std::chrono::system_clock (seeding Randomize)
+#include <iostream>  // For std::cout (used in benchmarking)
+#include <omp.h>     // For OpenMP
+#include "../utilities/timer.h" // For Timer class
+
+// Define ENABLE_BENCHMARKING to enable timing of matrix multiplication.
+// This can be defined in project settings or uncommented here for testing.
+// #define ENABLE_BENCHMARKING
 
 /**
  * @namespace Matrix
@@ -1023,22 +1030,44 @@ namespace Matrix
 	/** @brief Matrix multiplication. Number of columns in the first matrix must equal number of rows in the second. */
 	Matrix<T> operator*(const Matrix<T> &b) const
 	{
+#ifdef ENABLE_BENCHMARKING
+        utilities::Timer timer;
+        timer.start();
+#endif
+
 		if (m_Cols != b.m_Rows)
 			throw std::invalid_argument("Matrix dimensions are incompatible for multiplication (A.cols != B.rows).");
         if (m_Rows == 0 || m_Cols == 0 || b.m_Cols == 0) { // Handle multiplication by empty matrix
+#ifdef ENABLE_BENCHMARKING
+            timer.stop();
+            // It's debatable whether to print for empty matrices, but for completeness:
+            std::cout << "Matrix multiplication (empty or zero dim) took: " << timer.elapsed_microseconds() << " us" << std::endl;
+#endif
             return Matrix<T>(m_Rows, b.m_Cols); // Result is an empty matrix with appropriate dimensions
         }
 		
 		Matrix<T> c(m_Rows, b.m_Cols); // Result matrix initialized to zeros by MatrixRow constructor
+        // Parallelize the outermost loop using OpenMP.
+        // Requires compiler support for OpenMP (e.g., -fopenmp for GCC/Clang, /openmp for MSVC).
+        // Loop variables i, j, k and sum are private by default in this structure or effectively private.
+        // `i` is the loop control variable for the parallel for.
+        // `k`, `j`, and `sum` are declared inside the scope of the `i` loop,
+        // making them private to each iteration of the outer loop, and thus to each thread handling an `i`.
+		#pragma omp parallel for
 		for (size_t i = 0; i < m_Rows; i++) {
 			for (size_t k = 0; k < b.m_Cols; k++) { // Iterate over columns of b (which is cols of c)
                 T sum = T(0); // Initialize sum for c[i][k]
 				for (size_t j = 0; j < m_Cols; j++) { // Iterate over columns of a / rows of b
 					sum += m_Data[i][j] * b.m_Data[j][k];
 				}
-                c.m_Data[i][k] = sum;
+                c.m_Data[i][k] = sum; // Each thread writes to a different c.m_Data[i] row part
             }
         }
+
+#ifdef ENABLE_BENCHMARKING
+        timer.stop();
+        std::cout << "Matrix multiplication (" << m_Rows << "x" << m_Cols << " * " << b.m_Rows << "x" << b.m_Cols << ") took: " << timer.elapsed_microseconds() << " us" << std::endl;
+#endif
 		return c;
 	}
 
