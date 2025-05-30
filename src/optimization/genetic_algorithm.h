@@ -17,7 +17,7 @@
 #include <random>     // For std::mt19937, std::uniform_real_distribution, etc.
 #include <limits>     // For std::numeric_limits
 #include "../neural_network/neuronet.h" // NeuroNet class header
-#include "src/optimization/training_metrics.h" // For training metrics
+#include "optimization/training_metrics.h" // For training metrics
 
 namespace Optimization {
 
