@@ -14,7 +14,7 @@
 #include "../math/matrix.h" // For Matrix class usage
 #include <vector>   // For std::vector usage
 #include <string>   // For potential string usage in future extensions
-#include "src/utilities/json/json.hpp" // For nlohmann::json
+#include "utilities/json/json.hpp" // For nlohmann::json
 
 // Forward declare the specific GTest generated class
 // This should be in the global namespace or the namespace GTest places it.
