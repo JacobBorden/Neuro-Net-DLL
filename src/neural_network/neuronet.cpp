@@ -237,6 +237,32 @@ int NeuroNet::NeuroNet::getLayerCount() const {
     return this->LayerCount;
 }
 
+// Helper to create and set a number JsonValue in an object
+// Ensures dynamic allocation for JsonValue members in objects, as per custom library's object_value map.
+static void SetJsonNumber(JsonValue& parent_object, const std::string& key, double number_value) {
+    JsonValue* val = new JsonValue(); // Dynamically allocate
+    val->SetNumber(number_value);
+    parent_object.InsertIntoObject(key, val); // InsertIntoObject stores the pointer
+}
+
+// Helper to create and set an object JsonValue in an object
+// Returns a pointer to the created object for further modification
+static JsonValue* CreateJsonObjectInObject(JsonValue& parent_object, const std::string& key) {
+    JsonValue* obj_val = new JsonValue(); // Dynamically allocate
+    obj_val->SetObject();
+    parent_object.InsertIntoObject(key, obj_val);
+    return obj_val;
+}
+
+// Helper to create and set an array JsonValue in an object
+// Returns a pointer to the created array for further modification
+static JsonValue* CreateJsonArrayInObject(JsonValue& parent_object, const std::string& key) {
+    JsonValue* arr_val = new JsonValue(); // Dynamically allocate
+    arr_val->SetArray();
+    parent_object.InsertIntoObject(key, arr_val);
+    return arr_val; 
+}
+
 std::string NeuroNet::NeuroNet::to_custom_json_string() const {
     JsonValue root; 
     root.SetObject();
@@ -427,31 +453,8 @@ NeuroNet::NeuroNet NeuroNet::NeuroNet::load_model(const std::string& filename)
 	return model;
 }
 
-// Helper to create and set a number JsonValue in an object
-// Ensures dynamic allocation for JsonValue members in objects, as per custom library's object_value map.
-static void SetJsonNumber(JsonValue& parent_object, const std::string& key, double number_value) {
-    JsonValue* val = new JsonValue(); // Dynamically allocate
-    val->SetNumber(number_value);
-    parent_object.InsertIntoObject(key, val); // InsertIntoObject stores the pointer
-}
-
-// Helper to create and set an object JsonValue in an object
-// Returns a pointer to the created object for further modification
-static JsonValue* CreateJsonObjectInObject(JsonValue& parent_object, const std::string& key) {
-    JsonValue* obj_val = new JsonValue(); // Dynamically allocate
-    obj_val->SetObject();
-    parent_object.InsertIntoObject(key, obj_val);
-    return obj_val;
-}
-
-// Helper to create and set an array JsonValue in an object
-// Returns a pointer to the created array for further modification
-static JsonValue* CreateJsonArrayInObject(JsonValue& parent_object, const std::string& key) {
-    JsonValue* arr_val = new JsonValue(); // Dynamically allocate
-    arr_val->SetArray();
-    parent_object.InsertIntoObject(key, arr_val);
-    return arr_val; 
-}
+// Static helper functions (SetJsonNumber, CreateJsonObjectInObject, CreateJsonArrayInObject)
+// were moved before to_custom_json_string() and save_model()
 
 
 bool NeuroNet::NeuroNet::save_model(const std::string& filename) const
@@ -598,45 +601,6 @@ bool NeuroNet::NeuroNetLayer::SetWeights(LayerWeights pWeights) {
 
 // --- NeuroNet Method Implementations ---
 // (This is a comment, ensure the new method is outside other function bodies)
-
-nlohmann::json NeuroNet::NeuroNet::to_nlohmann_json() const {
-    nlohmann::json root_json;
-    root_json["input_size"] = this->InputSize;
-    root_json["layer_count"] = this->LayerCount;
-
-    nlohmann::json layers_array_json = nlohmann::json::array();
-    for (int i = 0; i < this->LayerCount; ++i) {
-        // Use the const version of getLayer
-        const NeuroNetLayer& layer = this->getLayer(i); 
-        nlohmann::json layer_json;
-
-        int current_layer_input_size = (i == 0) ? this->InputSize : this->getLayer(i - 1).LayerSize();
-        layer_json["input_size"] = current_layer_input_size;
-        layer_json["layer_size"] = layer.LayerSize();
-        layer_json["activation_function"] = layer.get_activation_function_name(); // Using the new method
-
-        // Weights
-        nlohmann::json weights_json;
-        const auto& weights_data = layer.get_weights(); // This is const
-        weights_json["rows"] = current_layer_input_size; 
-        weights_json["cols"] = layer.LayerSize();
-        weights_json["data"] = weights_data.WeightsVector; 
-        layer_json["weights"] = weights_json;
-
-        // Biases
-        nlohmann::json biases_json;
-        const auto& biases_data = layer.get_biases(); // This is const
-        biases_json["rows"] = 1; 
-        biases_json["cols"] = layer.LayerSize();
-        biases_json["data"] = biases_data.BiasVector; 
-        layer_json["biases"] = biases_json;
-
-        layers_array_json.push_back(layer_json);
-    }
-    root_json["layers"] = layers_array_json;
-
-    return root_json;
-}
 
 /**
  * @brief Sets the layer's biases from a LayerBiases struct.

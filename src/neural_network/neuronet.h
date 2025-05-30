@@ -381,10 +381,6 @@ namespace NeuroNet
 		/**
 		 * @brief Serializes the neural network to a nlohmann::json object.
 		 * Does not write to a file, only returns the JSON object.
-		 * @return nlohmann::json A JSON object representing the network.
-		 */
-		nlohmann::json to_nlohmann_json() const;
-
 		/**
 		 * @brief Serializes the neural network to a JSON string using the custom JsonValue library.
 		 * This method is responsible for its own memory management of temporary JsonValue objects.
