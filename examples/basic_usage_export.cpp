@@ -5,9 +5,9 @@
 #include <fstream> // Required for std::ofstream
 #include <iomanip> // Required for std::put_time (though not directly used here, good for completeness)
 
-#include "src/neural_network/neuronet.h"
-#include "src/optimization/genetic_algorithm.h"
-#include "src/math/matrix.h"
+#include "neural_network/neuronet.h"
+#include "optimization/genetic_algorithm.h"
+#include "math/matrix.h"
 // #include "src/utilities/json/json.hpp" // For nlohmann::json - no longer directly used for model export here, but training_metrics.json uses it.
                                        // NeuroNet.h includes it for its own to_nlohmann_json, which is not used here.
                                        // TrainingRunMetrics uses nlohmann::json so it will be pulled by genetic_algorithm.h
