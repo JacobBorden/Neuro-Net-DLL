@@ -20,7 +20,7 @@
 #include <numeric>   // For std::accumulate
 
 #include "../utilities/timer.h" // For Timer class
-#include "src/utilities/json/json.hpp" // For nlohmann::json
+#include "utilities/json/json.hpp" // Provides custom JSON utilities, nlohmann::json is included via training_metrics.h
 
 // Define ENABLE_BENCHMARKING to enable timing of genetic algorithm operations.
 // This can be defined in project settings or uncommented here for testing.
