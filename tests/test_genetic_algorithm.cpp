@@ -231,7 +231,7 @@ TEST_F(GeneticAlgorithmTest, GetBestIndividual) {
     ga.evaluate_fitness(simple_fitness_function);
     // The best_individual_ is updated in evolve_one_generation.
     // So, call evolve_one_generation to ensure best_individual_ is set.
-    ga.evolve_one_generation(simple_fitness_function); 
+    ga.evolve_one_generation(simple_fitness_function, 1); // Using 1 as a dummy generation number for the test
     
     NeuroNet::NeuroNet reported_best = ga.get_best_individual();
     double reported_best_fitness = simple_fitness_function(reported_best);
