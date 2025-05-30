@@ -15,6 +15,8 @@
 #include <fstream>      // For std::ofstream
 #include <cstdio>       // For std::remove
 #include <stdexcept>    // For std::runtime_error
+#include "../src/utilities/json/json.hpp" // For custom JsonValue, JsonParser
+#include "../src/utilities/json/json_exception.hpp" // For JsonParseException
 
 // Test fixture for NeuroNet tests
 class NeuroNetTest : public ::testing::Test {
@@ -540,17 +542,62 @@ TEST_F(NeuroNetTest, ToCustomJsonString) {
     std::string json_str = model.to_custom_json_string();
 
     ASSERT_FALSE(json_str.empty());
-    EXPECT_EQ(json_str.front(), '{');
-    EXPECT_EQ(json_str.back(), '}');
+    EXPECT_EQ(json_str.front(), '{'); // Basic check
+    EXPECT_EQ(json_str.back(), '}');  // Basic check
 
-    EXPECT_NE(json_str.find("\"input_size\":2.0"), std::string::npos);
-    EXPECT_NE(json_str.find("\"layer_count\":2.0"), std::string::npos);
-    EXPECT_NE(json_str.find("\"layers\":["), std::string::npos);
-    EXPECT_NE(json_str.find("\"activation_function\":\"ReLU\""), std::string::npos);
-    EXPECT_NE(json_str.find("\"activation_function\":\"Softmax\""), std::string::npos);
-    EXPECT_NE(json_str.find("\"weights\":{"), std::string::npos);
-    EXPECT_NE(json_str.find("\"biases\":{"), std::string::npos);
-    EXPECT_NE(json_str.find("\"data\":["), std::string::npos);
+    JsonValue parsed_json;
+    ASSERT_NO_THROW({
+        parsed_json = JsonParser::Parse(json_str);
+    }) << "Failed to parse JSON string: " << json_str;
+    
+    ASSERT_EQ(parsed_json.type, JsonValueType::Object);
+    const auto& root_obj = parsed_json.GetObject();
+
+    ASSERT_TRUE(root_obj.count("input_size"));
+    EXPECT_EQ(root_obj.at("input_size")->type, JsonValueType::Number);
+    EXPECT_DOUBLE_EQ(root_obj.at("input_size")->GetNumber(), 2.0);
+
+    ASSERT_TRUE(root_obj.count("layer_count"));
+    EXPECT_EQ(root_obj.at("layer_count")->type, JsonValueType::Number);
+    EXPECT_DOUBLE_EQ(root_obj.at("layer_count")->GetNumber(), 2.0);
+
+    ASSERT_TRUE(root_obj.count("layers"));
+    ASSERT_EQ(root_obj.at("layers")->type, JsonValueType::Array);
+    const auto& layers_array = root_obj.at("layers")->GetArray();
+    ASSERT_EQ(layers_array.size(), 2);
+
+    // Validate Layer 0
+    ASSERT_FALSE(layers_array.empty());
+    ASSERT_EQ(layers_array[0].type, JsonValueType::Object);
+    const auto& layer0_obj_map = layers_array[0].GetObject(); // Correctly get the map
+    ASSERT_TRUE(layer0_obj_map.count("activation_function"));
+    EXPECT_EQ(layer0_obj_map.at("activation_function")->type, JsonValueType::String);
+    EXPECT_EQ(layer0_obj_map.at("activation_function")->GetString(), "ReLU");
+    ASSERT_TRUE(layer0_obj_map.count("input_size"));
+    EXPECT_DOUBLE_EQ(layer0_obj_map.at("input_size")->GetNumber(), 2.0);
+    ASSERT_TRUE(layer0_obj_map.count("layer_size"));
+    EXPECT_DOUBLE_EQ(layer0_obj_map.at("layer_size")->GetNumber(), 3.0);
+    ASSERT_TRUE(layer0_obj_map.count("weights"));
+    EXPECT_EQ(layer0_obj_map.at("weights")->type, JsonValueType::Object);
+    ASSERT_TRUE(layer0_obj_map.count("biases"));
+    EXPECT_EQ(layer0_obj_map.at("biases")->type, JsonValueType::Object);
+
+
+    // Validate Layer 1
+    ASSERT_EQ(layers_array.size(), 2); // Ensure second layer exists
+    ASSERT_EQ(layers_array[1].type, JsonValueType::Object);
+    const auto& layer1_obj_map = layers_array[1].GetObject(); // Correctly get the map
+    ASSERT_TRUE(layer1_obj_map.count("activation_function"));
+    EXPECT_EQ(layer1_obj_map.at("activation_function")->type, JsonValueType::String);
+    EXPECT_EQ(layer1_obj_map.at("activation_function")->GetString(), "Softmax");
+    ASSERT_TRUE(layer1_obj_map.count("input_size"));
+    EXPECT_DOUBLE_EQ(layer1_obj_map.at("input_size")->GetNumber(), 3.0); // Input to layer 1 is output of layer 0
+    ASSERT_TRUE(layer1_obj_map.count("layer_size"));
+    EXPECT_DOUBLE_EQ(layer1_obj_map.at("layer_size")->GetNumber(), 1.0);
+    ASSERT_TRUE(layer1_obj_map.count("weights"));
+    EXPECT_EQ(layer1_obj_map.at("weights")->type, JsonValueType::Object);
+    ASSERT_TRUE(layer1_obj_map.count("biases"));
+    EXPECT_EQ(layer1_obj_map.at("biases")->type, JsonValueType::Object);
 }
 
 TEST_F(NeuroNetTest, SaveLoadStringActivations) {
