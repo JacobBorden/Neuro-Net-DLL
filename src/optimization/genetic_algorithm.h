@@ -17,6 +17,7 @@
 #include <random>     // For std::mt19937, std::uniform_real_distribution, etc.
 #include <limits>     // For std::numeric_limits
 #include "../neural_network/neuronet.h" // NeuroNet class header
+#include "src/optimization/training_metrics.h" // For training metrics
 
 namespace Optimization {
 
@@ -109,6 +110,12 @@ public:
      */
     NeuroNet::NeuroNet get_best_individual() const;
 
+    /**
+     * @brief Exports the collected training metrics to a JSON file.
+     * @param filename The path to the file where metrics should be saved.
+     */
+    void export_training_metrics_json(const std::string& filename) const;
+
 private:
     int population_size_;       ///< Number of individuals in the population.
     double mutation_rate_;      ///< Probability of mutation for each gene.
@@ -120,6 +127,9 @@ private:
     std::vector<double> fitness_scores_;   ///< Fitness scores corresponding to the population_.
     NeuroNet::NeuroNet best_individual_;             ///< The best individual found so far across all generations.
     double best_fitness_score_;            ///< The fitness score of the best_individual_.
+    int current_generation_;               ///< Current generation number, used for metrics.
+
+    TrainingRunMetrics current_run_metrics_; ///< Metrics collected during the current training run.
 
     mutable std::mt19937 random_engine_; ///< Mersenne Twister random number engine for GA operations.
 

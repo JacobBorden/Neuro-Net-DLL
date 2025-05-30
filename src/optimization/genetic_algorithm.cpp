@@ -13,7 +13,14 @@
 #include <algorithm> // For std::shuffle, std::transform, std::min_element, std::max_element, std::sort
 #include <limits>    // For std::numeric_limits
 #include <stdexcept> // For std::runtime_error (optional, for error handling)
+#include <fstream>   // For std::ofstream (file output)
+#include <chrono>    // For std::chrono::system_clock
+#include <iomanip>   // For std::put_time
+#include <sstream>   // For std::ostringstream
+#include <numeric>   // For std::accumulate
+
 #include "../utilities/timer.h" // For Timer class
+#include "src/utilities/json/json.hpp" // For nlohmann::json
 
 // Define ENABLE_BENCHMARKING to enable timing of genetic algorithm operations.
 // This can be defined in project settings or uncommented here for testing.
@@ -40,8 +47,11 @@ Optimization::GeneticAlgorithm::GeneticAlgorithm(
       num_generations_(num_generations),
       template_network_(template_network), // Make a copy of the template network
       best_individual_(template_network), // Initialize best_individual_ with template structure
-      best_fitness_score_(std::numeric_limits<double>::lowest()) { // Initialize best score to a very low value
+      best_fitness_score_(std::numeric_limits<double>::lowest()),
+      current_generation_(0) { // Initialize best score to a very low value
     
+    current_run_metrics_ = {}; // Initialize training metrics
+
     // Seed the random number generator for reproducibility during a run,
     // but different seeds across different program executions.
     std::random_device rd;
@@ -104,8 +114,12 @@ void Optimization::GeneticAlgorithm::initialize_population() {
     // Fitness scores will be calculated when evaluate_fitness is called.
     // Reset overall best fitness score for a new evolution run.
     best_fitness_score_ = std::numeric_limits<double>::lowest();
+    current_generation_ = 0; // Reset generation counter
     // best_individual_ can be left as is, or reset to a default NeuroNet,
     // as it will be updated when a better individual is found.
+    // Clear previous run data
+    current_run_metrics_ = {}; 
+    current_run_metrics_.generation_data.reserve(num_generations_);
 }
 
 /**
@@ -386,51 +400,63 @@ void Optimization::GeneticAlgorithm::mutate(NeuroNet::NeuroNet& individual) {
  * 2. Updating the record of the best individual found so far if a better one emerges in this generation.
  * 3. Performing selection (which internally handles crossover and mutation for the new population).
  * @param fitness_function The function used to evaluate the fitness of each individual.
+ * @param current_generation_number The current generation number for metrics.
  */
-void Optimization::GeneticAlgorithm::evolve_one_generation(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function) {
+void Optimization::GeneticAlgorithm::evolve_one_generation(
+    const std::function<double(NeuroNet::NeuroNet&)>& fitness_function,
+    int current_generation_number) {
     if (population_.empty()) {
-        // This might happen if initialize_population was not called before the first evolution step.
-        // Or if population_size_ is 0.
         initialize_population(); 
-        if(population_.empty() && population_size_ > 0) { // If still empty after trying to init
+        if(population_.empty() && population_size_ > 0) {
              throw std::runtime_error("Population is empty even after initialization attempt in evolve_one_generation.");
-        } else if (population_size_ == 0) { // If population_size_ is 0
-            return; // Nothing to evolve
+        } else if (population_size_ == 0) {
+            return; 
         }
     }
     
-    evaluate_fitness(fitness_function); // Fitness scores are now up-to-date for the current population.
+    evaluate_fitness(fitness_function); 
 
-    // Identify the best individual in the current generation and update overall best if it's better.
-    // This ensures best_individual_ always reflects the absolute best found up to this point.
-    auto it_current_gen_best = std::max_element(fitness_scores_.begin(), fitness_scores_.end());
-    if (it_current_gen_best != fitness_scores_.end()) {
-        double current_gen_best_fitness = *it_current_gen_best;
-        if (current_gen_best_fitness > best_fitness_score_) {
-            best_fitness_score_ = current_gen_best_fitness;
-            int best_idx = std::distance(fitness_scores_.begin(), it_current_gen_best);
+    double generation_best_fitness = std::numeric_limits<double>::lowest();
+    if (!fitness_scores_.empty()) {
+        generation_best_fitness = *std::max_element(fitness_scores_.begin(), fitness_scores_.end());
+    }
+
+    auto it_current_gen_overall_best = std::max_element(fitness_scores_.begin(), fitness_scores_.end());
+    if (it_current_gen_overall_best != fitness_scores_.end()) {
+        double current_fitness = *it_current_gen_overall_best;
+        if (current_fitness > best_fitness_score_) {
+            best_fitness_score_ = current_fitness;
+            int best_idx = std::distance(fitness_scores_.begin(), it_current_gen_overall_best);
             if (best_idx >= 0 && static_cast<size_t>(best_idx) < population_.size()){
-                 best_individual_ = population_[best_idx]; // Store a copy of the new best
+                 best_individual_ = population_[best_idx]; 
             }
         }
-    } else if (best_individual_.get_all_weights_flat().empty() && !population_.empty()) {
-        // Handle case for the very first generation where best_fitness_score_ is lowest_double
-        // and no overall best is yet set.
-        // This logic is mostly covered by the above, but as a safeguard for first run:
-        if (!fitness_scores_.empty()){ //Ensure fitness_scores_ is not empty before accessing
-            best_fitness_score_ = fitness_scores_[0]; // Initialize with first individual
-            best_individual_ = population_[0];
-            for(size_t i = 1; i < population_.size(); ++i) {
-                if(fitness_scores_[i] > best_fitness_score_){
-                    best_fitness_score_ = fitness_scores_[i];
-                    best_individual_ = population_[i];
-                }
+    } else if (best_individual_.get_all_weights_flat().empty() && !population_.empty() && !fitness_scores_.empty()) {
+        best_fitness_score_ = fitness_scores_[0]; 
+        best_individual_ = population_[0];
+        for(size_t i = 1; i < population_.size(); ++i) {
+            if(fitness_scores_[i] > best_fitness_score_){
+                best_fitness_score_ = fitness_scores_[i];
+                best_individual_ = population_[i];
             }
         }
     }
     
-    selection(); // Create the next generation (population_ is updated internally).
-                 // selection() method as implemented also calls crossover and mutate.
+    // Log generation metrics
+    GenerationMetrics gen_metrics;
+    gen_metrics.generation_number = current_generation_number;
+    if (!fitness_scores_.empty()) {
+        gen_metrics.average_fitness = std::accumulate(fitness_scores_.begin(), fitness_scores_.end(), 0.0) / fitness_scores_.size();
+        gen_metrics.best_fitness = generation_best_fitness; // Best fitness of this generation
+    } else {
+        gen_metrics.average_fitness = std::numeric_limits<double>::quiet_NaN();
+        gen_metrics.best_fitness = std::numeric_limits<double>::quiet_NaN();
+    }
+    gen_metrics.loss = std::numeric_limits<double>::quiet_NaN(); // Not used in this context
+    gen_metrics.accuracy = std::numeric_limits<double>::quiet_NaN(); // Not used in this context
+    current_run_metrics_.generation_data.push_back(gen_metrics);
+    
+    selection(); 
 }
 
 /**
@@ -440,13 +466,59 @@ void Optimization::GeneticAlgorithm::evolve_one_generation(const std::function<d
  * @param fitness_function The function to evaluate individual fitness.
  */
 void Optimization::GeneticAlgorithm::run_evolution(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function) {
-    initialize_population(); // Prepare the initial random population.
+    initialize_population(); // Prepare the initial random population and resets metrics.
+    current_generation_ = 0; // Ensure generation count starts from 0 for the loop.
+
+    // Record start time
+    auto now = std::chrono::system_clock::now();
+    auto in_time_t = std::chrono::system_clock::to_time_t(now);
+    std::tm buf;
+#ifdef _WIN32
+    localtime_s(&buf, &in_time_t);
+#else
+    localtime_r(&in_time_t, &buf);
+#endif
+    std::ostringstream ss_start;
+    ss_start << std::put_time(&buf, "%Y-%m-%dT%H:%M:%S%z");
+    current_run_metrics_.start_time = ss_start.str();
+
+    current_run_metrics_.total_generations = num_generations_;
+    current_run_metrics_.generation_data.clear(); // Clear any data from previous runs
+    current_run_metrics_.generation_data.reserve(num_generations_);
+
 
     for (int i = 0; i < num_generations_; ++i) {
-        evolve_one_generation(fitness_function);
+        current_generation_ = i + 1; // Generation numbers are typically 1-indexed for reporting
+        evolve_one_generation(fitness_function, current_generation_);
         // Optional: Add logging here to track progress, e.g., best fitness per generation.
-        // std::cout << "Generation " << (i + 1) << "/" << num_generations_
+        // std::cout << "Generation " << current_generation_ << "/" << num_generations_
         //           << " - Best Fitness: " << best_fitness_score_ << std::endl;
+    }
+
+    // Record end time
+    now = std::chrono::system_clock::now();
+    in_time_t = std::chrono::system_clock::to_time_t(now);
+#ifdef _WIN32
+    localtime_s(&buf, &in_time_t);
+#else
+    localtime_r(&in_time_t, &buf);
+#endif
+    std::ostringstream ss_end;
+    ss_end << std::put_time(&buf, "%Y-%m-%dT%H:%M:%S%z");
+    current_run_metrics_.end_time = ss_end.str();
+
+    // Store best model architecture
+    if (this->best_individual_.getLayerCount() > 0) { // Check if best_individual is valid using getLayerCount()
+        std::string model_str = this->best_individual_.to_custom_json_string();
+        this->current_run_metrics_.best_model_architecture_params = {
+            {"model_custom_json_string", model_str},
+            {"overall_best_fitness", this->best_fitness_score_}
+        };
+    } else {
+        this->current_run_metrics_.best_model_architecture_params = nlohmann::json{
+            {"error", "Best individual was not properly configured or found."},
+            {"overall_best_fitness", this->best_fitness_score_} // Still log fitness
+        };
     }
 }
 
@@ -471,11 +543,46 @@ NeuroNet::NeuroNet Optimization::GeneticAlgorithm::get_best_individual() const {
         if (it_best != fitness_scores_.end()) {
             int best_idx = std::distance(fitness_scores_.begin(), it_best);
             if (best_idx >= 0 && static_cast<size_t>(best_idx) < population_.size()){
-                return population_[best_idx]; // Return best of current population
+                // This should return a copy, not a reference to an internal object if population can change.
+                // However, get_best_individual() is const, so population_ shouldn't change here.
+                // best_individual_ (member) is already a copy.
+                return population_[best_idx]; 
             }
         }
     }
     return best_individual_; // Return the best found across generations
+}
+
+
+/**
+ * @brief Exports the collected training metrics to a JSON file.
+ * @param filename The path to the file where metrics should be saved.
+ */
+void Optimization::GeneticAlgorithm::export_training_metrics_json(const std::string& filename) const {
+    std::ofstream file(filename);
+    if (!file.is_open()) {
+        std::cerr << "Error: Could not open file for writing metrics: " << filename << std::endl;
+        // Consider throwing an exception or returning a status code
+        return;
+    }
+
+    try {
+        nlohmann::json metrics_json = current_run_metrics_.to_json();
+        file << metrics_json.dump(4); // Pretty print with an indent of 4 spaces
+        // std::cout << "Training metrics successfully exported to " << filename << std::endl;
+    } catch (const nlohmann::json::exception& e) {
+        std::cerr << "Error: JSON serialization failed: " << e.what() << std::endl;
+        // Handle error, e.g., close file, maybe throw
+        file.close(); // Ensure file is closed on error
+        // throw; // Re-throw if you want the caller to handle it
+    } catch (const std::exception& e) {
+        std::cerr << "Error: An unexpected error occurred during JSON export: " << e.what() << std::endl;
+        file.close();
+        // throw;
+    }
+    if (file.is_open()) { // Check again in case of no exceptions but other file issues
+        file.close();
+    }
 }
 
 } // namespace Optimization

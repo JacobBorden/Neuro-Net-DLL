@@ -499,8 +499,8 @@ TEST_F(NeuroNetTest, Serialization) {
             {
                 "input_size": 10,
                 "layer_size": 5,
-                "activation_function": 1,
-                "biases": {"rows":1, "cols":5, "data": [0.1,0.1,0.1,0.1,0.1]}
+                "activation_function": "ReLU", // Now string
+                "biases": {"rows":1.0, "cols":5.0, "data": [0.1,0.1,0.1,0.1,0.1]}
             }
         ]
     })";
@@ -510,5 +510,84 @@ TEST_F(NeuroNetTest, Serialization) {
 
 
     // 6. Cleanup
+    std::remove(test_filename.c_str());
+}
+
+TEST_F(NeuroNetTest, ToCustomJsonString) {
+    NeuroNet::NeuroNet model;
+    model.SetInputSize(2);
+    model.ResizeNeuroNet(2);
+    model.ResizeLayer(0, 3); // Layer 0: 2 in, 3 out
+    model.getLayer(0).SetActivationFunction(NeuroNet::ActivationFunctionType::ReLU);
+    model.ResizeLayer(1, 1); // Layer 1: 3 in, 1 out
+    model.getLayer(1).SetActivationFunction(NeuroNet::ActivationFunctionType::Softmax);
+
+    // Add some dummy weights/biases for completeness
+    std::vector<float> l0_weights(2 * 3, 0.1f);
+    std::vector<float> l0_biases(3, 0.01f);
+    NeuroNet::LayerWeights lw0; lw0.WeightCount = 2*3; lw0.WeightsVector = l0_weights;
+    NeuroNet::LayerBiases lb0; lb0.BiasCount = 3; lb0.BiasVector = l0_biases;
+    model.getLayer(0).SetWeights(lw0);
+    model.getLayer(0).SetBiases(lb0);
+
+    std::vector<float> l1_weights(3 * 1, 0.2f);
+    std::vector<float> l1_biases(1, 0.02f);
+    NeuroNet::LayerWeights lw1; lw1.WeightCount = 3*1; lw1.WeightsVector = l1_weights;
+    NeuroNet::LayerBiases lb1; lb1.BiasCount = 1; lb1.BiasVector = l1_biases;
+    model.getLayer(1).SetWeights(lw1);
+    model.getLayer(1).SetBiases(lb1);
+
+    std::string json_str = model.to_custom_json_string();
+
+    ASSERT_FALSE(json_str.empty());
+    EXPECT_EQ(json_str.front(), '{');
+    EXPECT_EQ(json_str.back(), '}');
+
+    EXPECT_NE(json_str.find("\"input_size\":2.0"), std::string::npos);
+    EXPECT_NE(json_str.find("\"layer_count\":2.0"), std::string::npos);
+    EXPECT_NE(json_str.find("\"layers\":["), std::string::npos);
+    EXPECT_NE(json_str.find("\"activation_function\":\"ReLU\""), std::string::npos);
+    EXPECT_NE(json_str.find("\"activation_function\":\"Softmax\""), std::string::npos);
+    EXPECT_NE(json_str.find("\"weights\":{"), std::string::npos);
+    EXPECT_NE(json_str.find("\"biases\":{"), std::string::npos);
+    EXPECT_NE(json_str.find("\"data\":["), std::string::npos);
+}
+
+TEST_F(NeuroNetTest, SaveLoadStringActivations) {
+    const std::string test_filename = "test_model_str_act.json";
+    NeuroNet::NeuroNet original_model;
+    original_model.SetInputSize(2);
+    original_model.ResizeNeuroNet(2);
+
+    original_model.ResizeLayer(0, 3);
+    original_model.getLayer(0).SetActivationFunction(NeuroNet::ActivationFunctionType::ReLU);
+    original_model.ResizeLayer(1, 1);
+    original_model.getLayer(1).SetActivationFunction(NeuroNet::ActivationFunctionType::None);
+    
+    // Add minimal weights/biases for valid structure
+    NeuroNet::LayerWeights lw0; lw0.WeightCount = 2*3; lw0.WeightsVector.assign(2*3, 0.1f);
+    original_model.getLayer(0).SetWeights(lw0);
+    NeuroNet::LayerBiases lb0; lb0.BiasCount = 3; lb0.BiasVector.assign(3, 0.01f);
+    original_model.getLayer(0).SetBiases(lb0);
+
+    NeuroNet::LayerWeights lw1; lw1.WeightCount = 3*1; lw1.WeightsVector.assign(3*1, 0.2f);
+    original_model.getLayer(1).SetWeights(lw1);
+    NeuroNet::LayerBiases lb1; lb1.BiasCount = 1; lb1.BiasVector.assign(1, 0.02f);
+    original_model.getLayer(1).SetBiases(lb1);
+
+
+    ASSERT_TRUE(original_model.save_model(test_filename));
+
+    NeuroNet::NeuroNet loaded_model;
+    ASSERT_NO_THROW(loaded_model = NeuroNet::NeuroNet::load_model(test_filename));
+
+    ASSERT_EQ(loaded_model.getLayerCount(), 2);
+    EXPECT_EQ(loaded_model.getLayer(0).get_activation_function_name(), "ReLU");
+    EXPECT_EQ(loaded_model.getLayer(1).get_activation_function_name(), "None");
+    
+    // Ensure structure is otherwise intact
+    EXPECT_EQ(loaded_model.getLayer(0).LayerSize(), 3);
+    EXPECT_EQ(loaded_model.getLayer(1).LayerSize(), 1);
+
     std::remove(test_filename.c_str());
 }

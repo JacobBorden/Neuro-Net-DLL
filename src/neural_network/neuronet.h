@@ -14,6 +14,7 @@
 #include "../math/matrix.h" // For Matrix class usage
 #include <vector>   // For std::vector usage
 #include <string>   // For potential string usage in future extensions
+#include "src/utilities/json/json.hpp" // For nlohmann::json
 
 // Forward declare the specific GTest generated class
 // This should be in the global namespace or the namespace GTest places it.
@@ -162,6 +163,20 @@ namespace NeuroNet
 		 * @return ActivationFunctionType The activation function type.
 		 */
 		ActivationFunctionType get_activation_type() const;
+
+		/**
+		 * @brief Gets the string name of the activation function for this layer.
+		 * @return std::string The name of the activation function (e.g., "ReLU", "Softmax").
+		 */
+		std::string get_activation_function_name() const;
+
+		/**
+		 * @brief Converts a string name to an ActivationFunctionType enum value.
+		 * @param name The string name of the activation function.
+		 * @return ActivationFunctionType The corresponding enum value.
+		 * @throws std::invalid_argument if the name is not recognized.
+		 */
+		static ActivationFunctionType activation_type_from_string(const std::string& name);
 
 	private:
 		int vLayerSize = 0; ///< Number of neurons in this layer.
@@ -362,6 +377,26 @@ namespace NeuroNet
 		 * @throws std::out_of_range if the index is out of bounds.
 		 */
 		const NeuroNetLayer& getLayer(int index) const;
+
+		/**
+		 * @brief Serializes the neural network to a nlohmann::json object.
+		 * Does not write to a file, only returns the JSON object.
+		 * @return nlohmann::json A JSON object representing the network.
+		 */
+		nlohmann::json to_nlohmann_json() const;
+
+		/**
+		 * @brief Serializes the neural network to a JSON string using the custom JsonValue library.
+		 * This method is responsible for its own memory management of temporary JsonValue objects.
+		 * @return std::string A JSON string representing the network.
+		 */
+		std::string to_custom_json_string() const;
+
+		/**
+		 * @brief Gets the total number of layers in the network.
+		 * @return int The number of layers.
+		 */
+		int getLayerCount() const;
 
 	private:
 		int InputSize = 0; ///< Number of input features for the entire network.

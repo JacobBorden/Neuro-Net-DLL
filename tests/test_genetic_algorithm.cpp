@@ -243,6 +243,94 @@ TEST_F(GeneticAlgorithmTest, GetBestIndividual) {
     EXPECT_GT(reported_best.get_all_weights_flat().size(), 0);
 }
 
+
+#include <fstream> // For std::ifstream for reading file
+#include "src/utilities/json/json.hpp" // For nlohmann::json
+#include "src/utilities/json/json_exception.hpp" // For JsonParseException (custom library)
+// It's assumed JsonParser is part of "src/utilities/json/json.hpp" or another accessible header if needed for custom parsing.
+// For this test, we'll primarily use nlohmann for the outer structure and string checks for inner.
+
+TEST_F(GeneticAlgorithmTest, ExportTrainingMetrics) {
+    Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, num_generations, template_net);
+    
+    // Run evolution for a few generations
+    const int generations_to_run = 3;
+    ga.num_generations_ = generations_to_run; // Override for this test
+    ga.run_evolution(simple_fitness_function);
+
+    const std::string metrics_filename = "test_training_metrics.json";
+    ASSERT_NO_THROW(ga.export_training_metrics_json(metrics_filename));
+
+    // Load and validate the generated JSON file
+    std::ifstream metrics_file(metrics_filename);
+    ASSERT_TRUE(metrics_file.is_open()) << "Failed to open metrics file: " << metrics_filename;
+    
+    nlohmann::json metrics_json;
+    ASSERT_NO_THROW(metrics_json = nlohmann::json::parse(metrics_file)) << "Failed to parse metrics JSON.";
+    metrics_file.close();
+
+    // Validate top-level keys
+    EXPECT_TRUE(metrics_json.contains("start_time"));
+    EXPECT_FALSE(metrics_json["start_time"].get<std::string>().empty());
+    EXPECT_TRUE(metrics_json.contains("end_time"));
+    EXPECT_FALSE(metrics_json["end_time"].get<std::string>().empty());
+    EXPECT_TRUE(metrics_json.contains("total_generations"));
+    EXPECT_EQ(metrics_json["total_generations"].get<int>(), generations_to_run);
+    
+    EXPECT_TRUE(metrics_json.contains("generation_data"));
+    ASSERT_TRUE(metrics_json["generation_data"].is_array());
+    EXPECT_EQ(metrics_json["generation_data"].size(), generations_to_run);
+
+    // Validate at least one element in generation_data
+    if (generations_to_run > 0) {
+        const auto& gen0_data = metrics_json["generation_data"][0];
+        EXPECT_TRUE(gen0_data.contains("generation_number"));
+        EXPECT_TRUE(gen0_data.contains("average_fitness"));
+        EXPECT_TRUE(gen0_data.contains("best_fitness"));
+        EXPECT_TRUE(gen0_data.contains("loss")); // Expect null or number
+        EXPECT_TRUE(gen0_data.contains("accuracy")); // Expect null or number
+    }
+
+    EXPECT_TRUE(metrics_json.contains("best_model_architecture_params"));
+    const auto& model_params = metrics_json["best_model_architecture_params"];
+    EXPECT_TRUE(model_params.is_object());
+
+    if (ga.get_best_individual().getLayerCount() > 0) { // If a valid best model was found
+        EXPECT_TRUE(model_params.contains("model_custom_json_string"));
+        ASSERT_TRUE(model_params["model_custom_json_string"].is_string());
+        std::string model_str = model_params["model_custom_json_string"].get<std::string>();
+        EXPECT_FALSE(model_str.empty());
+        EXPECT_EQ(model_str.front(), '{');
+        EXPECT_EQ(model_str.back(), '}');
+        EXPECT_NE(model_str.find("\"input_size\""), std::string::npos);
+        EXPECT_NE(model_str.find("\"layer_count\""), std::string::npos);
+        EXPECT_NE(model_str.find("\"layers\""), std::string::npos);
+        // Check for activation function string from template_net (assuming it has one)
+        if (template_net.getLayerCount() > 0) {
+             std::string expected_activation_str = template_net.getLayer(0).get_activation_function_name();
+             if (expected_activation_str != "Unknown") { // "Unknown" might be default if not set
+                EXPECT_NE(model_str.find("\"activation_function\":\"" + expected_activation_str + "\""), std::string::npos);
+             }
+        }
+        
+        // Optional: Try parsing with custom JsonParser if it's easily available/usable here
+        // JsonValue parsed_custom_model;
+        // ASSERT_NO_THROW(parsed_custom_model = JsonParser::Parse(model_str));
+        // EXPECT_TRUE(parsed_custom_model.IsObject());
+
+    } else { // If no valid best model (e.g., 0 generations or error)
+        EXPECT_TRUE(model_params.contains("error"));
+        EXPECT_TRUE(model_params["error"].is_string());
+    }
+    EXPECT_TRUE(model_params.contains("overall_best_fitness"));
+    EXPECT_TRUE(model_params["overall_best_fitness"].is_number());
+
+
+    // Cleanup
+    std::remove(metrics_filename.c_str());
+}
+
+
 // Main function for running tests (needed if not using gtest_main)
 // int main(int argc, char **argv) {
 //     ::testing::InitGoogleTest(&argc, argv);
