@@ -92,8 +92,9 @@ public:
      * @brief Evolves the population for a single generation.
      * This involves evaluating fitness, performing selection, crossover, and mutation.
      * @param fitness_function The fitness function to evaluate individuals.
+     * @param current_generation_number The current generation number for metrics.
      */
-    void evolve_one_generation(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function);
+    void evolve_one_generation(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function, int current_generation_number);
 
     /**
      * @brief Runs the complete evolution process for the specified number of generations.

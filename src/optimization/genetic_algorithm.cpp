@@ -20,7 +20,9 @@
 #include <numeric>   // For std::accumulate
 
 #include "../utilities/timer.h" // For Timer class
-#include "utilities/json/json.hpp" // Provides custom JSON utilities, nlohmann::json is included via training_metrics.h
+#include "../utilities/json/json.hpp" // For custom JsonValue, JsonParser (used for export_training_metrics_json)
+#include "../utilities/json/json_exception.hpp" // For JsonParseException (used by custom JsonValue)
+
 
 // Define ENABLE_BENCHMARKING to enable timing of genetic algorithm operations.
 // This can be defined in project settings or uncommented here for testing.
@@ -507,19 +509,21 @@ void Optimization::GeneticAlgorithm::run_evolution(const std::function<double(Ne
     ss_end << std::put_time(&buf, "%Y-%m-%dT%H:%M:%S%z");
     current_run_metrics_.end_time = ss_end.str();
 
-    // Store best model architecture
-    if (this->best_individual_.getLayerCount() > 0) { // Check if best_individual is valid using getLayerCount()
-        std::string model_str = this->best_individual_.to_custom_json_string();
-        this->current_run_metrics_.best_model_architecture_params = {
-            {"model_custom_json_string", model_str},
-            {"overall_best_fitness", this->best_fitness_score_}
-        };
+    // Store best model architecture and overall fitness
+    if (this->best_individual_.getLayerCount() > 0) { 
+        this->current_run_metrics_.best_model_architecture_params_custom_json_string = this->best_individual_.to_custom_json_string();
     } else {
-        this->current_run_metrics_.best_model_architecture_params = nlohmann::json{
-            {"error", "Best individual was not properly configured or found."},
-            {"overall_best_fitness", this->best_fitness_score_} // Still log fitness
-        };
+        // Create a simple error JSON string for the custom format
+        JsonValue error_json;
+        error_json.SetObject();
+        JsonValue* error_msg = new JsonValue();
+        error_msg->SetString("Best individual was not properly configured or found.");
+        error_json.InsertIntoObject("error", error_msg);
+        this->current_run_metrics_.best_model_architecture_params_custom_json_string = error_json.ToString();
+        // Cleanup for error_json, as InsertIntoObject doesn't mean root owns it in terms of deletion by destructor
+        delete error_msg; 
     }
+    this->current_run_metrics_.overall_best_fitness = this->best_fitness_score_;
 }
 
 /**
@@ -562,27 +566,112 @@ void Optimization::GeneticAlgorithm::export_training_metrics_json(const std::str
     std::ofstream file(filename);
     if (!file.is_open()) {
         std::cerr << "Error: Could not open file for writing metrics: " << filename << std::endl;
-        // Consider throwing an exception or returning a status code
         return;
     }
 
+    JsonValue root; // Custom JsonValue
+    root.SetObject();
+    
+    // Pointers to dynamically allocated JsonValues for cleanup
+    std::vector<JsonValue*> allocated_values;
+
+    auto add_string_to_obj = [&](JsonValue& obj, const std::string& key, const std::string& val_str) {
+        JsonValue* str_val = new JsonValue();
+        str_val->SetString(val_str);
+        obj.InsertIntoObject(key, str_val);
+        allocated_values.push_back(str_val);
+    };
+
+    auto add_number_to_obj = [&](JsonValue& obj, const std::string& key, double val_num) {
+        JsonValue* num_val = new JsonValue();
+        num_val->SetNumber(val_num);
+        obj.InsertIntoObject(key, num_val);
+        allocated_values.push_back(num_val);
+    };
+    
+    add_string_to_obj(root, "start_time", current_run_metrics_.start_time);
+    add_string_to_obj(root, "end_time", current_run_metrics_.end_time);
+    add_number_to_obj(root, "total_generations", static_cast<double>(current_run_metrics_.total_generations));
+    add_number_to_obj(root, "overall_best_fitness", current_run_metrics_.overall_best_fitness);
+    add_string_to_obj(root, "best_model_architecture_params_custom_json_string", current_run_metrics_.best_model_architecture_params_custom_json_string);
+
+    JsonValue* gen_data_array_val = new JsonValue();
+    gen_data_array_val->SetArray();
+    root.InsertIntoObject("generation_data", gen_data_array_val);
+    allocated_values.push_back(gen_data_array_val);
+
+    for (const auto& gen_metric : current_run_metrics_.generation_data) {
+        JsonValue gen_metric_obj; // This is a stack object, its members if they are pointers need care
+        gen_metric_obj.SetObject();
+        
+        // Create temporary JsonValue objects for each field in GenerationMetrics
+        JsonValue* gen_num_val = new JsonValue(); 
+        gen_num_val->SetNumber(static_cast<double>(gen_metric.generation_number));
+        gen_metric_obj.InsertIntoObject("generation_number", gen_num_val);
+        // Note: gen_metric_obj now holds pointers. If gen_metric_obj is copied into an array by value,
+        // these pointers are copied. The lifetime of these pointed-to values must exceed gen_metric_obj
+        // if it's temporary. Here, they are added to allocated_values for later cleanup.
+        allocated_values.push_back(gen_num_val);
+
+
+        JsonValue* avg_fit_val = new JsonValue();
+        avg_fit_val->SetNumber(gen_metric.average_fitness);
+        gen_metric_obj.InsertIntoObject("average_fitness", avg_fit_val);
+        allocated_values.push_back(avg_fit_val);
+
+        JsonValue* best_fit_val = new JsonValue();
+        best_fit_val->SetNumber(gen_metric.best_fitness);
+        gen_metric_obj.InsertIntoObject("best_fitness", best_fit_val);
+        allocated_values.push_back(best_fit_val);
+
+        if (!std::isnan(gen_metric.loss)) {
+            JsonValue* loss_val = new JsonValue();
+            loss_val->SetNumber(gen_metric.loss);
+            gen_metric_obj.InsertIntoObject("loss", loss_val);
+            allocated_values.push_back(loss_val);
+        } else {
+            JsonValue* null_loss_val = new JsonValue(JsonValueType::Null);
+            gen_metric_obj.InsertIntoObject("loss", null_loss_val);
+            allocated_values.push_back(null_loss_val);
+        }
+
+        if (!std::isnan(gen_metric.accuracy)) {
+            JsonValue* acc_val = new JsonValue();
+            acc_val->SetNumber(gen_metric.accuracy);
+            gen_metric_obj.InsertIntoObject("accuracy", acc_val);
+            allocated_values.push_back(acc_val);
+        } else {
+            JsonValue* null_acc_val = new JsonValue(JsonValueType::Null);
+            gen_metric_obj.InsertIntoObject("accuracy", null_acc_val);
+            allocated_values.push_back(null_acc_val);
+        }
+        
+        gen_data_array_val->GetArray().push_back(gen_metric_obj); // Pushes a copy; pointers inside are to heap.
+    }
+
     try {
-        nlohmann::json metrics_json = current_run_metrics_.to_json();
-        file << metrics_json.dump(4); // Pretty print with an indent of 4 spaces
-        // std::cout << "Training metrics successfully exported to " << filename << std::endl;
-    } catch (const nlohmann::json::exception& e) {
-        std::cerr << "Error: JSON serialization failed: " << e.what() << std::endl;
-        // Handle error, e.g., close file, maybe throw
-        file.close(); // Ensure file is closed on error
-        // throw; // Re-throw if you want the caller to handle it
+        file << root.ToString();
+    } catch (const JsonParseException& e) {
+        std::cerr << "Error: JSON serialization failed (custom parser): " << e.what() << std::endl;
     } catch (const std::exception& e) {
-        std::cerr << "Error: An unexpected error occurred during JSON export: " << e.what() << std::endl;
-        file.close();
-        // throw;
+        std::cerr << "Error: An unexpected error occurred during custom JSON export: " << e.what() << std::endl;
     }
-    if (file.is_open()) { // Check again in case of no exceptions but other file issues
-        file.close();
+    
+    file.close();
+
+    // Cleanup dynamically allocated JsonValues
+    // For JsonValues directly inserted into root or into objects owned by root (like gen_metric_obj fields)
+    for (JsonValue* val_ptr : allocated_values) {
+        delete val_ptr;
     }
+    // The JsonValue objects themselves within gen_data_array_val->GetArray() are copied by value.
+    // However, the map *within* those JsonValue objects (if they are objects) stores pointers.
+    // The cleanup for allocated_values handles all JsonValues that were new'ed for fields.
+    // The `JsonValue gen_metric_obj` was stack allocated, but its members were heap and added to allocated_values.
+    // When `gen_metric_obj` is pushed into `gen_data_array_val->GetArray()`, a copy is made.
+    // This copy includes copies of the pointers. This is the tricky part of the custom JSON lib.
+    // The current cleanup relies on `allocated_values` tracking all `new` calls.
+    // The `root.GetObject().clear()` is not necessary as root is local.
 }
 
 } // namespace Optimization
