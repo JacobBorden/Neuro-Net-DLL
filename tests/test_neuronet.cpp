@@ -15,6 +15,8 @@
 #include <fstream>      // For std::ofstream
 #include <cstdio>       // For std::remove
 #include <stdexcept>    // For std::runtime_error
+#include "../src/utilities/json/json.hpp" // For custom JsonValue, JsonParser
+#include "../src/utilities/json/json_exception.hpp" // For JsonParseException
 
 // Test fixture for NeuroNet tests
 class NeuroNetTest : public ::testing::Test {
@@ -499,8 +501,8 @@ TEST_F(NeuroNetTest, Serialization) {
             {
                 "input_size": 10,
                 "layer_size": 5,
-                "activation_function": 1,
-                "biases": {"rows":1, "cols":5, "data": [0.1,0.1,0.1,0.1,0.1]}
+                "activation_function": "ReLU", // Now string
+                "biases": {"rows":1.0, "cols":5.0, "data": [0.1,0.1,0.1,0.1,0.1]}
             }
         ]
     })";
@@ -510,5 +512,129 @@ TEST_F(NeuroNetTest, Serialization) {
 
 
     // 6. Cleanup
+    std::remove(test_filename.c_str());
+}
+
+TEST_F(NeuroNetTest, ToCustomJsonString) {
+    NeuroNet::NeuroNet model;
+    model.SetInputSize(2);
+    model.ResizeNeuroNet(2);
+    model.ResizeLayer(0, 3); // Layer 0: 2 in, 3 out
+    model.getLayer(0).SetActivationFunction(NeuroNet::ActivationFunctionType::ReLU);
+    model.ResizeLayer(1, 1); // Layer 1: 3 in, 1 out
+    model.getLayer(1).SetActivationFunction(NeuroNet::ActivationFunctionType::Softmax);
+
+    // Add some dummy weights/biases for completeness
+    std::vector<float> l0_weights(2 * 3, 0.1f);
+    std::vector<float> l0_biases(3, 0.01f);
+    NeuroNet::LayerWeights lw0; lw0.WeightCount = 2*3; lw0.WeightsVector = l0_weights;
+    NeuroNet::LayerBiases lb0; lb0.BiasCount = 3; lb0.BiasVector = l0_biases;
+    model.getLayer(0).SetWeights(lw0);
+    model.getLayer(0).SetBiases(lb0);
+
+    std::vector<float> l1_weights(3 * 1, 0.2f);
+    std::vector<float> l1_biases(1, 0.02f);
+    NeuroNet::LayerWeights lw1; lw1.WeightCount = 3*1; lw1.WeightsVector = l1_weights;
+    NeuroNet::LayerBiases lb1; lb1.BiasCount = 1; lb1.BiasVector = l1_biases;
+    model.getLayer(1).SetWeights(lw1);
+    model.getLayer(1).SetBiases(lb1);
+
+    std::string json_str = model.to_custom_json_string();
+
+    ASSERT_FALSE(json_str.empty());
+    EXPECT_EQ(json_str.front(), '{'); // Basic check
+    EXPECT_EQ(json_str.back(), '}');  // Basic check
+
+    JsonValue parsed_json;
+    ASSERT_NO_THROW({
+        parsed_json = JsonParser::Parse(json_str);
+    }) << "Failed to parse JSON string: " << json_str;
+    
+    ASSERT_EQ(parsed_json.type, JsonValueType::Object);
+    const auto& root_obj = parsed_json.GetObject();
+
+    ASSERT_TRUE(root_obj.count("input_size"));
+    EXPECT_EQ(root_obj.at("input_size")->type, JsonValueType::Number);
+    EXPECT_DOUBLE_EQ(root_obj.at("input_size")->GetNumber(), 2.0);
+
+    ASSERT_TRUE(root_obj.count("layer_count"));
+    EXPECT_EQ(root_obj.at("layer_count")->type, JsonValueType::Number);
+    EXPECT_DOUBLE_EQ(root_obj.at("layer_count")->GetNumber(), 2.0);
+
+    ASSERT_TRUE(root_obj.count("layers"));
+    ASSERT_EQ(root_obj.at("layers")->type, JsonValueType::Array);
+    const auto& layers_array = root_obj.at("layers")->GetArray();
+    ASSERT_EQ(layers_array.size(), 2);
+
+    // Validate Layer 0
+    ASSERT_FALSE(layers_array.empty());
+    ASSERT_EQ(layers_array[0].type, JsonValueType::Object);
+    const auto& layer0_obj_map = layers_array[0].GetObject(); // Correctly get the map
+    ASSERT_TRUE(layer0_obj_map.count("activation_function"));
+    EXPECT_EQ(layer0_obj_map.at("activation_function")->type, JsonValueType::String);
+    EXPECT_EQ(layer0_obj_map.at("activation_function")->GetString(), "ReLU");
+    ASSERT_TRUE(layer0_obj_map.count("input_size"));
+    EXPECT_DOUBLE_EQ(layer0_obj_map.at("input_size")->GetNumber(), 2.0);
+    ASSERT_TRUE(layer0_obj_map.count("layer_size"));
+    EXPECT_DOUBLE_EQ(layer0_obj_map.at("layer_size")->GetNumber(), 3.0);
+    ASSERT_TRUE(layer0_obj_map.count("weights"));
+    EXPECT_EQ(layer0_obj_map.at("weights")->type, JsonValueType::Object);
+    ASSERT_TRUE(layer0_obj_map.count("biases"));
+    EXPECT_EQ(layer0_obj_map.at("biases")->type, JsonValueType::Object);
+
+
+    // Validate Layer 1
+    ASSERT_EQ(layers_array.size(), 2); // Ensure second layer exists
+    ASSERT_EQ(layers_array[1].type, JsonValueType::Object);
+    const auto& layer1_obj_map = layers_array[1].GetObject(); // Correctly get the map
+    ASSERT_TRUE(layer1_obj_map.count("activation_function"));
+    EXPECT_EQ(layer1_obj_map.at("activation_function")->type, JsonValueType::String);
+    EXPECT_EQ(layer1_obj_map.at("activation_function")->GetString(), "Softmax");
+    ASSERT_TRUE(layer1_obj_map.count("input_size"));
+    EXPECT_DOUBLE_EQ(layer1_obj_map.at("input_size")->GetNumber(), 3.0); // Input to layer 1 is output of layer 0
+    ASSERT_TRUE(layer1_obj_map.count("layer_size"));
+    EXPECT_DOUBLE_EQ(layer1_obj_map.at("layer_size")->GetNumber(), 1.0);
+    ASSERT_TRUE(layer1_obj_map.count("weights"));
+    EXPECT_EQ(layer1_obj_map.at("weights")->type, JsonValueType::Object);
+    ASSERT_TRUE(layer1_obj_map.count("biases"));
+    EXPECT_EQ(layer1_obj_map.at("biases")->type, JsonValueType::Object);
+}
+
+TEST_F(NeuroNetTest, SaveLoadStringActivations) {
+    const std::string test_filename = "test_model_str_act.json";
+    NeuroNet::NeuroNet original_model;
+    original_model.SetInputSize(2);
+    original_model.ResizeNeuroNet(2);
+
+    original_model.ResizeLayer(0, 3);
+    original_model.getLayer(0).SetActivationFunction(NeuroNet::ActivationFunctionType::ReLU);
+    original_model.ResizeLayer(1, 1);
+    original_model.getLayer(1).SetActivationFunction(NeuroNet::ActivationFunctionType::None);
+    
+    // Add minimal weights/biases for valid structure
+    NeuroNet::LayerWeights lw0; lw0.WeightCount = 2*3; lw0.WeightsVector.assign(2*3, 0.1f);
+    original_model.getLayer(0).SetWeights(lw0);
+    NeuroNet::LayerBiases lb0; lb0.BiasCount = 3; lb0.BiasVector.assign(3, 0.01f);
+    original_model.getLayer(0).SetBiases(lb0);
+
+    NeuroNet::LayerWeights lw1; lw1.WeightCount = 3*1; lw1.WeightsVector.assign(3*1, 0.2f);
+    original_model.getLayer(1).SetWeights(lw1);
+    NeuroNet::LayerBiases lb1; lb1.BiasCount = 1; lb1.BiasVector.assign(1, 0.02f);
+    original_model.getLayer(1).SetBiases(lb1);
+
+
+    ASSERT_TRUE(original_model.save_model(test_filename));
+
+    NeuroNet::NeuroNet loaded_model;
+    ASSERT_NO_THROW(loaded_model = NeuroNet::NeuroNet::load_model(test_filename));
+
+    ASSERT_EQ(loaded_model.getLayerCount(), 2);
+    EXPECT_EQ(loaded_model.getLayer(0).get_activation_function_name(), "ReLU");
+    EXPECT_EQ(loaded_model.getLayer(1).get_activation_function_name(), "None");
+    
+    // Ensure structure is otherwise intact
+    EXPECT_EQ(loaded_model.getLayer(0).LayerSize(), 3);
+    EXPECT_EQ(loaded_model.getLayer(1).LayerSize(), 1);
+
     std::remove(test_filename.c_str());
 }

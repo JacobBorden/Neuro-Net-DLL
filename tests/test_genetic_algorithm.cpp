@@ -231,7 +231,7 @@ TEST_F(GeneticAlgorithmTest, GetBestIndividual) {
     ga.evaluate_fitness(simple_fitness_function);
     // The best_individual_ is updated in evolve_one_generation.
     // So, call evolve_one_generation to ensure best_individual_ is set.
-    ga.evolve_one_generation(simple_fitness_function); 
+    ga.evolve_one_generation(simple_fitness_function, 1); // Using 1 as a dummy generation number for the test
     
     NeuroNet::NeuroNet reported_best = ga.get_best_individual();
     double reported_best_fitness = simple_fitness_function(reported_best);
@@ -241,6 +241,115 @@ TEST_F(GeneticAlgorithmTest, GetBestIndividual) {
     // To verify `clearly_best_net` would require a way to insert it and ensure it's picked.
     // For now, check that `get_best_individual` returns a valid, configured network.
     EXPECT_GT(reported_best.get_all_weights_flat().size(), 0);
+}
+
+
+#include <fstream> // For std::ifstream for reading file
+#include <cstdio>  // For std::remove
+// Use custom JSON library for parsing the output file
+#include "../src/utilities/json/json.hpp" 
+#include "../src/utilities/json/json_exception.hpp"
+
+TEST_F(GeneticAlgorithmTest, ExportTrainingMetrics) {
+    Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, num_generations, template_net);
+    
+    const int generations_to_run = 2; // Keep it small for test speed
+    // Directly modify num_generations_ of the instance for this test
+    // This is a bit of a hack; ideally, GA would take generations as a run_evolution param or similar
+    // For now, we assume ga.num_generations_ can be set, or we rely on the fixture's num_generations
+    // For this test, let's assume the GA object itself is reconfigured or this test is specific to fixture's num_generations
+    // To make it explicit for the test:
+    Optimization::GeneticAlgorithm ga_test_instance(population_size, mutation_rate, crossover_rate, generations_to_run, template_net);
+
+
+    ga_test_instance.run_evolution(simple_fitness_function);
+
+    const std::string metrics_filename = "test_training_metrics_custom.json";
+    ASSERT_NO_THROW(ga_test_instance.export_training_metrics_json(metrics_filename));
+
+    std::ifstream metrics_file(metrics_filename);
+    ASSERT_TRUE(metrics_file.is_open()) << "Failed to open metrics file: " << metrics_filename;
+    std::string json_content((std::istreambuf_iterator<char>(metrics_file)),
+                             std::istreambuf_iterator<char>());
+    metrics_file.close();
+    ASSERT_FALSE(json_content.empty());
+
+    JsonValue root;
+    ASSERT_NO_THROW(root = JsonParser::Parse(json_content)) << "Failed to parse metrics JSON with custom parser.";
+    
+    ASSERT_EQ(root.type, JsonValueType::Object);
+    const auto& root_obj = root.GetObject();
+
+    // Validate top-level keys
+    EXPECT_TRUE(root_obj.count("start_time"));
+    ASSERT_EQ(root_obj.at("start_time")->type, JsonValueType::String);
+    EXPECT_FALSE(root_obj.at("start_time")->GetString().empty());
+
+    EXPECT_TRUE(root_obj.count("end_time"));
+    ASSERT_EQ(root_obj.at("end_time")->type, JsonValueType::String);
+    EXPECT_FALSE(root_obj.at("end_time")->GetString().empty());
+
+    EXPECT_TRUE(root_obj.count("total_generations"));
+    ASSERT_EQ(root_obj.at("total_generations")->type, JsonValueType::Number);
+    EXPECT_EQ(static_cast<int>(root_obj.at("total_generations")->GetNumber()), generations_to_run);
+
+    EXPECT_TRUE(root_obj.count("overall_best_fitness"));
+    ASSERT_EQ(root_obj.at("overall_best_fitness")->type, JsonValueType::Number);
+    // Value can be anything, just check type and presence
+
+    EXPECT_TRUE(root_obj.count("best_model_architecture_params_custom_json_string"));
+    ASSERT_EQ(root_obj.at("best_model_architecture_params_custom_json_string")->type, JsonValueType::String);
+    std::string model_str = root_obj.at("best_model_architecture_params_custom_json_string")->GetString();
+    EXPECT_FALSE(model_str.empty());
+    
+    // Validate the embedded model string
+    JsonValue parsed_model_json;
+    ASSERT_NO_THROW(parsed_model_json = JsonParser::Parse(model_str));
+    ASSERT_EQ(parsed_model_json.type, JsonValueType::Object);
+    if (ga_test_instance.get_best_individual().getLayerCount() > 0) {
+        EXPECT_TRUE(parsed_model_json.GetObject().count("input_size"));
+        EXPECT_TRUE(parsed_model_json.GetObject().count("layer_count"));
+        EXPECT_TRUE(parsed_model_json.GetObject().count("layers"));
+        // Check for activation function string from template_net (assuming it has one)
+        if (template_net.getLayerCount() > 0) {
+             std::string expected_activation_str = template_net.getLayer(0).get_activation_function_name();
+             // Find it in the parsed_model_json
+             const auto& layers_array = parsed_model_json.GetObject().at("layers")->GetArray();
+             if (!layers_array.empty()) {
+                 const auto& first_layer_obj = layers_array[0].GetObject();
+                 EXPECT_EQ(first_layer_obj.at("activation_function")->GetString(), expected_activation_str);
+             }
+        }
+    } else {
+        EXPECT_TRUE(parsed_model_json.GetObject().count("error"));
+    }
+
+
+    EXPECT_TRUE(root_obj.count("generation_data"));
+    const auto& gen_data_val = root_obj.at("generation_data");
+    ASSERT_EQ(gen_data_val->type, JsonValueType::Array);
+    const auto& gen_array = gen_data_val->GetArray();
+    EXPECT_EQ(gen_array.size(), generations_to_run);
+
+    if (generations_to_run > 0) {
+        const auto& gen0_metric_obj = gen_array[0];
+        ASSERT_EQ(gen0_metric_obj.type, JsonValueType::Object);
+        const auto& gen0_obj_map = gen0_metric_obj.GetObject();
+
+        EXPECT_TRUE(gen0_obj_map.count("generation_number"));
+        EXPECT_EQ(gen0_obj_map.at("generation_number")->type, JsonValueType::Number);
+        EXPECT_TRUE(gen0_obj_map.count("average_fitness"));
+        EXPECT_EQ(gen0_obj_map.at("average_fitness")->type, JsonValueType::Number);
+        EXPECT_TRUE(gen0_obj_map.count("best_fitness"));
+        EXPECT_EQ(gen0_obj_map.at("best_fitness")->type, JsonValueType::Number);
+        EXPECT_TRUE(gen0_obj_map.count("loss")); // Expect Null or Number
+        EXPECT_TRUE(gen0_obj_map.at("loss")->type == JsonValueType::Null || gen0_obj_map.at("loss")->type == JsonValueType::Number);
+        EXPECT_TRUE(gen0_obj_map.count("accuracy")); // Expect Null or Number
+        EXPECT_TRUE(gen0_obj_map.at("accuracy")->type == JsonValueType::Null || gen0_obj_map.at("accuracy")->type == JsonValueType::Number);
+    }
+
+    // Cleanup
+    std::remove(metrics_filename.c_str());
 }
 
 // Main function for running tests (needed if not using gtest_main)
