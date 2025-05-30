@@ -4,8 +4,8 @@
 #include <vector>
 #include <limits> // Required for std::numeric_limits
 
-#include "src/utilities/json/json.hpp"
-#include "src/neural_network/neuronet.h" // For NeuroNet::NeuroNet
+#include "utilities/json/json.hpp"
+#include "neural_network/neuronet.h" // For NeuroNet::NeuroNet
 
 namespace Optimization {
 
