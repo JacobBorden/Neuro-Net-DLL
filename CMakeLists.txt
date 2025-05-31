@@ -17,11 +17,19 @@ FetchContent_MakeAvailable(googletest)
 include_directories(src)
 
 add_library(neuronet STATIC 
-    src/neural_network/neuronet.cpp 
+    src/neural_network/neuronet.cpp
     src/optimization/genetic_algorithm.cpp
     src/utilities/json/json.cpp
     src/utilities/timer.cpp
     src/utilities/vocabulary.cpp
+    src/transformer/attention.cpp
+    src/transformer/embedding.cpp
+    src/transformer/multi_head_attention.cpp
+    src/transformer/positional_encoding.cpp
+    src/transformer/transformer_encoder_layer.cpp
+    src/transformer/transformer_ffn.cpp
+    src/transformer/transformer_model.cpp
+    src/math/extended_matrix_ops.cpp
 )
 
 # Testing subdirectory

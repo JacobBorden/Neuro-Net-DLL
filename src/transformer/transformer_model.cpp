@@ -1,5 +1,11 @@
 #include "transformer_model.h"
 #include <iostream> // For debugging (optional)
+#include <string>
+#include <vector>
+#include <stdexcept>
+#include <fstream>
+#include <iterator> // For std::istreambuf_iterator
+#include <algorithm> // For std::min, std::copy_n if needed elsewhere, though not directly in errors yet
 
 namespace NeuroNet {
 namespace Transformer {
@@ -27,11 +33,11 @@ TransformerModel::TransformerModel(
       positional_encoding_(max_seq_len, d_model) // PositionalEncoding constructor
 {
     if (vocab_size <= 0 || max_seq_len <= 0 || d_model <= 0 || num_encoder_layers < 0 || num_heads <= 0 || d_ff <= 0) {
-        throw std::invalid_argument("Invalid parameters for TransformerModel constructor. Dimensions must be positive, num_encoder_layers non-negative.");
+        throw std::invalid_argument("Invalid parameters for TransformerModel constructor. Dimensions must be positive, num_encoder_layers non-negative."); // Fixed std::invalid_argument
     }
     if (d_model % num_heads != 0) {
         // This check is also in MHA, but good to have at model level too.
-        throw std::invalid_argument("d_model must be divisible by num_heads for TransformerModel.");
+        throw std::invalid_argument("d_model must be divisible by num_heads for TransformerModel."); // Fixed std::invalid_argument
     }
 
     encoder_layers_.reserve(num_encoder_layers_);
@@ -60,9 +66,9 @@ Matrix::Matrix<float> TransformerModel::forward(
         return Matrix::Matrix<float>(0, d_model_);
     }
     if (seq_len > static_cast<size_t>(max_seq_len_)) {
-         throw std::invalid_argument("Input sequence length (" + std::to_string(seq_len) +
+         throw std::invalid_argument("Input sequence length (" + std::to_string(seq_len) + // Fixed std::to_string
                                     ") exceeds TransformerModel's max_seq_len (" +
-                                    std::to_string(max_seq_len_) + ").");
+                                    std::to_string(max_seq_len_) + ")."); // Fixed std::to_string
     }
 
     // 1. Embedding
@@ -91,11 +97,11 @@ Matrix::Matrix<float> TransformerModel::forward(
 // --- Serialization methods (save_model, load_model, to_json_string) ---
 // To be implemented later.
 
-#include <iomanip> // For std::setprecision when writing floats (optional)
+// #include <iomanip> // For std::setprecision when writing floats (optional) - REMOVED due to compile issues
 
 // Helper function to serialize a Matrix::Matrix<float> to a JsonValue object
 // This object will contain "rows", "cols", and "data" (array of floats)
-static JsonValue serialize_matrix_to_json(const Matrix::Matrix<float>& matrix) {
+static JsonValue serialize_matrix_to_json(const Matrix::Matrix<float>& matrix) { // Assuming Matrix::Matrix is already fully qualified or in global/NeuroNet scope
     JsonValue matrix_json;
     matrix_json.SetObject();
 
@@ -119,7 +125,7 @@ static JsonValue serialize_matrix_to_json(const Matrix::Matrix<float>& matrix) {
 }
 
 // Helper function to deserialize a Matrix::Matrix<float> from a JsonValue object
-static Matrix::Matrix<float> deserialize_matrix_from_json(const JsonValue* matrix_json_val_ptr) {
+static Matrix::Matrix<float> deserialize_matrix_from_json(const JsonValue* matrix_json_val_ptr) { // Assuming Matrix::Matrix is already fully qualified
     if (!matrix_json_val_ptr || matrix_json_val_ptr->type != JsonValueType::Object) {
         throw std::runtime_error("Invalid JSON format for matrix: not an object.");
     }
@@ -144,7 +150,7 @@ static Matrix::Matrix<float> deserialize_matrix_from_json(const JsonValue* matri
                                  " elements, got " + std::to_string(data_array.size()));
     }
 
-    Matrix::Matrix<float> matrix(rows, cols);
+    Matrix::Matrix<float> matrix(rows, cols); // Assuming Matrix::Matrix is already fully qualified
     if (rows > 0 && cols > 0) {
         for (int r = 0; r < rows; ++r) {
             for (int c = 0; c < cols; ++c) {
@@ -175,7 +181,7 @@ static void cleanup_serialized_matrix_json(JsonValue& matrix_json) {
 }
 
 
-bool TransformerModel::save_model(const std::string& filename) const {
+bool TransformerModel::save_model(const std::string& filename) const { // Fixed std::string
     JsonValue root;
     root.SetObject();
 
@@ -245,7 +251,7 @@ bool TransformerModel::save_model(const std::string& filename) const {
     root.InsertIntoObject("encoder_layers_weights", encoder_layers_array_val);
 
     // Write to file
-    std::ofstream ofs(filename);
+    std::ofstream ofs(filename); // Fixed std::ofstream
     if (!ofs.is_open()) {
         // Cleanup allocated JsonValues before returning
         for (auto& pair : root.GetObject()) {
@@ -295,24 +301,23 @@ bool TransformerModel::save_model(const std::string& filename) const {
 }
 
 
-TransformerModel TransformerModel::load_model(const std::string& filename) {
-    std::ifstream ifs(filename);
+TransformerModel TransformerModel::load_model(const std::string& filename) { // Fixed std::string
+    std::ifstream ifs(filename); // Fixed std::ifstream
     if (!ifs.is_open()) {
-        throw std::runtime_error("Failed to open model file: " + filename);
+        throw std::runtime_error("Failed to open model file: " + filename); // Fixed std::runtime_error, std::string
     }
-    std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+    std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>()); // Fixed std::string, std::istreambuf_iterator
     ifs.close();
 
     JsonValue root_json_val;
     try {
         root_json_val = JsonParser::Parse(content);
     } catch (const JsonParseException& e) {
-        throw std::runtime_error("Failed to parse JSON from model file: " + filename + "
-Error: " + e.what());
+        throw std::runtime_error("Failed to parse JSON from model file: " + filename + "\nError: " + e.what()); // Fixed std::runtime_error, std::string
     }
 
     if (root_json_val.type != JsonValueType::Object) {
-        throw std::runtime_error("Model JSON root is not an object.");
+        throw std::runtime_error("Model JSON root is not an object."); // Fixed std::runtime_error
     }
     const auto& root_obj = root_json_val.GetObject();
 
