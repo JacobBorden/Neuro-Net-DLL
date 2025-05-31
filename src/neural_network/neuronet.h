@@ -14,7 +14,7 @@
 #include "../math/matrix.h" // For Matrix class usage
 #include <vector>   // For std::vector usage
 #include <string>   // For potential string usage in future extensions
-#include "utilities/json/json.hpp" // For nlohmann::json
+#include "../utilities/json/json.hpp" // For custom JsonValue, JsonParser
 #include "../utilities/vocabulary.h" // For NeuroNet::Vocabulary
 
 // Forward declare the specific GTest generated class
