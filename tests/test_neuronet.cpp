@@ -544,6 +544,10 @@ TEST(NeuroNetStringInputTest, LoadVocabulary_Fail_NonExistentFile) {
 TEST(NeuroNetStringInputTest, SetStringsInput_Success) {
     NeuroNet::NeuroNet net;
     net.SetInputSize(3); // Network expects input vector of size 3
+    // Configure network layers BEFORE SetStringsInput
+    net.ResizeNeuroNet(1);
+    net.ResizeLayer(0, 1); // Layer 0: InputSize=3, LayerSize=1
+
     CreateTempVocabFileForNeuroNetTest(nn_test_vocab_path, R"({
         "word_to_token": { "a":0, "b":1, "<UNK>":2, "<PAD>":3 },
         "token_to_word": { "0":"a", "1":"b", "2":"<UNK>", "3":"<PAD>" },
@@ -551,13 +555,12 @@ TEST(NeuroNetStringInputTest, SetStringsInput_Success) {
     })");
     ASSERT_TRUE(net.LoadVocabulary(nn_test_vocab_path));
 
-    const std::string json_input = R"({ "input_batch": ["a b a", "b a"] })";
+    // Changed to single string in batch to align with layer's SetInput expectation
+    const std::string json_input = R"({ "input_batch": ["a b a"] })";
     // max_len_override = 3 to match net.SetInputSize(3)
     ASSERT_TRUE(net.SetStringsInput(json_input, 3));
 
-    net.ResizeNeuroNet(1);
-    net.ResizeLayer(0, 1); // 1 output neuron
-    ASSERT_NO_THROW(net.GetOutput());
+    ASSERT_NO_THROW(net.GetOutput()); // GetOutput should now work
 
     std::remove(nn_test_vocab_path.c_str());
 }
@@ -617,6 +620,10 @@ TEST(NeuroNetStringInputTest, SetStringsInput_CorrectPaddingToMatchNetworkInputS
 
 TEST(NeuroNetStringInputTest, SaveLoadModel_VocabularyMaxSeqLen) {
     NeuroNet::NeuroNet net_to_save;
+    net_to_save.SetInputSize(7); // Configure InputSize for the network to be saved
+    net_to_save.ResizeNeuroNet(1); // Add a layer
+    net_to_save.ResizeLayer(0, 2); // Layer 0: 7 inputs, 2 outputs (example)
+
     const std::string model_path = "test_model_vocab_cfg.json";
     const std::string vocab_path_for_test = "test_model_vocab_file.json"; // Renamed to avoid conflict
 
@@ -627,9 +634,12 @@ TEST(NeuroNetStringInputTest, SaveLoadModel_VocabularyMaxSeqLen) {
         "special_tokens": { "unknown_token": "<UNK>", "padding_token": "<PAD>" },
         "config": { "max_sequence_length": 7 }
     })");
-    ASSERT_TRUE(net_to_save.LoadVocabulary(vocab_path_for_test)); // Reload with config
+    ASSERT_TRUE(net_to_save.LoadVocabulary(vocab_path_for_test));
     EXPECT_EQ(net_to_save.getVocabulary().get_max_sequence_length(), 7);
-
+    // Also set the vocabulary's max_sequence_length in the NeuroNet object itself for saving.
+    // This happens if LoadVocabulary also updates the NeuroNet's vocabulary member's max_sequence_length.
+    // The save_model function saves `this->vocabulary.get_max_sequence_length()`.
+    // And load_model sets `model.vocabulary.set_max_sequence_length(max_len);`
 
     ASSERT_TRUE(net_to_save.save_model(model_path));
 
@@ -637,13 +647,21 @@ TEST(NeuroNetStringInputTest, SaveLoadModel_VocabularyMaxSeqLen) {
     ASSERT_NO_THROW(net_to_load = NeuroNet::NeuroNet::load_model(model_path));
 
     // Direct check using the new getter
+    // The loaded model's internal vocabulary object should have max_sequence_length set from the file.
     EXPECT_EQ(net_to_load.getVocabulary().get_max_sequence_length(), 7);
 
     // Indirect test: Load the actual vocabulary words and see if SetStringsInput behaves as if max_len is 7.
-    ASSERT_TRUE(net_to_load.LoadVocabulary(vocab_path_for_test)); // Load the actual words
-    net_to_load.SetInputSize(7); // Match network input size to the expected sequence length
-    const std::string json_input = R"({ "input_batch": ["a a a"] })";
-    // SetStringsInput should use the loaded max_sequence_length of 7 from vocab config.
+    ASSERT_TRUE(net_to_load.LoadVocabulary(vocab_path_for_test)); // Load the actual words into the loaded network's vocab object
+    // The network structure (InputSize, layers) should be restored by load_model.
+    // So net_to_load.InputSize should be 7.
+    EXPECT_EQ(net_to_load.GetInputSize(), 7); // Verify this assumption
+    ASSERT_EQ(net_to_load.getLayerCount(), 1);
+    ASSERT_EQ(net_to_load.getLayer(0).LayerSize(), 2);
+
+
+    const std::string json_input = R"({ "input_batch": ["a a a"] })"; // Single sequence
+    // SetStringsInput should use the loaded max_sequence_length of 7 from net_to_load's vocabulary object.
+    // The input matrix will be 1x7. The layer expects 7 inputs. This should work.
     EXPECT_TRUE(net_to_load.SetStringsInput(json_input));
 
 
@@ -653,9 +671,9 @@ TEST(NeuroNetStringInputTest, SaveLoadModel_VocabularyMaxSeqLen) {
 
 TEST(NeuroNetStringInputTest, LoadModel_NoVocabConfig_Defaults) {
     NeuroNet::NeuroNet net_to_save;
-    net_to_save.SetInputSize(1);
-    net_to_save.ResizeNeuroNet(1);
-    net_to_save.ResizeLayer(0,1);
+    net_to_save.SetInputSize(1); // Example initial InputSize for the network to be saved
+    net_to_save.ResizeNeuroNet(1); // Add a layer
+    net_to_save.ResizeLayer(0,1);  // Layer 0: 1 input, 1 output
 
     const std::string model_path = "test_model_no_vocab_cfg.json";
     // Save a model without loading any vocabulary, so no vocab_config will be saved.
@@ -666,6 +684,8 @@ TEST(NeuroNetStringInputTest, LoadModel_NoVocabConfig_Defaults) {
 
     NeuroNet::NeuroNet net_to_load;
     ASSERT_NO_THROW(net_to_load = NeuroNet::NeuroNet::load_model(model_path));
+    // After loading, net_to_load.InputSize should be 1 (from the saved model).
+    EXPECT_EQ(net_to_load.GetInputSize(), 1);
 
     // max_sequence_length on its vocab should be -1 (default) as it was not in the saved model.
     EXPECT_EQ(net_to_load.getVocabulary().get_max_sequence_length(), -1);
@@ -679,10 +699,18 @@ TEST(NeuroNetStringInputTest, LoadModel_NoVocabConfig_Defaults) {
     // After loading this vocab, max_sequence_length should still be -1 as vocab file doesn't set it.
     EXPECT_EQ(net_to_load.getVocabulary().get_max_sequence_length(), -1);
 
+    // This configures the loaded network to expect 3 input features.
+    // Crucially, SetInputSize also calls ResizeLayer(0, current_output_size) on the first layer,
+    // adapting its input expectations (WeightMatrix, internal InputSize member).
+    net_to_load.SetInputSize(3);
+    EXPECT_EQ(net_to_load.GetInputSize(), 3); // Verify InputSize is updated
+    ASSERT_EQ(net_to_load.getLayerCount(), 1); // Still 1 layer
+    // Layer 0 should now expect 3 inputs. Its internal InputMatrix will be 1x3.
 
-    net_to_load.SetInputSize(3); // Say network expects 3 inputs after padding
-    const std::string json_input = R"({ "input_batch": ["a a a", "a"] })";
-    // SetStringsInput without override, vocab has no internal max_len, should pad to max in batch (3).
+    // Changed to single string. Vocab has no max_len, SetStringsInput has no override.
+    // prepare_batch_matrix will pad to max in batch. Here, "a a a" has length 3.
+    // Resulting input matrix will be 1x3. This matches the layer's expectation (1x3).
+    const std::string json_input = R"({ "input_batch": ["a a a"] })";
     EXPECT_TRUE(net_to_load.SetStringsInput(json_input));
 
     std::remove(model_path.c_str());

@@ -438,20 +438,30 @@ namespace NeuroNet
 		 */
 		int getLayerCount() const;
 
+		/**
+		 * @brief Gets the input size for the entire neural network.
+		 * @return int The number of input features.
+		 */
+		int GetInputSize() const;
+
 		// Getter for vocabulary - DECLARATION ONLY
-		const NeuroNet::Vocabulary& getVocabulary() const;
+		const Vocabulary& getVocabulary() const;
 
 	private:
 		int InputSize = 0; ///< Number of input features for the entire network.
 		int LayerCount = 0; ///< Total number of layers in the network.
 		std::vector<NeuroNetLayer> NeuroNetVector; ///< Vector storing all layers of the network.
-		NeuroNet::Vocabulary vocabulary; // Vocabulary for string processing
+		Vocabulary vocabulary; // Vocabulary for string processing
 	};
 
 // Inline definition for getVocabulary (outside the class body but in the header for inlining)
 // This ensures NeuroNet class is fully defined before its methods are defined.
-inline const NeuroNet::Vocabulary& NeuroNet::getVocabulary() const {
+inline const Vocabulary& NeuroNet::getVocabulary() const {
     return vocabulary;
+}
+
+inline int NeuroNet::GetInputSize() const {
+    return InputSize;
 }
 
 } // namespace NeuroNet
