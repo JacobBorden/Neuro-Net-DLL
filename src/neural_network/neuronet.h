@@ -11,15 +11,17 @@
 
 #pragma once
 
-#include "../math/matrix.h" // For Matrix class usage
-#include <vector>   // For std::vector usage
-#include <string>   // For potential string usage in future extensions
-#include "../utilities/json/json.hpp" // For custom JsonValue, JsonParser
-#include "../utilities/vocabulary.h" // For NeuroNet::Vocabulary
+// Standard library includes
+#include <string>
+#include <vector>
+#include <stdexcept>
 
-// Forward declare the specific GTest generated class
-// This should be in the global namespace or the namespace GTest places it.
-// Assuming global namespace for now based on GTest's typical behavior.
+// Project-specific dependencies
+#include "../math/matrix.h"
+#include "../utilities/json/json.hpp"
+#include "../utilities/vocabulary.h"
+
+// Forward declare GTest class (if it was present immediately after includes)
 class NeuroNetTest_Serialization_Test; 
 
 namespace NeuroNet
