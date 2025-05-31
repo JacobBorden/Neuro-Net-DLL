@@ -809,25 +809,78 @@ Before making significant modifications, it's recommended to thoroughly understa
 ### 3. Dependencies
 
 *   **Matrix Library:**
-    *   The NeuroNet library has a crucial dependency on the `Matrix` class, which is expected to be located in `src/math/matrix.h`.
-    *   This `matrix.h` file provides the `Matrix::Matrix<T>` template class used for all underlying mathematical operations.
+        *   The NeuroNet library relies on an internal header-only `Matrix` class, located in `src/math/matrix.h`.
+        *   This `matrix.h` file provides the `Matrix::Matrix<T>` template class used for all underlying mathematical operations and is included as part of the NeuroNet library's source.
 *   **Custom JSON Library:**
-    *   The library utilizes a custom JSON parsing and manipulation library located in `src/utilities/json/` (specifically `json.hpp` for the interface and `json.cpp` for the implementation). This library is used for model serialization and deserialization.
-    *   It provides functionalities for parsing JSON strings into a `JsonValue` structure and serializing `JsonValue` objects back to strings.
+        *   The library utilizes an internal custom JSON parsing and manipulation library located in `src/utilities/json/` (specifically `json.hpp` for the interface and `json.cpp` for the implementation).
+        *   This library is used for model serialization/deserialization and other JSON tasks. It is compiled directly into the NeuroNet library.
 *   **Setup:**
-    *   **If building NeuroNet library yourself:** `matrix.h` (header-only) and the custom JSON library (`json.hpp` and `json.cpp`) are part of this repository. The custom JSON implementation (`json.cpp`) is compiled directly into the NeuroNet library.
-    *   **If integrating NeuroNet into your project:** You need to ensure that your compiler can find `src/math/matrix.h` and `src/utilities/json/json.hpp` when it compiles your code that uses NeuroNet headers, as NeuroNet's public headers (like `neuronet.h`) include them. This means the `src` directory from the NeuroNet library (or a relevant install path for headers) should be in your include paths. The JSON library's compiled code will be part of the NeuroNet library you link against.
+    *   **If building NeuroNet library yourself:** `matrix.h` (header-only) and the custom JSON library (`json.hpp`, `json.cpp`) are part of this repository. `matrix.h` is included directly, and the custom JSON implementation (`json.cpp`) is compiled into the NeuroNet library.
+    *   **If integrating NeuroNet into your project:** You need to ensure that your compiler can find the NeuroNet header files (which include `src/math/matrix.h` and `src/utilities/json/json.hpp`). This means the `src` directory from the NeuroNet library (or a relevant install path for headers) should be in your include paths. The compiled code for the JSON library and the definitions for the matrix library will be part of the NeuroNet static library you link against.
+
+## Project Documentation
+
+This `README.md` provides a general overview of the project. For more detailed information, please refer to the following:
+
+*   **Module-specific Documentation:**
+    *   [Neural Network (`NeuroNet` & `NeuroNetLayer`)](./docs/modules/neural_network.md)
+    *   [Genetic Algorithm (`GeneticAlgorithm`)](./docs/modules/optimization.md)
+    *   [Transformer Architecture](./docs/modules/transformer.md)
+    *   [Matrix Library](./docs/modules/math.md)
+    *   [JSON Utilities](./docs/modules/json_utilities.md)
+*   **API Reference (Doxygen):**
+    *   Due to potential environment differences, Doxygen HTML generation might not work reliably in all cloud-based IDEs.
+    *   The `Doxyfile` in the root of the repository is configured to generate API documentation from the source code comments.
+    *   To generate the API documentation locally:
+        1.  Ensure you have Doxygen installed (see [doxygen.nl](https://www.doxygen.nl/download.html)).
+        2.  Navigate to the root directory of this repository in your terminal.
+        3.  Run the command: `doxygen Doxyfile`
+        4.  The HTML documentation will be generated in the `docs/api/html` directory. Open `docs/api/html/index.html` in your browser to view it.
+    *   The generated API documentation (`docs/api/`) should not be committed to the repository (it's included in `.gitignore`).
+*   **Contributing Guidelines:** See [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to contribute to this project.
+*   **Changelog:** See [CHANGELOG.md](CHANGELOG.md) for the history of changes.
 
 ## Features
 
-*   Customizable Neural Network architecture (`NeuroNet`, `NeuroNetLayer`).
-*   Pluggable activation functions per layer (ReLU, LeakyReLU, ELU, Softmax, None).
-*   Model serialization to and from JSON format (`save_model`, `load_model`).
-*   Genetic Algorithm (`GeneticAlgorithm`) for evolving network weights and biases.
-*   Matrix library (`Matrix`) for numerical computations.
-*   OpenMP-based parallelization for matrix multiplication.
-*   Built with CMake.
-*   Unit tests using Google Test.
+*   **Core Neural Network (`NeuroNet`, `NeuroNetLayer`):**
+    *   Customizable feed-forward neural network architecture.
+    *   Layer-wise configuration of neuron counts and activation functions.
+    *   Support for various activation functions: None (Linear), ReLU, LeakyReLU, ELU, Softmax.
+    *   Serialization/deserialization of network architecture and parameters to/from JSON.
+    *   Vocabulary loading and string input processing for NLP tasks.
+*   **Optimization (`GeneticAlgorithm`):**
+    *   Genetic Algorithm for evolving `NeuroNet` weights and biases.
+    *   Configurable population size, mutation rate, crossover rate, and generations.
+    *   Tournament selection and elitism.
+    *   Exportable training metrics (fitness per generation, best model architecture).
+*   **Transformer Module (Encoder-Only):**
+    *   Implementation of core Transformer components:
+        *   `EmbeddingLayer` for token embeddings.
+        *   `PositionalEncoding` for sequence position information.
+        *   `ScaledDotProductAttention` and `MultiHeadAttention`.
+        *   `TransformerFFN` (Position-wise Feed-Forward Network).
+        *   `TransformerEncoderLayer` stacking attention and FFN.
+    *   `TransformerModel` class to build encoder-only transformer architectures.
+    *   Serialization/deserialization for `TransformerModel`.
+*   **Math Utilities:**
+    *   Generic `Matrix<T>` class for 2D matrix operations.
+        *   Standard arithmetic (+, -, *), scalar operations.
+        *   Transpose, determinant, inverse.
+        *   OpenMP parallelization for matrix multiplication.
+    *   Extended math functions: GELU, Layer Normalization, Softmax.
+    *   Matrix splitting and combining utilities.
+*   **JSON Utilities:**
+    *   Custom lightweight JSON parser (`JsonParser`) and data representation (`JsonValue`).
+    *   Supports parsing JSON strings into a tree of `JsonValue` objects.
+    *   Serialization of `JsonValue` trees back to JSON strings.
+    *   Handles basic JSON types: null, boolean, number, string, array, object.
+    *   Includes support for skipping comments in JSON files.
+*   **Build and Testing:**
+    *   Built with CMake for cross-platform compilation.
+    *   Unit tests using Google Test framework (`ctest` runnable).
+*   **Benchmarking:**
+    *   Optional timing instrumentation for core operations (e.g., matrix multiplication, GA steps) via `ENABLE_BENCHMARKING` macro.
+    *   Example benchmark tests in `tests/test_benchmarks.cpp`.
 
 ## Prerequisites
 
@@ -888,14 +941,15 @@ The tests are built using Google Test.
     # make
     ```
 5.  Run the tests:
-    *   The primary test executable defined in `tests/CMakeLists.txt` is `test_neuronet`. If compiled successfully, it would be located in the `tests` subdirectory of your build folder:
-        ```bash
-        cd tests
-        ./test_neuronet 
-        ```
-    *   Alternatively, `ctest` can be used if the tests are correctly registered with CTest in CMake (which they are):
+    *   The primary test executable defined in `tests/CMakeLists.txt` is `test_neuronet`. If compiled successfully, it would be located in the `tests` subdirectory of your build folder.
+    *   `ctest` can be used if the tests are correctly registered with CTest in CMake (which they are):
         ```bash
         # From the build directory
         ctest
         ```
+        Alternatively, you can run the test executable directly (e.g., `tests/runTests` on Linux/macOS or `tests\Debug\runTests.exe` on Windows, path may vary based on build type).
 The previous mention of Catch2 has been removed as the tests primarily use Google Test.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

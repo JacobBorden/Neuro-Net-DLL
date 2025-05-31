@@ -423,9 +423,6 @@ namespace NeuroNet
 		const NeuroNetLayer& getLayer(int index) const;
 
 		/**
-		 * @brief Serializes the neural network to a nlohmann::json object.
-		 * Does not write to a file, only returns the JSON object.
-		/**
 		 * @brief Serializes the neural network to a JSON string using the custom JsonValue library.
 		 * This method is responsible for its own memory management of temporary JsonValue objects.
 		 * @return std::string A JSON string representing the network.
