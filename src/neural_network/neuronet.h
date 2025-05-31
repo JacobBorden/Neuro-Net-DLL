@@ -15,6 +15,7 @@
 #include <vector>   // For std::vector usage
 #include <string>   // For potential string usage in future extensions
 #include "utilities/json/json.hpp" // For nlohmann::json
+#include "../utilities/vocabulary.h" // For NeuroNet::Vocabulary
 
 // Forward declare the specific GTest generated class
 // This should be in the global namespace or the namespace GTest places it.
@@ -290,6 +291,47 @@ namespace NeuroNet
 		Matrix::Matrix<float> GetOutput();
 
 		/**
+		 * @brief Sets the input for the first layer of the network from a JSON string.
+		 * The JSON string should represent an object with a key (e.g., "input_matrix")
+		 * whose value is an array of arrays of numbers.
+		 * @param json_input A const reference to a string containing the JSON input.
+		 * @return bool True if input was successfully parsed and set, false otherwise.
+		 * @throws JsonParseException if JSON parsing fails.
+		 * @throws std::runtime_error if JSON structure is invalid or data conversion fails.
+		 */
+		bool SetInputJSON(const std::string& json_input);
+
+		/**
+		 * @brief Gets the output of the network and returns it as a JSON string.
+		 * The JSON string will represent an object with a key (e.g., "output_matrix")
+		 * whose value is an array of arrays of numbers.
+		 * @return std::string A JSON string representing the network's output matrix.
+		 * @throws std::runtime_error if the network has no layers or output cannot be generated.
+		 */
+		std::string GetOutputJSON();
+
+		/**
+		 * @brief Loads a vocabulary for string tokenization from a JSON file.
+		 * @param filepath Path to the vocabulary JSON file.
+		 * @return True if loading was successful, false otherwise.
+		 */
+		bool LoadVocabulary(const std::string& filepath);
+
+		/**
+		 * @brief Sets the input for the network from a batch of strings using JSON.
+		 * The JSON string should contain a key (e.g., "input_batch") whose value is an array of strings.
+		 * Uses the loaded vocabulary for tokenization and padding.
+		 * @param json_string_input A const reference to a string containing the JSON input.
+		 * @param max_len_override Optional: Override max sequence length for this batch.
+		 *                         If -1, uses vocabulary's configured max length or pads to max in batch.
+		 * @param pad_to_max_in_batch_override Optional: Override padding to max in batch if max_len_override and vocab max_len are not set.
+		 * @return bool True if input was successfully parsed, tokenized, and set, false otherwise.
+		 * @throws JsonParseException if JSON parsing fails.
+		 * @throws std::runtime_error if vocabulary is not loaded, JSON structure is invalid, or data conversion/padding fails.
+		 */
+		bool SetStringsInput(const std::string& json_string_input, int max_len_override = -1, bool pad_to_max_in_batch_override = true);
+
+		/**
 		 * @brief Retrieves the weights for all layers in the network.
 		 * @return std::vector<LayerWeights> A vector where each element contains the weights for a layer.
 		 */
@@ -393,10 +435,12 @@ namespace NeuroNet
 		 * @return int The number of layers.
 		 */
 		int getLayerCount() const;
+		const NeuroNet::Vocabulary& getVocabulary() const { return vocabulary; }
 
 	private:
 		int InputSize = 0; ///< Number of input features for the entire network.
 		int LayerCount = 0; ///< Total number of layers in the network.
 		std::vector<NeuroNetLayer> NeuroNetVector; ///< Vector storing all layers of the network.
+		NeuroNet::Vocabulary vocabulary; // Vocabulary for string processing
 	};
 } // namespace NeuroNet

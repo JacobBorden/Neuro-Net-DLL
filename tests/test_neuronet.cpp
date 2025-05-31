@@ -515,6 +515,215 @@ TEST_F(NeuroNetTest, Serialization) {
     std::remove(test_filename.c_str());
 }
 
+// Helper function for creating temporary vocabulary files specifically for NeuroNet string input tests
+static void CreateTempVocabFileForNeuroNetTest(const std::string& filepath, const std::string& content) {
+    std::ofstream ofs(filepath);
+    ofs << content;
+    ofs.close();
+}
+const std::string nn_test_vocab_path = "nn_temp_vocab.json"; // Unique name for these tests
+
+// --- NeuroNetStringInputTest Tests ---
+
+TEST(NeuroNetStringInputTest, LoadVocabulary_Success) {
+    NeuroNet::NeuroNet net;
+    CreateTempVocabFileForNeuroNetTest(nn_test_vocab_path, R"({
+        "word_to_token": { "hello": 0, "<UNK>": 1, "<PAD>": 2 },
+        "token_to_word": { "0": "hello", "1": "<UNK>", "2": "<PAD>" },
+        "special_tokens": { "unknown_token": "<UNK>", "padding_token": "<PAD>" }
+    })");
+    ASSERT_TRUE(net.LoadVocabulary(nn_test_vocab_path));
+    std::remove(nn_test_vocab_path.c_str());
+}
+
+TEST(NeuroNetStringInputTest, LoadVocabulary_Fail_NonExistentFile) {
+    NeuroNet::NeuroNet net;
+    ASSERT_FALSE(net.LoadVocabulary("non_existent_vocab.json"));
+}
+
+TEST(NeuroNetStringInputTest, SetStringsInput_Success) {
+    NeuroNet::NeuroNet net;
+    net.SetInputSize(3); // Network expects input vector of size 3
+    CreateTempVocabFileForNeuroNetTest(nn_test_vocab_path, R"({
+        "word_to_token": { "a":0, "b":1, "<UNK>":2, "<PAD>":3 },
+        "token_to_word": { "0":"a", "1":"b", "2":"<UNK>", "3":"<PAD>" },
+        "special_tokens": { "unknown_token": "<UNK>", "padding_token": "<PAD>" }
+    })");
+    ASSERT_TRUE(net.LoadVocabulary(nn_test_vocab_path));
+
+    const std::string json_input = R"({ "input_batch": ["a b a", "b a"] })";
+    // max_len_override = 3 to match net.SetInputSize(3)
+    ASSERT_TRUE(net.SetStringsInput(json_input, 3));
+
+    net.ResizeNeuroNet(1);
+    net.ResizeLayer(0, 1); // 1 output neuron
+    ASSERT_NO_THROW(net.GetOutput());
+
+    std::remove(nn_test_vocab_path.c_str());
+}
+
+TEST(NeuroNetStringInputTest, SetStringsInput_Fail_VocabNotLoaded) {
+    NeuroNet::NeuroNet net;
+    net.SetInputSize(3);
+    const std::string json_input = R"({ "input_batch": ["a b"] })";
+    ASSERT_THROW(net.SetStringsInput(json_input, 3), std::runtime_error);
+}
+
+TEST(NeuroNetStringInputTest, SetStringsInput_Fail_JsonParseError) {
+    NeuroNet::NeuroNet net;
+    CreateTempVocabFileForNeuroNetTest(nn_test_vocab_path, R"({
+        "word_to_token": { "a":0, "<PAD>":1, "<UNK>":2 },
+        "token_to_word": { "0":"a", "1":"<PAD>", "2":"<UNK>" },
+        "special_tokens": { "unknown_token": "<UNK>", "padding_token": "<PAD>" }
+    })");
+    ASSERT_TRUE(net.LoadVocabulary(nn_test_vocab_path));
+    const std::string malformed_json = R"({ "input_batch": ["a b"], ... )"; // Malformed
+    ASSERT_THROW(net.SetStringsInput(malformed_json, 2), JsonParseException);
+    std::remove(nn_test_vocab_path.c_str());
+}
+
+TEST(NeuroNetStringInputTest, SetStringsInput_Fail_MatrixColsMismatchNetworkInputSize) {
+    NeuroNet::NeuroNet net;
+    net.SetInputSize(5); // Network expects 5 features
+    CreateTempVocabFileForNeuroNetTest(nn_test_vocab_path, R"({
+        "word_to_token": { "a":0, "b":1, "<UNK>":2, "<PAD>":3 },
+        "token_to_word": { "0":"a", "1":"b", "2":"<UNK>", "3":"<PAD>" },
+        "special_tokens": { "unknown_token": "<UNK>", "padding_token": "<PAD>" }
+    })");
+    ASSERT_TRUE(net.LoadVocabulary(nn_test_vocab_path));
+
+    const std::string json_input = R"({ "input_batch": ["a b a"] })";
+    // prepare_batch_matrix with max_len_override = 3 will create matrix with 3 cols.
+    // This will mismatch net.InputSize = 5.
+    ASSERT_THROW(net.SetStringsInput(json_input, 3), std::runtime_error);
+    std::remove(nn_test_vocab_path.c_str());
+}
+
+TEST(NeuroNetStringInputTest, SetStringsInput_CorrectPaddingToMatchNetworkInputSize) {
+    NeuroNet::NeuroNet net;
+    net.SetInputSize(5); // Network expects 5 features
+    CreateTempVocabFileForNeuroNetTest(nn_test_vocab_path, R"({
+        "word_to_token": { "a":0, "b":1, "<UNK>":2, "<PAD>":3 },
+        "token_to_word": { "0":"a", "1":"b", "2":"<UNK>", "3":"<PAD>" },
+        "special_tokens": { "unknown_token": "<UNK>", "padding_token": "<PAD>" }
+    })");
+    ASSERT_TRUE(net.LoadVocabulary(nn_test_vocab_path));
+
+    const std::string json_input = R"({ "input_batch": ["a b a", "a b a b c d e f"] })";
+    // max_len_override = 5 to match net.InputSize. First sequence will be padded, second truncated.
+    ASSERT_NO_THROW(net.SetStringsInput(json_input, 5));
+    std::remove(nn_test_vocab_path.c_str());
+}
+
+TEST(NeuroNetStringInputTest, SaveLoadModel_VocabularyMaxSeqLen) {
+    NeuroNet::NeuroNet net_to_save;
+    const std::string model_path = "test_model_vocab_cfg.json";
+    const std::string vocab_path_for_test = "test_model_vocab_file.json"; // Renamed to avoid conflict
+
+    // Create vocab with max_sequence_length in its config
+    CreateTempVocabFileForNeuroNetTest(vocab_path_for_test, R"({
+        "word_to_token": { "a":0, "<UNK>":1, "<PAD>":2 },
+        "token_to_word": { "0":"a", "1":"<UNK>", "2":"<PAD>" },
+        "special_tokens": { "unknown_token": "<UNK>", "padding_token": "<PAD>" },
+        "config": { "max_sequence_length": 7 }
+    })");
+    ASSERT_TRUE(net_to_save.LoadVocabulary(vocab_path_for_test)); // Reload with config
+    EXPECT_EQ(net_to_save.getVocabulary().get_max_sequence_length(), 7);
+
+
+    ASSERT_TRUE(net_to_save.save_model(model_path));
+
+    NeuroNet::NeuroNet net_to_load;
+    ASSERT_NO_THROW(net_to_load = NeuroNet::NeuroNet::load_model(model_path));
+
+    // Direct check using the new getter
+    EXPECT_EQ(net_to_load.getVocabulary().get_max_sequence_length(), 7);
+
+    // Indirect test: Load the actual vocabulary words and see if SetStringsInput behaves as if max_len is 7.
+    ASSERT_TRUE(net_to_load.LoadVocabulary(vocab_path_for_test)); // Load the actual words
+    net_to_load.SetInputSize(7); // Match network input size to the expected sequence length
+    const std::string json_input = R"({ "input_batch": ["a a a"] })";
+    // SetStringsInput should use the loaded max_sequence_length of 7 from vocab config.
+    EXPECT_TRUE(net_to_load.SetStringsInput(json_input));
+
+
+    std::remove(model_path.c_str());
+    std::remove(vocab_path_for_test.c_str());
+}
+
+TEST(NeuroNetStringInputTest, LoadModel_NoVocabConfig_Defaults) {
+    NeuroNet::NeuroNet net_to_save;
+    net_to_save.SetInputSize(1);
+    net_to_save.ResizeNeuroNet(1);
+    net_to_save.ResizeLayer(0,1);
+
+    const std::string model_path = "test_model_no_vocab_cfg.json";
+    // Save a model without loading any vocabulary, so no vocab_config will be saved.
+    // The internal vocabulary's max_sequence_length will be default -1.
+    ASSERT_TRUE(net_to_save.save_model(model_path));
+    EXPECT_EQ(net_to_save.getVocabulary().get_max_sequence_length(), -1);
+
+
+    NeuroNet::NeuroNet net_to_load;
+    ASSERT_NO_THROW(net_to_load = NeuroNet::NeuroNet::load_model(model_path));
+
+    // max_sequence_length on its vocab should be -1 (default) as it was not in the saved model.
+    EXPECT_EQ(net_to_load.getVocabulary().get_max_sequence_length(), -1);
+
+    CreateTempVocabFileForNeuroNetTest(nn_test_vocab_path, R"({
+        "word_to_token": { "a":0, "<UNK>":1, "<PAD>":2 },
+        "token_to_word": { "0":"a", "1":"<UNK>", "2":"<PAD>" },
+        "special_tokens": { "unknown_token": "<UNK>", "padding_token": "<PAD>" }
+    })"); // No config.max_sequence_length here
+    ASSERT_TRUE(net_to_load.LoadVocabulary(nn_test_vocab_path));
+    // After loading this vocab, max_sequence_length should still be -1 as vocab file doesn't set it.
+    EXPECT_EQ(net_to_load.getVocabulary().get_max_sequence_length(), -1);
+
+
+    net_to_load.SetInputSize(3); // Say network expects 3 inputs after padding
+    const std::string json_input = R"({ "input_batch": ["a a a", "a"] })";
+    // SetStringsInput without override, vocab has no internal max_len, should pad to max in batch (3).
+    EXPECT_TRUE(net_to_load.SetStringsInput(json_input));
+
+    std::remove(model_path.c_str());
+    std::remove(nn_test_vocab_path.c_str());
+}
+
+TEST(NeuroNetStringInputTest, EndToEnd_StringInput_SimpleNet) {
+    NeuroNet::NeuroNet net;
+    net.SetInputSize(2);
+    net.ResizeNeuroNet(1);
+    net.ResizeLayer(0, 1);
+    net.getLayer(0).SetActivationFunction(NeuroNet::ActivationFunctionType::None);
+
+    NeuroNet::LayerWeights weights;
+    weights.WeightCount = 2;
+    weights.WeightsVector.push_back(1.0f);
+    weights.WeightsVector.push_back(1.0f);
+    ASSERT_TRUE(net.getLayer(0).SetWeights(weights));
+    NeuroNet::LayerBiases biases;
+    biases.BiasCount = 1;
+    biases.BiasVector.push_back(0.0f);
+    ASSERT_TRUE(net.getLayer(0).SetBiases(biases));
+
+    CreateTempVocabFileForNeuroNetTest(nn_test_vocab_path, R"({
+        "word_to_token": { "cat":5, "dog":10, "<UNK>":0, "<PAD>":1 },
+        "token_to_word": { "5":"cat", "10":"dog", "0":"<UNK>", "1":"<PAD>" },
+        "special_tokens": { "unknown_token": "<UNK>", "padding_token": "<PAD>" }
+    })");
+    ASSERT_TRUE(net.LoadVocabulary(nn_test_vocab_path));
+
+    const std::string json_input = R"({ "input_batch": ["cat dog"] })";
+    ASSERT_TRUE(net.SetStringsInput(json_input, 2)); // max_len_override = 2
+
+    Matrix::Matrix<float> output = net.GetOutput();
+    ASSERT_EQ(output.rows(), 1);
+    ASSERT_EQ(output.cols(), 1);
+    EXPECT_FLOAT_EQ(output[0][0], 15.0f); // 5.0*1.0 + 10.0*1.0 + 0.0 = 15.0
+
+    std::remove(nn_test_vocab_path.c_str());
+}
+
 TEST_F(NeuroNetTest, ToCustomJsonString) {
     NeuroNet::NeuroNet model;
     model.SetInputSize(2);
@@ -637,4 +846,157 @@ TEST_F(NeuroNetTest, SaveLoadStringActivations) {
     EXPECT_EQ(loaded_model.getLayer(1).LayerSize(), 1);
 
     std::remove(test_filename.c_str());
+}
+
+// --- NeuroNetJSONTest Tests ---
+
+TEST(NeuroNetJSONTest, SetInputJSON_Valid) {
+    NeuroNet::NeuroNet net;
+    net.SetInputSize(3); // Configure network to accept 3 inputs
+    net.ResizeNeuroNet(1); // Add one layer
+    net.ResizeLayer(0, 2); // First layer has 2 neurons
+
+    const std::string valid_json_input = R"({
+        "input_matrix": [
+            [1.0, 2.0, 3.0]
+        ]
+    })";
+
+    ASSERT_NO_THROW(net.SetInputJSON(valid_json_input));
+
+    // Optional: Further verify the input matrix within the network if NeuroNet had a GetInputMatrix() method.
+    // For now, we rely on SetInput not throwing and GetOutput producing expected results later.
+    Matrix::Matrix<float> output = net.GetOutput(); // Will use default weights/biases (usually zero)
+    ASSERT_EQ(output.rows(), 1);
+    ASSERT_EQ(output.cols(), 2);
+}
+
+TEST(NeuroNetJSONTest, SetInputJSON_MalformedJSON) {
+    NeuroNet::NeuroNet net;
+    net.SetInputSize(2);
+    const std::string malformed_json = R"({ "input_matrix": [[1.0, 2.0], )"; // Missing closing bracket and brace
+    ASSERT_THROW(net.SetInputJSON(malformed_json), JsonParseException);
+}
+
+TEST(NeuroNetJSONTest, SetInputJSON_InvalidStructure_NotAnObject) {
+    NeuroNet::NeuroNet net;
+    net.SetInputSize(2);
+    const std::string wrong_structure_json = R"([[1.0, 2.0]])"; // Array instead of object
+    ASSERT_THROW(net.SetInputJSON(wrong_structure_json), std::runtime_error);
+}
+
+TEST(NeuroNetJSONTest, SetInputJSON_InvalidStructure_MissingKey) {
+    NeuroNet::NeuroNet net;
+    net.SetInputSize(2);
+    const std::string missing_key_json = R"({ "data": [[1.0, 2.0]] })";
+    ASSERT_THROW(net.SetInputJSON(missing_key_json), std::runtime_error);
+}
+
+TEST(NeuroNetJSONTest, SetInputJSON_InvalidStructure_MatrixValueNotArray) {
+    NeuroNet::NeuroNet net;
+    net.SetInputSize(2);
+    const std::string value_not_array_json = R"({ "input_matrix": "not an array" })";
+    ASSERT_THROW(net.SetInputJSON(value_not_array_json), std::runtime_error);
+}
+
+TEST(NeuroNetJSONTest, SetInputJSON_InvalidStructure_RowNotArray) {
+    NeuroNet::NeuroNet net;
+    net.SetInputSize(2);
+    const std::string row_not_array_json = R"({ "input_matrix": [[1.0, 2.0], "not a row array"] })";
+    ASSERT_THROW(net.SetInputJSON(row_not_array_json), std::runtime_error);
+}
+
+TEST(NeuroNetJSONTest, SetInputJSON_DataTypeError) {
+    NeuroNet::NeuroNet net;
+    net.SetInputSize(2);
+    const std::string data_type_error_json = R"({ "input_matrix": [[1.0, "not a number"]] })";
+    ASSERT_THROW(net.SetInputJSON(data_type_error_json), std::runtime_error);
+}
+
+TEST(NeuroNetJSONTest, SetInputJSON_InconsistentColumns) {
+    NeuroNet::NeuroNet net;
+    net.SetInputSize(2); // Input size here is for the network, not directly enforced by SetInputJSON on matrix shape
+    const std::string inconsistent_cols_json = R"({
+        "input_matrix": [
+            [1.0, 2.0],
+            [3.0]
+        ]
+    })";
+    ASSERT_THROW(net.SetInputJSON(inconsistent_cols_json), std::runtime_error);
+}
+
+TEST(NeuroNetJSONTest, GetOutputJSON_Basic) {
+    NeuroNet::NeuroNet net;
+    net.SetInputSize(1);
+    net.ResizeNeuroNet(1);
+    net.ResizeLayer(0, 1); // 1 input, 1 neuron layer
+
+    // Manually set weights and biases for predictable output
+    NeuroNet::LayerWeights weights;
+    weights.WeightCount = 1; // 1 input * 1 neuron
+    weights.WeightsVector.push_back(2.0f);
+    ASSERT_TRUE(net.getLayer(0).SetWeights(weights));
+
+    NeuroNet::LayerBiases biases;
+    biases.BiasCount = 1; // 1 neuron
+    biases.BiasVector.push_back(0.5f);
+    ASSERT_TRUE(net.getLayer(0).SetBiases(biases));
+
+    net.getLayer(0).SetActivationFunction(NeuroNet::ActivationFunctionType::None); // No activation
+
+    const std::string input_json = R"({ "input_matrix": [[3.0]] })"; // Input X = 3.0
+    ASSERT_NO_THROW(net.SetInputJSON(input_json));
+
+    // Expected output: (2.0 * 3.0) + 0.5 = 6.5
+    std::string output_json_str;
+    ASSERT_NO_THROW(output_json_str = net.GetOutputJSON());
+
+    // Parse the output JSON to verify its content
+    JsonValue output_json_val;
+    ASSERT_NO_THROW(output_json_val = JsonParser::Parse(output_json_str));
+
+    ASSERT_EQ(output_json_val.type, JsonValueType::Object);
+    ASSERT_TRUE(output_json_val.GetObject().count("output_matrix"));
+
+    const JsonValue* matrix_val = output_json_val.GetObject().at("output_matrix");
+    ASSERT_EQ(matrix_val->type, JsonValueType::Array);
+    ASSERT_EQ(matrix_val->GetArray().size(), 1); // 1 row
+
+    const JsonValue& row_val = matrix_val->GetArray()[0];
+    ASSERT_EQ(row_val.type, JsonValueType::Array);
+    ASSERT_EQ(row_val.GetArray().size(), 1); // 1 col
+
+    const JsonValue& cell_val = row_val.GetArray()[0];
+    ASSERT_EQ(cell_val.type, JsonValueType::Number);
+    EXPECT_FLOAT_EQ(static_cast<float>(cell_val.GetNumber()), 6.5f);
+
+    // Cleanup for parsed JSON object
+    if (output_json_val.type == JsonValueType::Object) {
+        for (auto& pair : output_json_val.GetObject()) {
+            delete pair.second; // Delete the JsonValue*
+        }
+        output_json_val.GetObject().clear(); // Clear map to remove dangling pointers
+    }
+}
+
+TEST(NeuroNetJSONTest, GetOutputJSON_NoLayers) {
+    NeuroNet::NeuroNet net; // No layers added
+    std::string output_json_str;
+    ASSERT_NO_THROW(output_json_str = net.GetOutputJSON());
+
+    JsonValue output_json_val;
+    ASSERT_NO_THROW(output_json_val = JsonParser::Parse(output_json_str));
+    ASSERT_EQ(output_json_val.type, JsonValueType::Object);
+    ASSERT_TRUE(output_json_val.GetObject().count("output_matrix"));
+    const JsonValue* matrix_val = output_json_val.GetObject().at("output_matrix");
+    ASSERT_EQ(matrix_val->type, JsonValueType::Array);
+    ASSERT_TRUE(matrix_val->GetArray().empty()); // Expect empty array for data
+
+    // Cleanup for parsed JSON object
+    if (output_json_val.type == JsonValueType::Object) {
+        for (auto& pair : output_json_val.GetObject()) {
+            delete pair.second;
+        }
+        output_json_val.GetObject().clear(); // Clear map
+    }
 }
