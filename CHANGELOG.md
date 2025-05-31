@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased] - 2025-05-23
+## [Unreleased] - YYYY-MM-DD
 
 ### Added
 - **NeuroNet Model Serialization & Deserialization:**
@@ -39,7 +39,7 @@ All notable changes to this project will be documented in this file.
 - Updated `README.md` with a new section explaining activation functions and providing usage examples, and updated dependency information to reflect the custom JSON library.
 - Updated Doxygen comments in `src/utilities/json/json.hpp` to fully document the custom JSON library's API.
 
-## [Previous Version - e.g., 0.2.0] - 2025-05-23 (Date of previous changes if known, or adjust as needed)
+## [Previous Version - e.g., 0.2.0] - YYYY-MM-DD (Date of previous changes if known, or adjust as needed)
 
 ### Added
 - Created `CHANGELOG.md` to track changes.
