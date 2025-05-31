@@ -371,6 +371,18 @@ NeuroNet::NeuroNet NeuroNet::NeuroNet::load_model(const std::string& filename)
 	model.SetInputSize(input_size);
 	model.ResizeNeuroNet(layer_count); // Resizes NeuroNetVector
 
+    // Load Vocabulary Configuration (optional field)
+    if (root.GetObject().count("vocabulary_config")) {
+        const JsonValue* vocab_config_json_val_ptr = root.GetObject().at("vocabulary_config");
+        if (vocab_config_json_val_ptr->type == JsonValueType::Object) {
+            const auto& vocab_config_obj = vocab_config_json_val_ptr->GetObject();
+            if (vocab_config_obj.count("max_sequence_length") && vocab_config_obj.at("max_sequence_length")->type == JsonValueType::Number) {
+                int max_len = static_cast<int>(vocab_config_obj.at("max_sequence_length")->GetNumber());
+                model.vocabulary.set_max_sequence_length(max_len);
+            }
+        }
+    }
+
 	// 2. Deserialize Layers
 	if (root.GetObject().count("layers") == 0 || root.GetObject().at("layers")->type != JsonValueType::Array) {
 		throw std::runtime_error("Invalid JSON format: missing 'layers' array.");
@@ -466,6 +478,12 @@ bool NeuroNet::NeuroNet::save_model(const std::string& filename) const
     SetJsonNumber(root, "input_size", static_cast<double>(this->InputSize));
     SetJsonNumber(root, "layer_count", static_cast<double>(this->LayerCount));
 
+    // Add Vocabulary Configuration
+    if (this->vocabulary.get_max_sequence_length() > 0) { // Only save if it's meaningfully set
+        JsonValue* vocab_config_obj_ptr = CreateJsonObjectInObject(root, "vocabulary_config");
+        SetJsonNumber(*vocab_config_obj_ptr, "max_sequence_length", static_cast<double>(this->vocabulary.get_max_sequence_length()));
+    }
+
 	// 2. Serialize Layers
     // Create the main 'layers' array within the root object
     JsonValue* layers_array_json_val_ptr = CreateJsonArrayInObject(root, "layers");
@@ -535,7 +553,7 @@ bool NeuroNet::NeuroNet::save_model(const std::string& filename) const
     // The custom JsonValue::object_value stores JsonValue*. These were allocated with 'new'.
     // This is a simplified cleanup; a real scenario needs a recursive destructor in JsonValue
     // or a dedicated cleanup utility.
-    for (auto& pair : root.GetObject()) { // For "input_size", "layer_count", "layers"
+    for (auto& pair : root.GetObject()) { // For "input_size", "layer_count", "layers", "vocabulary_config"
         if (pair.first == "layers") {
             JsonValue* layers_array = pair.second;
             for (JsonValue& layer_val : layers_array->GetArray()) { // Each layer_val is an object
@@ -549,9 +567,15 @@ bool NeuroNet::NeuroNet::save_model(const std::string& filename) const
                     delete layer_prop_pair.second; // Delete JsonValue* for input_size, layer_size, activation_function, weights obj, biases obj
                 }
             }
+        } else if (pair.first == "vocabulary_config") {
+            JsonValue* vocab_config_object = pair.second;
+            for (auto& vocab_prop_pair : vocab_config_object->GetObject()) { // e.g., "max_sequence_length"
+                delete vocab_prop_pair.second; // Delete the JsonValue* for "max_sequence_length" value
+            }
         }
-        delete pair.second; // Delete JsonValue* for input_size, layer_count, layers array itself
+        delete pair.second; // Delete JsonValue* for top-level keys like "input_size", "layer_count", "layers" array itself, "vocabulary_config" object itself
     }
+    root.GetObject().clear(); // Clear the map in root to remove dangling pointers
 	return true;
 }
 
@@ -599,8 +623,216 @@ bool NeuroNet::NeuroNetLayer::SetWeights(LayerWeights pWeights) {
 	return true;
 }
 
+bool NeuroNet::NeuroNet::SetInputJSON(const std::string& json_input) {
+    JsonValue parsed_json_input;
+    try {
+        parsed_json_input = JsonParser::Parse(json_input);
+    } catch (const JsonParseException& e) {
+        // Optionally log the error e.what()
+        throw; // Re-throw the JsonParseException
+    }
+
+    if (parsed_json_input.type != JsonValueType::Object ||
+        parsed_json_input.GetObject().find("input_matrix") == parsed_json_input.GetObject().end()) {
+        throw std::runtime_error("JSON input must be an object with an 'input_matrix' key.");
+    }
+
+    const JsonValue* matrix_json_val_ptr = parsed_json_input.GetObject().at("input_matrix");
+    if (matrix_json_val_ptr->type != JsonValueType::Array) {
+        throw std::runtime_error("'input_matrix' value must be an array of arrays.");
+    }
+
+    const std::vector<JsonValue>& rows_json = matrix_json_val_ptr->GetArray();
+    if (rows_json.empty()) {
+        // Allow empty matrix if SetInput can handle it, or throw error
+        // For now, let's assume an empty matrix is valid if SetInput allows 0 rows/cols
+        Matrix::Matrix<float> empty_matrix(0,0);
+        return this->SetInput(empty_matrix);
+    }
+
+    // Determine matrix dimensions
+    size_t num_rows = rows_json.size();
+    size_t num_cols = 0;
+    if (num_rows > 0) {
+        const JsonValue& first_row_json = rows_json[0];
+        if (first_row_json.type != JsonValueType::Array) {
+            throw std::runtime_error("Each element of 'input_matrix' must be an array (a row).");
+        }
+        num_cols = first_row_json.GetArray().size();
+    }
+
+    Matrix::Matrix<float> input_matrix(num_rows, num_cols);
+
+    for (size_t i = 0; i < num_rows; ++i) {
+        const JsonValue& row_json_val = rows_json[i];
+        if (row_json_val.type != JsonValueType::Array) {
+            throw std::runtime_error("Row " + std::to_string(i) + " is not a JSON array.");
+        }
+        const std::vector<JsonValue>& cols_json = row_json_val.GetArray();
+        if (cols_json.size() != num_cols) {
+            throw std::runtime_error("Row " + std::to_string(i) + " has incorrect number of columns. Expected " + std::to_string(num_cols) + ", got " + std::to_string(cols_json.size()));
+        }
+        for (size_t j = 0; j < num_cols; ++j) {
+            const JsonValue& val_json = cols_json[j];
+            if (val_json.type != JsonValueType::Number) {
+                throw std::runtime_error("Matrix element at (" + std::to_string(i) + "," + std::to_string(j) + ") is not a number.");
+            }
+            input_matrix[i][j] = static_cast<float>(val_json.GetNumber());
+        }
+    }
+    return this->SetInput(input_matrix);
+}
+
+std::string NeuroNet::NeuroNet::GetOutputJSON() {
+    Matrix::Matrix<float> output_matrix = this->GetOutput(); // Get the output matrix
+
+    // Check if the output matrix is empty or invalid (e.g., if GetOutput returns an empty matrix on error)
+    if (output_matrix.rows() == 0 && output_matrix.cols() == 0 && this->LayerCount > 0) {
+         // This case might indicate an issue with GetOutput() or an uninitialized network,
+         // but GetOutput() itself might return an empty matrix if no layers.
+         // If LayerCount is 0, GetOutput() already returns an empty matrix.
+         // If LayerCount > 0 and we still get 0x0, it's potentially an issue or just an empty output.
+         // For now, we'll serialize an empty array for the matrix data.
+    }
+
+    if (this->LayerCount == 0 && output_matrix.rows() == 0 && output_matrix.cols() == 0) {
+        // If there are no layers, GetOutput() returns an empty matrix.
+        // We should return a valid JSON representing an empty matrix or handle as an error.
+        // Let's return a JSON with an empty "output_matrix" array.
+    }
+
+
+    JsonValue root_json;
+    root_json.SetObject();
+
+    JsonValue* matrix_data_json_ptr = new JsonValue(); // Dynamically allocate
+    matrix_data_json_ptr->SetArray();                 // This will be an array of arrays
+
+    for (size_t i = 0; i < output_matrix.rows(); ++i) { // Use size_t for loop
+        JsonValue row_json; // Temporary JsonValue for the row, will be copied into matrix_data_json_ptr
+        row_json.SetArray();
+        std::vector<JsonValue>& row_array_ref = row_json.GetArray(); // Get reference to internal vector
+
+        for (size_t j = 0; j < output_matrix.cols(); ++j) { // Use size_t for loop
+            JsonValue val_json; // Temporary JsonValue for the number
+            val_json.SetNumber(static_cast<double>(output_matrix[i][j]));
+            row_array_ref.push_back(val_json); // Copy val_json into the row array
+        }
+        matrix_data_json_ptr->GetArray().push_back(row_json); // Copy row_json into the main matrix data array
+    }
+
+    root_json.InsertIntoObject("output_matrix", matrix_data_json_ptr);
+
+    std::string output_json_string = root_json.ToString();
+
+    // Cleanup dynamically allocated JsonValue pointed to by matrix_data_json_ptr
+    // The JsonValue stored in root_json.object_value["output_matrix"] is matrix_data_json_ptr
+    // JsonValue's destructor or clear method should ideally handle this if it's designed to own its children.
+    // Based on json.hpp, object_value stores JsonValue*, and JsonValue::SetObject clears object_value
+    // but does not delete the pointed-to objects.
+    // JsonValue::InsertIntoObject also doesn't manage memory of previous value if key existed.
+    // The `save_model` function had manual cleanup. We need similar here.
+    delete matrix_data_json_ptr; // matrix_data_json_ptr itself
+    root_json.GetObject().clear(); // Clear the map to remove the dangling pointer entry
+
+    return output_json_string;
+}
+
 // --- NeuroNet Method Implementations ---
 // (This is a comment, ensure the new method is outside other function bodies)
+
+bool NeuroNet::NeuroNet::LoadVocabulary(const std::string& filepath) {
+    return this->vocabulary.load_from_json(filepath);
+}
+
+bool NeuroNet::NeuroNet::SetStringsInput(const std::string& json_string_input, int max_len_override, bool pad_to_max_in_batch_override) {
+    if (this->vocabulary.get_padding_token_id() == -1 || this->vocabulary.get_unknown_token_id() == -1) {
+        throw std::runtime_error("Vocabulary not loaded or not properly initialized. Call LoadVocabulary() first.");
+    }
+
+    JsonValue parsed_json_input;
+    try {
+        parsed_json_input = JsonParser::Parse(json_string_input);
+    } catch (const JsonParseException& e) {
+        // Consider logging e.what()
+        throw; // Re-throw
+    }
+
+    if (parsed_json_input.type != JsonValueType::Object) {
+        // Cleanup for parsed_json_input if it allocated anything
+        if (parsed_json_input.type == JsonValueType::Object) {
+            for(auto& pair : parsed_json_input.GetObject()) delete pair.second;
+            parsed_json_input.GetObject().clear();
+        } else if (parsed_json_input.type == JsonValueType::Array) {
+            // If it was an array of objects/arrays, deeper cleanup might be needed
+            // For now, assume if not object, it's a simple type or an array of simple types
+            // that JsonParser::Parse might not allocate deeply for, or that this path is an error anyway.
+        }
+        throw std::runtime_error("JSON input must be an object.");
+    }
+
+    const auto& root_obj = parsed_json_input.GetObject();
+    if (root_obj.find("input_batch") == root_obj.end() || root_obj.at("input_batch")->type != JsonValueType::Array) {
+        for(auto& pair : root_obj) delete pair.second;
+        parsed_json_input.GetObject().clear();
+        throw std::runtime_error("JSON input must be an object with an 'input_batch' key, and its value must be an array of strings.");
+    }
+
+    const std::vector<JsonValue>& string_json_array = root_obj.at("input_batch")->GetArray();
+    std::vector<std::string> batch_sequences;
+    batch_sequences.reserve(string_json_array.size());
+
+    for (const JsonValue& str_val : string_json_array) {
+        if (str_val.type != JsonValueType::String) {
+            for(auto& pair : root_obj) delete pair.second;
+            parsed_json_input.GetObject().clear();
+            throw std::runtime_error("All elements in 'input_batch' array must be strings.");
+        }
+        batch_sequences.push_back(str_val.GetString());
+    }
+
+    // Cleanup parsed_json_input *before* potential throw in prepare_batch_matrix or SetInput
+    for(auto& pair : root_obj) {
+        // The "input_batch" key points to an array (JsonValue*). This array's internal vector
+        // holds JsonValue objects (not pointers) if they are simple types like strings.
+        // So, deleting pair.second (which is the JsonValue* for the array) is correct.
+        // The JsonValue destructor for the array should handle its own vector of JsonValues.
+        // If JsonValue stored JsonValue* in its array_value, then deeper cleanup would be needed here.
+        // Given current Vocabulary::load_from_json cleanup, this seems consistent.
+        delete pair.second;
+    }
+    parsed_json_input.GetObject().clear();
+
+
+    Matrix::Matrix<float> input_matrix;
+    try {
+        input_matrix = this->vocabulary.prepare_batch_matrix(batch_sequences, max_len_override, pad_to_max_in_batch_override);
+    } catch (const std::runtime_error& e) {
+        // Re-throw or wrap if more context is needed
+        throw;
+    }
+
+    if (input_matrix.rows() == 0 && !batch_sequences.empty()) {
+        // This case might occur if all strings in batch are empty AND max_len results in 0 columns.
+        // SetInput might not handle a 0-column matrix if rows > 0.
+        // Or if batch_sequences was empty, prepare_batch_matrix returns 0x0, which SetInput should handle.
+         if (this->InputSize > 0 && input_matrix.cols() == 0) {
+              throw std::runtime_error("Prepared matrix has 0 columns, but network input size is > 0.");
+         }
+    }
+     // Check if network's InputSize is configured (i.e. > 0). If it is, the matrix columns must match.
+     // If InputSize is 0, it means the network's input size is flexible or not yet defined,
+     // so we don't enforce a specific column count from the prepared matrix.
+     // The first layer's input size would be set by this matrix's column count.
+     if (this->InputSize > 0 && static_cast<int>(input_matrix.cols()) != this->InputSize) {
+        throw std::runtime_error("Prepared matrix column count (" + std::to_string(input_matrix.cols()) +
+                                 ") does not match network InputSize (" + std::to_string(this->InputSize) + "). " +
+                                 "Ensure vocabulary's max_sequence_length or override matches network's expected sequence length for tokenized input.");
+     }
+
+
+    return this->SetInput(input_matrix);
+}
 
 /**
  * @brief Sets the layer's biases from a LayerBiases struct.
