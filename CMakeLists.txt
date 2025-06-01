@@ -30,6 +30,9 @@ add_library(neuronet STATIC
     src/transformer/transformer_ffn.cpp
     src/transformer/transformer_model.cpp
     src/math/extended_matrix_ops.cpp
+    src/math/gaussian_distribution.cpp
+    src/math/least_squares.cpp
+    src/classifier/naive_bayes.cpp
 )
 
 # Testing subdirectory
