@@ -215,7 +215,7 @@ TEST(NeuroNetLayerBackwardPassTest, LinearLayer) {
     Matrix::Matrix<float> dLdZ_expected = dLdOutput_mock;
 
     // Expected dLdW = input_x.transpose() * dLdZ_expected
-    Matrix::Matrix<float> dLdW_expected = input_x.transpose() * dLdZ_expected;
+    Matrix::Matrix<float> dLdW_expected = input_x.Transpose() * dLdZ_expected;
     Matrix::Matrix<float> dLdW_actual = layer.get_dLdW();
     ASSERT_EQ(dLdW_actual.rows(), dLdW_expected.rows()) << "dLdW row mismatch";
     ASSERT_EQ(dLdW_actual.cols(), dLdW_expected.cols()) << "dLdW col mismatch";
@@ -231,7 +231,7 @@ TEST(NeuroNetLayerBackwardPassTest, LinearLayer) {
        EXPECT_FLOAT_EQ(dLdB_actual[r][c], dLdB_expected[r][c]) << "dLdB element mismatch at (" << r << "," << c << ")";
 
     // Expected dLdInput = dLdZ_expected * W_expected.transpose()
-    Matrix::Matrix<float> dLdInput_expected = dLdZ_expected * W_expected.transpose();
+    Matrix::Matrix<float> dLdInput_expected = dLdZ_expected * W_expected.Transpose();
     ASSERT_EQ(dLdInput_actual.rows(), dLdInput_expected.rows()) << "dLdInput row mismatch";
     ASSERT_EQ(dLdInput_actual.cols(), dLdInput_expected.cols()) << "dLdInput col mismatch";
     for(size_t r=0; r<dLdInput_actual.rows(); ++r) for(size_t c=0; c<dLdInput_actual.cols(); ++c)
@@ -260,7 +260,7 @@ TEST(NeuroNetTrainingTest, XORProblem) {
 
     // Weight Initialization (Deterministic)
     auto initialize_layer_weights = [&](NeuroNet::NeuroNetLayer& layer, float start_w, float step_w, float start_b, float step_b) {
-        LayerWeights lw = layer.get_weights();
+        NeuroNet::LayerWeights lw = layer.get_weights();
         float current_w_val = start_w;
         if (lw.WeightCount > 0) {
             lw.WeightsVector.resize(lw.WeightCount); // Ensure vector is sized
@@ -273,7 +273,7 @@ TEST(NeuroNetTrainingTest, XORProblem) {
             ASSERT_TRUE(layer.SetWeights(lw));
         }
 
-        LayerBiases lb = layer.get_biases();
+        NeuroNet::LayerBiases lb = layer.get_biases();
         float current_b_val = start_b;
         if (lb.BiasCount > 0) {
             lb.BiasVector.resize(lb.BiasCount); // Ensure vector is sized
@@ -434,7 +434,7 @@ TEST(NeuroNetLayerBackwardPassTest, ReLULayer) {
     // dLdZ_expected = [[0.5, 0, 0.1]] (1x3)
     // dLdW = [[1*0.5, 1*0, 1*0.1], [2*0.5, 2*0, 2*0.1]]
     //      = [[0.5, 0, 0.1], [1.0, 0, 0.2]]
-    Matrix::Matrix<float> dLdW_expected = input_x.transpose() * dLdZ_expected;
+    Matrix::Matrix<float> dLdW_expected = input_x.Transpose() * dLdZ_expected;
     Matrix::Matrix<float> dLdW_actual = layer.get_dLdW();
     ASSERT_EQ(dLdW_actual.rows(), dLdW_expected.rows()) << "dLdW row mismatch";
     ASSERT_EQ(dLdW_actual.cols(), dLdW_expected.cols()) << "dLdW col mismatch";
@@ -455,7 +455,7 @@ TEST(NeuroNetLayerBackwardPassTest, ReLULayer) {
     // dLdInput = [[0.5*0.1 + 0*(-0.2) + 0.1*0.3,   0.5*0.4 + 0*0.05 + 0.1*(-0.15)]]
     //          = [[0.05 + 0 + 0.03,             0.2 + 0 - 0.015]]
     //          = [[0.08,                        0.185]]
-    Matrix::Matrix<float> dLdInput_expected = dLdZ_expected * W_expected.transpose();
+    Matrix::Matrix<float> dLdInput_expected = dLdZ_expected * W_expected.Transpose();
     ASSERT_EQ(dLdInput_actual.rows(), dLdInput_expected.rows()) << "dLdInput row mismatch";
     ASSERT_EQ(dLdInput_actual.cols(), dLdInput_expected.cols()) << "dLdInput col mismatch";
     for(size_t r=0; r<dLdInput_actual.rows(); ++r) for(size_t c=0; c<dLdInput_actual.cols(); ++c)

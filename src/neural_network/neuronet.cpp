@@ -66,9 +66,9 @@ void NeuroNet::NeuroNetLayer::ResizeLayer(int pInputSize, int pLayerSize) {
 
 	// Also resize gradient matrices
 	this->dLdW.resize(this->InputSize, this->vLayerSize);
-	this->dLdW.fill(0.0f); // Initialize with zeros
+	this->dLdW.assign(0.0f); // Initialize with zeros
 	this->dLdB.resize(1, this->vLayerSize);
-	this->dLdB.fill(0.0f); // Initialize with zeros
+	this->dLdB.assign(0.0f); // Initialize with zeros
 }
 
 NeuroNet::ActivationFunctionType NeuroNet::NeuroNetLayer::get_activation_type() const {
@@ -392,11 +392,11 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::BackwardPass(const Matrix::Matrix
     // This check is a safeguard; ResizeLayer should have already initialized them.
     if (this->dLdW.rows() != this->WeightMatrix.rows() || this->dLdW.cols() != this->WeightMatrix.cols()) {
         this->dLdW.resize(this->WeightMatrix.rows(), this->WeightMatrix.cols());
-        this->dLdW.fill(0.0f); // Initialize gradients to zero
+        this->dLdW.assign(0.0f); // Initialize gradients to zero
     }
     if (this->dLdB.rows() != this->BiasMatrix.rows() || this->dLdB.cols() != this->BiasMatrix.cols()) {
         this->dLdB.resize(this->BiasMatrix.rows(), this->BiasMatrix.cols());
-        this->dLdB.fill(0.0f); // Initialize gradients to zero
+        this->dLdB.assign(0.0f); // Initialize gradients to zero
     }
 
     // Step a: Calculate dLdActivationInput = dLdOutput * f'(OutputMatrix)
@@ -428,13 +428,13 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::BackwardPass(const Matrix::Matrix
             // If no activation, f(Z) = Z, so f'(Z) = 1.
             // dAdZ should be a matrix of ones with the same dimensions as OutputMatrix.
             dAdZ.resize(this->OutputMatrix.rows(), this->OutputMatrix.cols());
-            dAdZ.fill(1.0f);
+            dAdZ.assign(1.0f);
             break;
         default:
             // Should not happen or throw error
             // For safety, resize and fill, but consider throwing an exception for unsupported types.
             dAdZ.resize(this->OutputMatrix.rows(), this->OutputMatrix.cols());
-            dAdZ.fill(1.0f); // Fallback, or throw std::runtime_error("Unsupported activation function in BackwardPass");
+            dAdZ.assign(1.0f); // Fallback, or throw std::runtime_error("Unsupported activation function in BackwardPass");
             break;
     }
 
@@ -453,7 +453,7 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::BackwardPass(const Matrix::Matrix
     }
 
     // Step b: Calculate dLdW = input_to_this_layer.transpose() * dLdZ
-    this->dLdW = input_to_this_layer.transpose() * dLdZ;
+    this->dLdW = input_to_this_layer.Transpose() * dLdZ;
 
     // Step c: Calculate dLdB = dLdZ
     // This assumes dLdZ is (1, num_neurons) for a single instance.
@@ -463,7 +463,7 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::BackwardPass(const Matrix::Matrix
     this->dLdB = dLdZ;
 
     // Step d: Calculate dLdInput (dLdX for this layer, which is dLdA_prev for previous layer)
-    Matrix::Matrix<float> dLdInput = dLdZ * this->WeightMatrix.transpose();
+    Matrix::Matrix<float> dLdInput = dLdZ * this->WeightMatrix.Transpose();
 
     // Step e: Return dLdInput
     return dLdInput;
@@ -476,6 +476,14 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::get_dLdW() const {
 
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::get_dLdB() const {
     return this->dLdB;
+}
+
+const Matrix::Matrix<float>& NeuroNet::NeuroNetLayer::get_input_matrix() const {
+    return this->InputMatrix;
+}
+
+int NeuroNet::NeuroNetLayer::get_input_size() const {
+    return this->InputSize;
 }
 
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplySoftmax(const Matrix::Matrix<float>& input) {
@@ -1008,8 +1016,8 @@ void NeuroNet::NeuroNet::Backpropagate(const Matrix::Matrix<float>& actual_outpu
         NeuroNetLayer& current_layer = this->NeuroNetVector[i];
 
         // Get the input that was fed to this layer during the forward pass.
-        // This is stored as current_layer.InputMatrix by the forward pass (SetInput calls).
-        const Matrix::Matrix<float>& input_to_current_layer = current_layer.InputMatrix;
+        // Use the new public getter.
+        const Matrix::Matrix<float>& input_to_current_layer = current_layer.get_input_matrix();
 
         // Validate InputMatrix
         if (input_to_current_layer.rows() == 0 && current_layer.LayerSize() > 0) { // LayerSize > 0 implies it's a configured layer
@@ -1017,9 +1025,10 @@ void NeuroNet::NeuroNet::Backpropagate(const Matrix::Matrix<float>& actual_outpu
                                      " InputMatrix has 0 rows during backpropagation. Layer output size: " + std::to_string(current_layer.LayerSize()) +
                                      ". Forward pass might be incomplete or network input not set.");
         }
-        if (input_to_current_layer.cols() == 0 && current_layer.InputSize > 0 ) { // InputSize > 0 implies it expects input
+        // Use the new public getter for InputSize.
+        if (input_to_current_layer.cols() == 0 && current_layer.get_input_size() > 0 ) { // InputSize > 0 implies it expects input
              throw std::runtime_error("Layer " + std::to_string(i) +
-                                     " InputMatrix has 0 columns but layer expects input size " + std::to_string(current_layer.InputSize) +
+                                     " InputMatrix has 0 columns but layer expects input size " + std::to_string(current_layer.get_input_size()) +
                                      ". Forward pass might be incomplete or network input not set.");
         }
 

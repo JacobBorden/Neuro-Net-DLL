@@ -250,6 +250,18 @@ namespace NeuroNet
      */
     Matrix::Matrix<float> get_dLdB() const;
 
+    /**
+     * @brief Gets the last input matrix fed to this layer.
+     * @return const Matrix::Matrix<float>& A const reference to the input matrix.
+     */
+    const Matrix::Matrix<float>& get_input_matrix() const;
+
+    /**
+     * @brief Gets the configured input size for this layer.
+     * @return int The number of input features expected by this layer.
+     */
+    int get_input_size() const;
+
 	private:
 		int vLayerSize = 0; ///< Number of neurons in this layer.
 		int InputSize = 0; ///< Number of inputs expected by this layer.
