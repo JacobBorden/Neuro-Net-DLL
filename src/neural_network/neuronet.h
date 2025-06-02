@@ -181,6 +181,75 @@ namespace NeuroNet
 		 */
 		static ActivationFunctionType activation_type_from_string(const std::string& name);
 
+    /**
+     * @brief Computes the element-wise derivative of the ReLU activation function.
+     * The derivative of ReLU is 1 if the input (pre-activation) was > 0, else 0.
+     * This function takes the *activated* output and infers the derivative: 1 if activated_output > 0, else 0.
+     * @param activated_output The matrix of outputs after ReLU activation was applied.
+     * @return Matrix::Matrix<float> A matrix containing the derivatives (1s and 0s).
+     */
+    Matrix::Matrix<float> DerivativeReLU(const Matrix::Matrix<float>& activated_output) const;
+
+    /**
+     * @brief Computes the element-wise derivative of the Leaky ReLU activation function.
+     * Derivative is 1 if input (pre-activation) was > 0, else alpha.
+     * This function takes the *activated* output: 1 if activated_output > 0, else alpha.
+     * @param activated_output The matrix of outputs after Leaky ReLU activation was applied.
+     * @return Matrix::Matrix<float> A matrix containing the derivatives (1s and alpha values).
+     */
+    Matrix::Matrix<float> DerivativeLeakyReLU(const Matrix::Matrix<float>& activated_output) const;
+
+    /**
+     * @brief Computes the element-wise derivative of the ELU activation function.
+     * Derivative is 1 if input (pre-activation) was > 0, else ELU_output + alpha (where ELU_output is alpha*(exp(input)-1)).
+     * This function takes the *activated* output. If activated_output > 0, derivative is 1.
+     * If activated_output <= 0, derivative is activated_output + alpha.
+     * @param activated_output The matrix of outputs after ELU activation was applied.
+     * @return Matrix::Matrix<float> A matrix containing the derivatives.
+     */
+    Matrix::Matrix<float> DerivativeELU(const Matrix::Matrix<float>& activated_output) const;
+
+    /**
+     * @brief Computes the element-wise derivative of the Softmax activation function.
+     * This typically refers to the diagonal elements of the Jacobian matrix, dS_i/dZ_i = S_i * (1 - S_i),
+     * where S is the softmax output. This form is commonly used when the loss function (e.g., Cross-Entropy)
+     * and Softmax derivative are combined, leading to a simpler dL/dZ.
+     * @param activated_output The matrix of outputs after Softmax activation was applied (i.e., the S matrix).
+     * @return Matrix::Matrix<float> A matrix where each element is S_ij * (1 - S_ij).
+     */
+    Matrix::Matrix<float> DerivativeSoftmax(const Matrix::Matrix<float>& activated_output) const;
+
+    /**
+     * @brief Performs the backward pass for this layer.
+     *
+     * Calculates the gradients of the loss with respect to the layer's weights (dLdW),
+     * biases (dLdB), and input (dLdInput_prev_layer_output). The calculated dLdW and dLdB
+     * are stored internally in the layer.
+     *
+     * @param dLdOutput Gradient of the loss with respect to this layer's activated output (dL/dA).
+     *                  Dimensions should match this layer's output dimensions.
+     * @param input_to_this_layer The input matrix that was fed to this layer during the forward pass (X, or A_prev).
+     *                            Dimensions should match this layer's input dimensions.
+     * @return Matrix::Matrix<float> Gradient of the loss with respect to this layer's input (dL/dX_prev),
+     *                               to be passed to the previous layer.
+     * @throws std::runtime_error if dimension mismatches occur during calculations.
+     */
+    Matrix::Matrix<float> BackwardPass(const Matrix::Matrix<float>& dLdOutput, const Matrix::Matrix<float>& input_to_this_layer);
+
+    /**
+     * @brief Retrieves the stored gradient of the loss with respect to the layer's weights (dL/dW).
+     * This gradient is computed and stored during the BackwardPass.
+     * @return Matrix::Matrix<float> The dL/dW matrix. Dimensions match the layer's weight matrix.
+     */
+    Matrix::Matrix<float> get_dLdW() const;
+
+    /**
+     * @brief Retrieves the stored gradient of the loss with respect to the layer's biases (dL/dB).
+     * This gradient is computed and stored during the BackwardPass.
+     * @return Matrix::Matrix<float> The dL/dB matrix. Dimensions match the layer's bias matrix.
+     */
+    Matrix::Matrix<float> get_dLdB() const;
+
 	private:
 		int vLayerSize = 0; ///< Number of neurons in this layer.
 		int InputSize = 0; ///< Number of inputs expected by this layer.
@@ -191,6 +260,8 @@ namespace NeuroNet
 		Matrix::Matrix<float> OutputMatrix; ///< Matrix storing the calculated outputs of this layer.
 		LayerWeights Weights; ///< Struct holding the layer's weights.
 		LayerBiases Biases;   ///< Struct holding the layer's biases.
+    Matrix::Matrix<float> dLdW; // Gradient of Loss w.r.t Weights
+    Matrix::Matrix<float> dLdB; // Gradient of Loss w.r.t Biases
 
     // Private helper methods for activation functions
     /**
@@ -443,6 +514,60 @@ namespace NeuroNet
 
 		// Getter for vocabulary - DECLARATION ONLY
 		const Vocabulary& getVocabulary() const;
+
+    /**
+     * @brief Performs backpropagation through the entire network.
+     *
+     * This method computes the gradient of the loss function with respect to the network's output
+     * (actual_output - target_output, assuming MSE-like loss for the initial gradient calculation)
+     * and then propagates this gradient backward through all layers. Each layer computes and stores
+     * its own weight and bias gradients (dL/dW, dL/dB) internally.
+     *
+     * @param actual_output The matrix representing the actual output produced by the network for a given input.
+     * @param target_output The matrix representing the target (true) output for that input.
+     * @throws std::runtime_error if actual_output and target_output dimensions mismatch, or if issues occur
+     *                            during a layer's BackwardPass (e.g., empty input matrix for a layer).
+     * @throws std::out_of_range if layer indexing fails during backpropagation.
+     */
+    void Backpropagate(const Matrix::Matrix<float>& actual_output, const Matrix::Matrix<float>& target_output);
+
+    /**
+     * @brief Updates the weights and biases of all layers in the network.
+     *
+     * This method applies the gradients (dL/dW, dL/dB) that were computed and stored by
+     * the `Backpropagate` method. The update rule used is:
+     * new_weight = old_weight - learning_rate * dL/dW
+     * new_bias   = old_bias   - learning_rate * dL/dB
+     *
+     * @param learning_rate The learning rate to scale the gradients. Must be positive.
+     * @throws std::runtime_error if issues occur during weight/bias reconstruction or setting,
+     *                            or if gradient dimensions are inconsistent.
+     * @throws std::out_of_range if layer indexing fails.
+     */
+    void UpdateWeights(float learning_rate);
+
+    /**
+     * @brief Trains the neural network using stochastic gradient descent (SGD).
+     *
+     * This method iterates over the training data for a specified number of epochs.
+     * In each iteration, for each training sample, it performs a forward pass,
+     * then backpropagation to compute gradients, and finally updates the network weights.
+     *
+     * @param training_inputs A vector of matrices, where each matrix represents a single training input sample.
+     *                        Each input sample matrix is typically 1xN, where N is the network's input size.
+     * @param training_targets A vector of matrices, where each matrix represents the corresponding target output
+     *                         for a training input sample. Each target sample matrix is typically 1xM, where M
+     *                         is the network's output size.
+     * @param learning_rate The learning rate to be used for updating weights. Must be positive.
+     * @param epochs The total number of epochs (passes over the entire training dataset) to train for. Must be positive.
+     * @throws std::invalid_argument if parameters are invalid (e.g., empty data, mismatched sizes, non-positive learning rate/epochs).
+     * @throws std::runtime_error if the network is not configured (e.g., no layers) or other runtime issues occur during training,
+     *                            such as dimension mismatches in input/target samples or issues during forward/backward passes.
+     */
+    void Train(const std::vector<Matrix::Matrix<float>>& training_inputs,
+               const std::vector<Matrix::Matrix<float>>& training_targets,
+               float learning_rate,
+               int epochs);
 
 	private:
 		int InputSize = 0; ///< Number of input features for the entire network.
