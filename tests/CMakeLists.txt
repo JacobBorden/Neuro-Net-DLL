@@ -9,6 +9,9 @@ add_executable(runTests
     test_json.cpp
     test_vocabulary.cpp
     test_transformer_model.cpp
+    test_gaussian_distribution.cpp
+    test_least_squares.cpp
+    test_naive_bayes.cpp
 )
 
 # Link libraries

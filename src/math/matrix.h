@@ -447,11 +447,11 @@ namespace Matrix
 				for (size_t i = 0; i < m_Rows; i++) // Use size_t for loop
 					m_Data[i] = MatrixRow<T>(m_Cols);
 			} else {
-                // If rows or cols is zero, ensure other dimension trackers are also zero
-                m_Rows = 0;
-                m_Cols = 0;
-                m_Size = 0;
-                m_Capacity = 0;
+                // If m_Rows or m_Cols (or both) are 0, m_Size and m_Capacity are already 0
+                // due to the member initializer list. m_Data is also correctly nullptr if m_Rows is 0.
+                // No need to further modify m_Rows or m_Cols here as they are correctly
+                // initialized by the ternary operators in the member initializer list.
+                // Forcing m_Cols to 0 here if m_Rows is 0 (e.g. for a 0xN matrix) was a bug.
             }
 		}
 
