@@ -90,6 +90,378 @@ TEST_F(NeuroNetTest, NeuroNetLayerWeightsAndBiases) {
     }
 }
 
+// --- Backpropagation Derivative Tests ---
+// Test suite for NeuroNetLayer derivative functions
+TEST(NeuroNetLayerDerivativesTest, ReLU) {
+    NeuroNet::NeuroNetLayer layer;
+    Matrix::Matrix<float> activated_output(1, 4);
+    activated_output[0][0] = -2.0f;
+    activated_output[0][1] = 0.0f;
+    activated_output[0][2] = 1.5f;
+    activated_output[0][3] = 10.0f;
+
+    Matrix::Matrix<float> derivative = layer.DerivativeReLU(activated_output);
+
+    ASSERT_EQ(derivative.rows(), 1);
+    ASSERT_EQ(derivative.cols(), 4);
+    EXPECT_FLOAT_EQ(derivative[0][0], 0.0f);
+    EXPECT_FLOAT_EQ(derivative[0][1], 0.0f);
+    EXPECT_FLOAT_EQ(derivative[0][2], 1.0f);
+    EXPECT_FLOAT_EQ(derivative[0][3], 1.0f);
+}
+
+TEST(NeuroNetLayerDerivativesTest, LeakyReLU) {
+    NeuroNet::NeuroNetLayer layer;
+    Matrix::Matrix<float> activated_output(1, 4);
+    activated_output[0][0] = -2.0f;  // d = alpha (0.01)
+    activated_output[0][1] = 0.0f;   // d = alpha (0.01) (output is not > 0)
+    activated_output[0][2] = 1.5f;   // d = 1
+    activated_output[0][3] = -0.5f;  // d = alpha (0.01)
+    const float alpha = 0.01f;
+
+    Matrix::Matrix<float> derivative = layer.DerivativeLeakyReLU(activated_output);
+
+    ASSERT_EQ(derivative.rows(), 1);
+    ASSERT_EQ(derivative.cols(), 4);
+    EXPECT_FLOAT_EQ(derivative[0][0], alpha);
+    EXPECT_FLOAT_EQ(derivative[0][1], alpha);
+    EXPECT_FLOAT_EQ(derivative[0][2], 1.0f);
+    EXPECT_FLOAT_EQ(derivative[0][3], alpha);
+}
+
+TEST(NeuroNetLayerDerivativesTest, ELU) {
+    NeuroNet::NeuroNetLayer layer;
+    Matrix::Matrix<float> activated_output(1, 4);
+    // For ELU, derivative is 1 if output > 0, else output + alpha. Alpha is 1.0f.
+    // Output = alpha * (exp(x) - 1) for x < 0.
+    // So, if activated_output[0][0] is -0.5 (meaning alpha*(exp(x)-1) = -0.5), then derivative is -0.5 + alpha.
+    activated_output[0][0] = -0.5f; // d = -0.5f + 1.0f = 0.5f
+    activated_output[0][1] = 0.0f;  // d = 0.0f + 1.0f = 1.0f (output is not > 0)
+    activated_output[0][2] = 1.5f;  // d = 1.0f
+    activated_output[0][3] = -0.86466471676f; // This is ELU(-2) with alpha=1.0. So d = ELU(-2) + 1.0
+    const float alpha = 1.0f;
+
+
+    Matrix::Matrix<float> derivative = layer.DerivativeELU(activated_output);
+
+    ASSERT_EQ(derivative.rows(), 1);
+    ASSERT_EQ(derivative.cols(), 4);
+    EXPECT_FLOAT_EQ(derivative[0][0], activated_output[0][0] + alpha);
+    EXPECT_FLOAT_EQ(derivative[0][1], activated_output[0][1] + alpha);
+    EXPECT_FLOAT_EQ(derivative[0][2], 1.0f);
+    EXPECT_FLOAT_EQ(derivative[0][3], activated_output[0][3] + alpha);
+}
+
+TEST(NeuroNetLayerDerivativesTest, Softmax) {
+    NeuroNet::NeuroNetLayer layer;
+    Matrix::Matrix<float> activated_output(1, 3);
+    // Softmax outputs are probabilities, sum to 1.
+    // Derivative S_i * (1 - S_i)
+    activated_output[0][0] = 0.1f; // d = 0.1 * 0.9 = 0.09
+    activated_output[0][1] = 0.6f; // d = 0.6 * 0.4 = 0.24
+    activated_output[0][2] = 0.3f; // d = 0.3 * 0.7 = 0.21
+
+    Matrix::Matrix<float> derivative = layer.DerivativeSoftmax(activated_output);
+
+    ASSERT_EQ(derivative.rows(), 1);
+    ASSERT_EQ(derivative.cols(), 3);
+    EXPECT_FLOAT_EQ(derivative[0][0], 0.1f * (1.0f - 0.1f));
+    EXPECT_FLOAT_EQ(derivative[0][1], 0.6f * (1.0f - 0.6f));
+    EXPECT_FLOAT_EQ(derivative[0][2], 0.3f * (1.0f - 0.3f));
+}
+
+
+// --- NeuroNetLayer BackwardPass Tests ---
+TEST(NeuroNetLayerBackwardPassTest, LinearLayer) {
+    NeuroNet::NeuroNetLayer layer;
+    const int input_s = 2, layer_s = 3;
+    layer.ResizeLayer(input_s, layer_s);
+    layer.SetActivationFunction(NeuroNet::ActivationFunctionType::None);
+
+    NeuroNet::LayerWeights lw; lw.WeightCount = input_s * layer_s;
+    // Values are row-major: W_row1 = [0.1, 0.2, 0.3], W_row2 = [0.4, 0.5, 0.6]
+    lw.WeightsVector = {0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.6f};
+    ASSERT_TRUE(layer.SetWeights(lw));
+
+    NeuroNet::LayerBiases lb; lb.BiasCount = layer_s;
+    lb.BiasVector = {0.01f, 0.02f, 0.03f};
+    ASSERT_TRUE(layer.SetBiases(lb));
+
+    Matrix::Matrix<float> W_expected(input_s, layer_s);
+    W_expected[0][0]=0.1f; W_expected[0][1]=0.2f; W_expected[0][2]=0.3f;
+    W_expected[1][0]=0.4f; W_expected[1][1]=0.5f; W_expected[1][2]=0.6f;
+
+    // Bias matrix B_expected is not strictly needed for calculation if dLdB is dLdZ directly,
+    // but good for conceptual clarity.
+    // Matrix::Matrix<float> B_expected(1, layer_s);
+    // B_expected[0][0]=0.01f; B_expected[0][1]=0.02f; B_expected[0][2]=0.03f;
+
+    Matrix::Matrix<float> input_x(1, input_s);
+    input_x[0][0] = 1.0f; input_x[0][1] = 2.0f;
+
+    // SetInput and CalculateOutput to ensure layer.OutputMatrix is correctly populated,
+    // as BackwardPass uses this->OutputMatrix for some activation derivatives.
+    // For ActivationFunctionType::None, this->OutputMatrix isn't strictly used by Derivative...
+    // but it's good practice to simulate a forward pass.
+    layer.SetInput(input_x);
+    /* Matrix::Matrix<float> Z_actual = */ layer.CalculateOutput();
+
+    Matrix::Matrix<float> dLdOutput_mock(1, layer_s);
+    dLdOutput_mock[0][0] = 0.5f; dLdOutput_mock[0][1] = -0.2f; dLdOutput_mock[0][2] = 0.1f;
+
+    Matrix::Matrix<float> dLdInput_actual = layer.BackwardPass(dLdOutput_mock, input_x);
+
+    // Expected dLdZ = dLdOutput_mock for linear layer (since f'(Z) = 1)
+    Matrix::Matrix<float> dLdZ_expected = dLdOutput_mock;
+
+    // Expected dLdW = input_x.transpose() * dLdZ_expected
+    Matrix::Matrix<float> dLdW_expected = input_x.Transpose() * dLdZ_expected;
+    Matrix::Matrix<float> dLdW_actual = layer.get_dLdW();
+    ASSERT_EQ(dLdW_actual.rows(), dLdW_expected.rows()) << "dLdW row mismatch";
+    ASSERT_EQ(dLdW_actual.cols(), dLdW_expected.cols()) << "dLdW col mismatch";
+    for(size_t r=0; r<dLdW_actual.rows(); ++r) for(size_t c=0; c<dLdW_actual.cols(); ++c)
+        EXPECT_FLOAT_EQ(dLdW_actual[r][c], dLdW_expected[r][c]) << "dLdW element mismatch at (" << r << "," << c << ")";
+
+    // Expected dLdB = dLdZ_expected (for batch size 1)
+    Matrix::Matrix<float> dLdB_expected = dLdZ_expected;
+    Matrix::Matrix<float> dLdB_actual = layer.get_dLdB();
+    ASSERT_EQ(dLdB_actual.rows(), dLdB_expected.rows()) << "dLdB row mismatch";
+    ASSERT_EQ(dLdB_actual.cols(), dLdB_expected.cols()) << "dLdB col mismatch";
+    for(size_t r=0; r<dLdB_actual.rows(); ++r) for(size_t c=0; c<dLdB_actual.cols(); ++c)
+       EXPECT_FLOAT_EQ(dLdB_actual[r][c], dLdB_expected[r][c]) << "dLdB element mismatch at (" << r << "," << c << ")";
+
+    // Expected dLdInput = dLdZ_expected * W_expected.transpose()
+    Matrix::Matrix<float> dLdInput_expected = dLdZ_expected * W_expected.Transpose();
+    ASSERT_EQ(dLdInput_actual.rows(), dLdInput_expected.rows()) << "dLdInput row mismatch";
+    ASSERT_EQ(dLdInput_actual.cols(), dLdInput_expected.cols()) << "dLdInput col mismatch";
+    for(size_t r=0; r<dLdInput_actual.rows(); ++r) for(size_t c=0; c<dLdInput_actual.cols(); ++c)
+       EXPECT_FLOAT_EQ(dLdInput_actual[r][c], dLdInput_expected[r][c]) << "dLdInput element mismatch at (" << r << "," << c << ")";
+}
+
+// --- NeuroNet Training Test ---
+TEST(NeuroNetTrainingTest, XORProblem) {
+    NeuroNet::NeuroNet network;
+
+    // a. Network Setup
+    const int input_size = 2;
+    const int hidden_neurons = 3;
+    const int output_neurons = 1;
+
+    network.SetInputSize(input_size);
+    network.ResizeNeuroNet(2); // 1 hidden layer, 1 output layer
+
+    // Hidden Layer
+    network.ResizeLayer(0, hidden_neurons);
+    network.getLayer(0).SetActivationFunction(NeuroNet::ActivationFunctionType::ReLU);
+
+    // Output Layer
+    network.ResizeLayer(1, output_neurons);
+    network.getLayer(1).SetActivationFunction(NeuroNet::ActivationFunctionType::None); // Linear output
+
+    // Weight Initialization (Deterministic)
+    auto initialize_layer_weights = [&](NeuroNet::NeuroNetLayer& layer, float start_w, float step_w, float start_b, float step_b) {
+        NeuroNet::LayerWeights lw = layer.get_weights();
+        float current_w_val = start_w;
+        if (lw.WeightCount > 0) {
+            lw.WeightsVector.resize(lw.WeightCount); // Ensure vector is sized
+            for (int k = 0; k < lw.WeightCount; ++k) {
+                lw.WeightsVector[k] = current_w_val * (((k % 2) == 0) ? 1.0f : -0.8f); // Asymmetric
+                current_w_val += step_w;
+                if (current_w_val > 0.5f) current_w_val = -0.5f;
+                else if (current_w_val < -0.5f) current_w_val = 0.05f;
+            }
+            ASSERT_TRUE(layer.SetWeights(lw));
+        }
+
+        NeuroNet::LayerBiases lb = layer.get_biases();
+        float current_b_val = start_b;
+        if (lb.BiasCount > 0) {
+            lb.BiasVector.resize(lb.BiasCount); // Ensure vector is sized
+            for (int k = 0; k < lb.BiasCount; ++k) {
+                lb.BiasVector[k] = current_b_val;
+                current_b_val += step_b;
+                if (current_b_val > 0.2f) current_b_val = -0.15f;
+                 else if (current_b_val < -0.2f) current_b_val = 0.02f;
+            }
+            ASSERT_TRUE(layer.SetBiases(lb));
+        }
+    };
+
+    initialize_layer_weights(network.getLayer(0), 0.1f, 0.03f, 0.01f, 0.02f); // Hidden layer
+    initialize_layer_weights(network.getLayer(1), 0.2f, 0.05f, 0.05f, 0.01f); // Output layer
+
+
+    // b. Training Data (XOR)
+    std::vector<Matrix::Matrix<float>> training_inputs;
+    std::vector<Matrix::Matrix<float>> training_targets;
+
+    // [[0,0]] -> 0
+    Matrix::Matrix<float> input00(1, input_size); input00[0][0]=0.0f; input00[0][1]=0.0f;
+    training_inputs.push_back(input00);
+    Matrix::Matrix<float> target00(1, output_neurons); target00[0][0]=0.0f;
+    training_targets.push_back(target00);
+
+    // [[0,1]] -> 1
+    Matrix::Matrix<float> input01(1, input_size); input01[0][0]=0.0f; input01[0][1]=1.0f;
+    training_inputs.push_back(input01);
+    Matrix::Matrix<float> target01(1, output_neurons); target01[0][0]=1.0f;
+    training_targets.push_back(target01);
+
+    // [[1,0]] -> 1
+    Matrix::Matrix<float> input10(1, input_size); input10[0][0]=1.0f; input10[0][1]=0.0f;
+    training_inputs.push_back(input10);
+    Matrix::Matrix<float> target10(1, output_neurons); target10[0][0]=1.0f;
+    training_targets.push_back(target10);
+
+    // [[1,1]] -> 0
+    Matrix::Matrix<float> input11(1, input_size); input11[0][0]=1.0f; input11[0][1]=1.0f;
+    training_inputs.push_back(input11);
+    Matrix::Matrix<float> target11(1, output_neurons); target11[0][0]=0.0f;
+    training_targets.push_back(target11);
+
+    // c. Training Parameters
+    float learning_rate = 0.1f;
+    int epochs = 5000; // Increased epochs
+
+    // d. Call network.Train()
+    ASSERT_NO_THROW(network.Train(training_inputs, training_targets, learning_rate, epochs));
+
+    // e. Verification
+    float threshold_low = 0.3f;  // Expect output < threshold_low for target 0
+    float threshold_high = 0.7f; // Expect output > threshold_high for target 1
+
+    // Input {0,0}, Target 0
+    network.SetInput(training_inputs[0]);
+    Matrix::Matrix<float> out00_trained = network.GetOutput();
+    ASSERT_EQ(out00_trained.rows(), 1); ASSERT_EQ(out00_trained.cols(), 1);
+    EXPECT_LT(out00_trained[0][0], threshold_low) << "XOR(0,0) failed. Output: " << out00_trained[0][0];
+
+    // Input {0,1}, Target 1
+    network.SetInput(training_inputs[1]);
+    Matrix::Matrix<float> out01_trained = network.GetOutput();
+    ASSERT_EQ(out01_trained.rows(), 1); ASSERT_EQ(out01_trained.cols(), 1);
+    EXPECT_GT(out01_trained[0][0], threshold_high) << "XOR(0,1) failed. Output: " << out01_trained[0][0];
+
+    // Input {1,0}, Target 1
+    network.SetInput(training_inputs[2]);
+    Matrix::Matrix<float> out10_trained = network.GetOutput();
+    ASSERT_EQ(out10_trained.rows(), 1); ASSERT_EQ(out10_trained.cols(), 1);
+    EXPECT_GT(out10_trained[0][0], threshold_high) << "XOR(1,0) failed. Output: " << out10_trained[0][0];
+
+    // Input {1,1}, Target 0
+    network.SetInput(training_inputs[3]);
+    Matrix::Matrix<float> out11_trained = network.GetOutput();
+    ASSERT_EQ(out11_trained.rows(), 1); ASSERT_EQ(out11_trained.cols(), 1);
+    EXPECT_LT(out11_trained[0][0], threshold_low) << "XOR(1,1) failed. Output: " << out11_trained[0][0];
+}
+
+TEST(NeuroNetLayerBackwardPassTest, ReLULayer) {
+    NeuroNet::NeuroNetLayer layer;
+    const int input_s = 2, layer_s = 3;
+    layer.ResizeLayer(input_s, layer_s);
+    layer.SetActivationFunction(NeuroNet::ActivationFunctionType::ReLU);
+
+    // Weights W: [[0.1f, -0.2f, 0.3f], [0.4f, 0.05f, -0.15f]] (2x3)
+    // Biases B: [0.01f, -0.01f, 0.02f] (1x3)
+    NeuroNet::LayerWeights lw; lw.WeightCount = input_s * layer_s;
+    lw.WeightsVector = {0.1f, -0.2f, 0.3f, 0.4f, 0.05f, -0.15f};
+    ASSERT_TRUE(layer.SetWeights(lw));
+
+    NeuroNet::LayerBiases lb; lb.BiasCount = layer_s;
+    lb.BiasVector = {0.01f, -0.01f, 0.02f};
+    ASSERT_TRUE(layer.SetBiases(lb));
+
+    Matrix::Matrix<float> W_expected(input_s, layer_s);
+    W_expected[0][0] = 0.1f; W_expected[0][1] = -0.2f;  W_expected[0][2] = 0.3f;
+    W_expected[1][0] = 0.4f; W_expected[1][1] = 0.05f; W_expected[1][2] = -0.15f;
+
+    Matrix::Matrix<float> B_expected(1, layer_s);
+    B_expected[0][0] = 0.01f; B_expected[0][1] = -0.01f; B_expected[0][2] = 0.02f;
+
+    Matrix::Matrix<float> input_x(1, input_s);
+    input_x[0][0] = 1.0f; input_x[0][1] = 2.0f;
+
+    // Perform forward pass to set layer.OutputMatrix (A)
+    layer.SetInput(input_x);
+    Matrix::Matrix<float> activated_output_A = layer.CalculateOutput(); // This is A = ReLU(Z)
+
+    // Manually calculate Z = input_x * W_expected + B_expected
+    // Z = [[1.0, 2.0]] * [[0.1, -0.2, 0.3], [0.4, 0.05, -0.15]] + [0.01, -0.01, 0.02]
+    // Z_row1 = [1*0.1 + 2*0.4,  1*(-0.2) + 2*0.05,  1*0.3 + 2*(-0.15)]
+    //        = [0.1 + 0.8,     -0.2 + 0.1,        0.3 - 0.3]
+    //        = [0.9,           -0.1,              0.0]
+    // Z = Z_row1 + B = [0.9+0.01, -0.1-0.01, 0.0+0.02] = [0.91, -0.11, 0.02]
+    Matrix::Matrix<float> Z_manual(1, layer_s);
+    Z_manual[0][0] = 0.91f; Z_manual[0][1] = -0.11f; Z_manual[0][2] = 0.02f;
+
+    // Manually calculate A = ReLU(Z)
+    // A = [ReLU(0.91), ReLU(-0.11), ReLU(0.02)] = [0.91, 0, 0.02]
+    Matrix::Matrix<float> A_manual(1, layer_s);
+    A_manual[0][0] = 0.91f; A_manual[0][1] = 0.0f; A_manual[0][2] = 0.02f;
+
+    // Check if layer.CalculateOutput() produced the same A
+    ASSERT_EQ(activated_output_A.rows(), A_manual.rows());
+    ASSERT_EQ(activated_output_A.cols(), A_manual.cols());
+    for(size_t c=0; c<A_manual.cols(); ++c)
+        EXPECT_FLOAT_EQ(activated_output_A[0][c], A_manual[0][c]) << "A_manual mismatch at (0," << c << ")";
+
+    // This activated_output_A is what layer.OutputMatrix holds internally.
+    // The layer.DerivativeReLU(this.OutputMatrix) will use it.
+
+    // Manually calculate dAdZ = DerivativeReLU(A_manual)
+    // dAdZ = [1, 0, 1] (since A_manual[0][0]>0, A_manual[0][1]=0, A_manual[0][2]>0)
+    Matrix::Matrix<float> dAdZ_manual(1, layer_s);
+    dAdZ_manual[0][0] = (A_manual[0][0] > 0.0f) ? 1.0f : 0.0f;
+    dAdZ_manual[0][1] = (A_manual[0][1] > 0.0f) ? 1.0f : 0.0f; // Correctly 0 if A_manual is 0
+    dAdZ_manual[0][2] = (A_manual[0][2] > 0.0f) ? 1.0f : 0.0f;
+
+
+    Matrix::Matrix<float> dLdOutput_mock(1, layer_s); // This is dLdA
+    dLdOutput_mock[0][0] = 0.5f; dLdOutput_mock[0][1] = -0.2f; dLdOutput_mock[0][2] = 0.1f;
+
+    // Call BackwardPass
+    Matrix::Matrix<float> dLdInput_actual = layer.BackwardPass(dLdOutput_mock, input_x);
+
+    // Manually calculate dLdZ = dLdOutput_mock (element_wise_mult) dAdZ_manual
+    // dLdZ = [0.5*1, -0.2*0, 0.1*1] = [0.5, 0, 0.1]
+    Matrix::Matrix<float> dLdZ_expected(1, layer_s);
+    dLdZ_expected[0][0] = dLdOutput_mock[0][0] * dAdZ_manual[0][0];
+    dLdZ_expected[0][1] = dLdOutput_mock[0][1] * dAdZ_manual[0][1];
+    dLdZ_expected[0][2] = dLdOutput_mock[0][2] * dAdZ_manual[0][2];
+
+    // Expected dLdW = input_x.transpose() * dLdZ_expected
+    // input_x.T = [[1.0], [2.0]] (2x1)
+    // dLdZ_expected = [[0.5, 0, 0.1]] (1x3)
+    // dLdW = [[1*0.5, 1*0, 1*0.1], [2*0.5, 2*0, 2*0.1]]
+    //      = [[0.5, 0, 0.1], [1.0, 0, 0.2]]
+    Matrix::Matrix<float> dLdW_expected = input_x.Transpose() * dLdZ_expected;
+    Matrix::Matrix<float> dLdW_actual = layer.get_dLdW();
+    ASSERT_EQ(dLdW_actual.rows(), dLdW_expected.rows()) << "dLdW row mismatch";
+    ASSERT_EQ(dLdW_actual.cols(), dLdW_expected.cols()) << "dLdW col mismatch";
+    for(size_t r=0; r<dLdW_actual.rows(); ++r) for(size_t c=0; c<dLdW_actual.cols(); ++c)
+        EXPECT_FLOAT_EQ(dLdW_actual[r][c], dLdW_expected[r][c]) << "dLdW element mismatch at (" << r << "," << c << ")";
+
+    // Expected dLdB = dLdZ_expected
+    Matrix::Matrix<float> dLdB_expected = dLdZ_expected;
+    Matrix::Matrix<float> dLdB_actual = layer.get_dLdB();
+    ASSERT_EQ(dLdB_actual.rows(), dLdB_expected.rows()) << "dLdB row mismatch";
+    ASSERT_EQ(dLdB_actual.cols(), dLdB_expected.cols()) << "dLdB col mismatch";
+    for(size_t r=0; r<dLdB_actual.rows(); ++r) for(size_t c=0; c<dLdB_actual.cols(); ++c)
+       EXPECT_FLOAT_EQ(dLdB_actual[r][c], dLdB_expected[r][c]) << "dLdB element mismatch at (" << r << "," << c << ")";
+
+    // Expected dLdInput = dLdZ_expected * W_expected.transpose()
+    // dLdZ_expected = [[0.5, 0, 0.1]] (1x3)
+    // W_expected.T = [[0.1, 0.4], [-0.2, 0.05], [0.3, -0.15]] (3x2)
+    // dLdInput = [[0.5*0.1 + 0*(-0.2) + 0.1*0.3,   0.5*0.4 + 0*0.05 + 0.1*(-0.15)]]
+    //          = [[0.05 + 0 + 0.03,             0.2 + 0 - 0.015]]
+    //          = [[0.08,                        0.185]]
+    Matrix::Matrix<float> dLdInput_expected = dLdZ_expected * W_expected.Transpose();
+    ASSERT_EQ(dLdInput_actual.rows(), dLdInput_expected.rows()) << "dLdInput row mismatch";
+    ASSERT_EQ(dLdInput_actual.cols(), dLdInput_expected.cols()) << "dLdInput col mismatch";
+    for(size_t r=0; r<dLdInput_actual.rows(); ++r) for(size_t c=0; c<dLdInput_actual.cols(); ++c)
+       EXPECT_FLOAT_EQ(dLdInput_actual[r][c], dLdInput_expected[r][c]) << "dLdInput element mismatch at (" << r << "," << c << ")";
+}
+
 // Basic test for CalculateOutput - more detailed tests would involve known weights/biases
 TEST_F(NeuroNetTest, NeuroNetLayerCalculateOutput) {
     layer.ResizeLayer(2, 1); // 2 inputs, 1 neuron

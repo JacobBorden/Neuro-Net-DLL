@@ -27,6 +27,9 @@ The neural network module forms the backbone of this library, providing the tool
     *   `static NeuroNet load_model(const std::string& filename)`: Loads a model from a JSON file.
     *   `LoadVocabulary(const std::string& filepath)`: Loads a vocabulary for text processing.
     *   `SetStringsInput(const std::string& json_string_input, ...)`: Processes string inputs using the vocabulary.
+    *   `Backpropagate(const Matrix::Matrix<float>& actual_output, const Matrix::Matrix<float>& target_output)`: Computes and propagates gradients backward through the network.
+    *   `UpdateWeights(float learning_rate)`: Updates network weights and biases based on computed gradients.
+    *   `Train(const std::vector<Matrix::Matrix<float>>& training_inputs, ...)`: Trains the network using specified data, learning rate, and epochs.
 *   **Source:** `src/neural_network/neuronet.h`
 
 ### 2. `NeuroNet::NeuroNetLayer` Class
@@ -44,6 +47,13 @@ The neural network module forms the backbone of this library, providing the tool
     *   `SetBiases(LayerBiases pBiases)`, `get_biases() const`: Manage layer biases.
     *   `SetActivationFunction(ActivationFunctionType pActivationFunction)`: Sets the activation function for the layer.
     *   `get_activation_type() const`: Gets the current activation function.
+    *   `DerivativeReLU(const Matrix::Matrix<float>& activated_output) const`: Computes derivative of ReLU.
+    *   `DerivativeLeakyReLU(const Matrix::Matrix<float>& activated_output) const`: Computes derivative of Leaky ReLU.
+    *   `DerivativeELU(const Matrix::Matrix<float>& activated_output) const`: Computes derivative of ELU.
+    *   `DerivativeSoftmax(const Matrix::Matrix<float>& activated_output) const`: Computes derivative of Softmax.
+    *   `BackwardPass(const Matrix::Matrix<float>& dLdOutput, ...)`: Performs backpropagation for the layer.
+    *   `get_dLdW() const`: Retrieves stored weight gradients (dL/dW).
+    *   `get_dLdB() const`: Retrieves stored bias gradients (dL/dB).
 *   **Source:** `src/neural_network/neuronet.h`
 
 ### 3. `NeuroNet::LayerWeights` and `NeuroNet::LayerBiases` Structs

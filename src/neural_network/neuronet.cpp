@@ -63,6 +63,12 @@ void NeuroNet::NeuroNetLayer::ResizeLayer(int pInputSize, int pLayerSize) {
 	this->Weights.WeightsVector.clear(); // Clear old data; new data must be set explicitly.
 	this->Biases.BiasCount = this->vLayerSize;
 	this->Biases.BiasVector.clear(); // Clear old data.
+
+	// Also resize gradient matrices
+	this->dLdW.resize(this->InputSize, this->vLayerSize);
+	this->dLdW.assign(0.0f); // Initialize with zeros
+	this->dLdB.resize(1, this->vLayerSize);
+	this->dLdB.assign(0.0f); // Initialize with zeros
 }
 
 NeuroNet::ActivationFunctionType NeuroNet::NeuroNetLayer::get_activation_type() const {
@@ -77,6 +83,212 @@ std::string NeuroNet::NeuroNetLayer::get_activation_function_name() const {
         case ActivationFunctionType::ELU: return "ELU";
         case ActivationFunctionType::Softmax: return "Softmax";
         default: return "Unknown";
+    }
+}
+
+void NeuroNet::NeuroNet::UpdateWeights(float learning_rate) {
+    if (learning_rate <= 0.0f) {
+        // Optional: throw std::invalid_argument("Learning rate must be positive.");
+        // For now, just return to avoid issues with negative/zero learning rate.
+        return;
+    }
+
+    for (int i = 0; i < this->LayerCount; ++i) {
+        // Ensure layer index is valid for NeuroNetVector (safety check)
+        if (static_cast<size_t>(i) >= this->NeuroNetVector.size()) {
+            throw std::out_of_range("Layer index " + std::to_string(i) +
+                                    " is out of bounds for NeuroNetVector with size " + std::to_string(this->NeuroNetVector.size()) +
+                                    " during UpdateWeights.");
+        }
+        NeuroNetLayer& layer = this->NeuroNetVector[i];
+
+        int layer_input_size;
+        if (i == 0) {
+            layer_input_size = this->GetInputSize();
+        } else {
+            if (static_cast<size_t>(i-1) >= this->NeuroNetVector.size()){ // Should not happen if LayerCount is correct
+                 throw std::out_of_range("Previous layer index " + std::to_string(i-1) + " is out of bounds during UpdateWeights.");
+            }
+            layer_input_size = this->NeuroNetVector[i-1].LayerSize();
+        }
+        int layer_output_size = layer.LayerSize();
+
+        // --- Handle Weights ---
+        LayerWeights current_lw_struct = layer.get_weights();
+        Matrix::Matrix<float> dLdW_matrix = layer.get_dLdW();
+
+        if (current_lw_struct.WeightCount > 0) {
+            if (dLdW_matrix.rows() == 0 && dLdW_matrix.cols() == 0 && layer_input_size == 0 && layer_output_size == 0) {
+                // Special case: layer has 0 input/output size, dLdW might be 0x0 legitimately. Skip update.
+            } else if (dLdW_matrix.rows() != static_cast<size_t>(layer_input_size) || dLdW_matrix.cols() != static_cast<size_t>(layer_output_size)) {
+                 throw std::runtime_error("Dimension mismatch for weight gradients in layer " + std::to_string(i) +
+                                          ". Expected (" + std::to_string(layer_input_size) + "," + std::to_string(layer_output_size) +
+                                          "), Got (" + std::to_string(dLdW_matrix.rows()) + "," + std::to_string(dLdW_matrix.cols()) + ")");
+            }
+            if (static_cast<int>(dLdW_matrix.rows() * dLdW_matrix.cols()) != current_lw_struct.WeightCount) {
+                 throw std::runtime_error("Mismatch between dLdW_matrix total elements (" + std::to_string(dLdW_matrix.rows() * dLdW_matrix.cols()) +
+                                          ") and layer's WeightCount (" + std::to_string(current_lw_struct.WeightCount) +") for layer " + std::to_string(i));
+            }
+
+            Matrix::Matrix<float> current_weights_matrix(layer_input_size, layer_output_size);
+            if (layer_input_size > 0 && layer_output_size > 0) { // Only construct if dimensions are valid
+                int k_w = 0;
+                for (int r = 0; r < layer_input_size; ++r) {
+                    for (int c = 0; c < layer_output_size; ++c) {
+                        if (k_w < current_lw_struct.WeightCount) {
+                            current_weights_matrix[r][c] = current_lw_struct.WeightsVector[k_w++];
+                        } else {
+                            throw std::runtime_error("WeightCount mismatch during weight matrix reconstruction for layer " + std::to_string(i));
+                        }
+                    }
+                }
+            }
+
+            Matrix::Matrix<float> updated_weights_matrix = current_weights_matrix - (dLdW_matrix * learning_rate);
+
+            LayerWeights new_lw_struct;
+            new_lw_struct.WeightCount = current_lw_struct.WeightCount;
+            if (new_lw_struct.WeightCount > 0) { // Only fill vector if there are weights
+                new_lw_struct.WeightsVector.reserve(new_lw_struct.WeightCount);
+                for (size_t r = 0; r < updated_weights_matrix.rows(); ++r) {
+                    for (size_t c = 0; c < updated_weights_matrix.cols(); ++c) {
+                        new_lw_struct.WeightsVector.push_back(updated_weights_matrix[r][c]);
+                    }
+                }
+            }
+            if (!layer.SetWeights(new_lw_struct)) {
+                throw std::runtime_error("Failed to set updated weights for layer " + std::to_string(i));
+            }
+        }
+
+        // --- Handle Biases ---
+        LayerBiases current_lb_struct = layer.get_biases();
+        Matrix::Matrix<float> dLdB_matrix = layer.get_dLdB();
+
+        if (current_lb_struct.BiasCount > 0) {
+             if (dLdB_matrix.rows() == 0 && dLdB_matrix.cols() == 0 && layer_output_size == 0) {
+                // Special case: layer has 0 output size, dLdB might be 0x0 legitimately. Skip update.
+             } else if (dLdB_matrix.rows() != 1 || dLdB_matrix.cols() != static_cast<size_t>(layer_output_size)) {
+                 throw std::runtime_error("Dimension mismatch for bias gradients in layer " + std::to_string(i) +
+                                          ". Expected (1," + std::to_string(layer_output_size) +
+                                          "), Got (" + std::to_string(dLdB_matrix.rows()) + "," + std::to_string(dLdB_matrix.cols()) + ")");
+            }
+            if (static_cast<int>(dLdB_matrix.rows() * dLdB_matrix.cols()) != current_lb_struct.BiasCount) {
+                 throw std::runtime_error("Mismatch between dLdB_matrix total elements (" + std::to_string(dLdB_matrix.rows() * dLdB_matrix.cols()) +
+                                          ") and layer's BiasCount (" + std::to_string(current_lb_struct.BiasCount) + ") for layer " + std::to_string(i));
+            }
+
+            Matrix::Matrix<float> current_biases_matrix(1, layer_output_size);
+            if (layer_output_size > 0) { // Only construct if dimensions are valid
+                int k_b = 0;
+                for (int c = 0; c < layer_output_size; ++c) {
+                     if (k_b < current_lb_struct.BiasCount) {
+                        current_biases_matrix[0][c] = current_lb_struct.BiasVector[k_b++];
+                     } else {
+                        throw std::runtime_error("BiasCount mismatch during bias matrix reconstruction for layer " + std::to_string(i));
+                     }
+                }
+            }
+
+            Matrix::Matrix<float> updated_biases_matrix = current_biases_matrix - (dLdB_matrix * learning_rate);
+
+            LayerBiases new_lb_struct;
+            new_lb_struct.BiasCount = current_lb_struct.BiasCount;
+            if (new_lb_struct.BiasCount > 0) { // Only fill vector if there are biases
+                new_lb_struct.BiasVector.reserve(new_lb_struct.BiasCount);
+                for (size_t c = 0; c < updated_biases_matrix.cols(); ++c) {
+                    new_lb_struct.BiasVector.push_back(updated_biases_matrix[0][c]);
+                }
+            }
+            if (!layer.SetBiases(new_lb_struct)) {
+                throw std::runtime_error("Failed to set updated biases for layer " + std::to_string(i));
+            }
+        }
+    }
+}
+
+void NeuroNet::NeuroNet::Train(const std::vector<Matrix::Matrix<float>>& training_inputs,
+                               const std::vector<Matrix::Matrix<float>>& training_targets,
+                               float learning_rate,
+                               int epochs) {
+    // Step a: Basic validation
+    if (training_inputs.empty()) { // Combined check for empty inputs/targets
+        throw std::invalid_argument("Training inputs cannot be empty.");
+    }
+    if (training_targets.empty()) {
+        throw std::invalid_argument("Training targets cannot be empty.");
+    }
+    if (training_inputs.size() != training_targets.size()) {
+        throw std::invalid_argument("Number of training inputs (" + std::to_string(training_inputs.size()) +
+                                    ") must match number of training targets (" + std::to_string(training_targets.size()) + ").");
+    }
+    if (learning_rate <= 0.0f) {
+        throw std::invalid_argument("Learning rate must be positive. Got: " + std::to_string(learning_rate));
+    }
+    if (epochs <= 0) {
+        throw std::invalid_argument("Number of epochs must be positive. Got: " + std::to_string(epochs));
+    }
+    if (this->LayerCount == 0) {
+        throw std::runtime_error("Cannot train an empty network (0 layers). Initialize layers first.");
+    }
+     if (this->NeuroNetVector.empty()) { // Should be redundant if LayerCount is managed well
+        throw std::runtime_error("Cannot train a network with an empty NeuroNetVector. Initialize layers first.");
+    }
+
+
+    // Step b: Loop for epochs
+    for (int epoch = 0; epoch < epochs; ++epoch) {
+        // Optional: Add logging for epoch number, e.g., std::cout << "Epoch " << epoch + 1 << "/" << epochs << std::endl;
+
+        // Step c: Iterate through each training sample
+        for (size_t i = 0; i < training_inputs.size(); ++i) {
+            const Matrix::Matrix<float>& current_input_sample = training_inputs[i];
+            const Matrix::Matrix<float>& current_target_sample = training_targets[i];
+
+            // Validate sample dimensions against network's expected input/output sizes
+            if (this->GetInputSize() < 0) { // Check if network input size is even set
+                 throw std::runtime_error("Network input size is not set or invalid (<0). Call SetInputSize() before training.");
+            }
+            if (static_cast<int>(current_input_sample.cols()) != this->GetInputSize()) {
+                 throw std::runtime_error("Input sample " + std::to_string(i) + " has " + std::to_string(current_input_sample.cols()) +
+                                          " columns, but network expects " + std::to_string(this->GetInputSize()) + " input features.");
+            }
+            // Assuming network processes one instance at a time (1 row input). SetInput in NeuroNetLayer checks this.
+            if (current_input_sample.rows() != 1 && this->GetInputSize() > 0) {
+                 // This check is active based on NeuroNetLayer::SetInput expecting 1 row.
+                 throw std::runtime_error("Input sample " + std::to_string(i) + " must have 1 row for current network setup. Got " + std::to_string(current_input_sample.rows()) + " rows.");
+            }
+
+
+            if (this->NeuroNetVector.back().LayerSize() <= 0 && current_target_sample.cols() > 0) { // Check if last layer size is valid
+                 throw std::runtime_error("Network output layer size is not set or invalid (<=0), but target sample " + std::to_string(i) + " has columns. Configure network layers.");
+            }
+            if (static_cast<int>(current_target_sample.cols()) != this->NeuroNetVector.back().LayerSize()) {
+                 throw std::runtime_error("Target sample " + std::to_string(i) + " has " + std::to_string(current_target_sample.cols()) +
+                                          " columns, but network output layer has " + std::to_string(this->NeuroNetVector.back().LayerSize()) + " neurons.");
+            }
+            // Assuming 1 row target per sample.
+            if (current_target_sample.rows() != 1 && this->NeuroNetVector.back().LayerSize() > 0) {
+                 throw std::runtime_error("Target sample " + std::to_string(i) + " must have 1 row. Got " + std::to_string(current_target_sample.rows()) + " rows.");
+            }
+
+
+            // Step c.i: Set input
+            if (!this->SetInput(current_input_sample)) {
+                throw std::runtime_error("Failed to set input for sample " + std::to_string(i) + " in epoch " + std::to_string(epoch) +
+                                         ". Input dimensions: " + std::to_string(current_input_sample.rows()) + "x" + std::to_string(current_input_sample.cols()) +
+                                         ", Network expected input columns: " + std::to_string(this->GetInputSize()));
+            }
+
+            // Step c.ii: Forward pass
+            Matrix::Matrix<float> actual_output = this->GetOutput();
+
+            // Step c.iii: Backpropagation
+            this->Backpropagate(actual_output, current_target_sample);
+
+            // Step c.iv: Update weights
+            this->UpdateWeights(learning_rate);
+        }
     }
 }
 
@@ -123,6 +335,155 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyELU(const Matrix::Matrix<flo
         }
     }
     return output;
+}
+
+Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeReLU(const Matrix::Matrix<float>& activated_output) const {
+    Matrix::Matrix<float> derivative = activated_output; // Copy dimensions and initial values
+    for (int i = 0; i < derivative.rows(); ++i) {
+        for (int j = 0; j < derivative.cols(); ++j) {
+            derivative[i][j] = (activated_output[i][j] > 0.0f) ? 1.0f : 0.0f;
+        }
+    }
+    return derivative;
+}
+
+Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeLeakyReLU(const Matrix::Matrix<float>& activated_output) const {
+    Matrix::Matrix<float> derivative = activated_output; // Copy dimensions and initial values
+    const float alpha = 0.01f; // Ensure this matches the alpha in ApplyLeakyReLU
+    for (int i = 0; i < derivative.rows(); ++i) {
+        for (int j = 0; j < derivative.cols(); ++j) {
+            derivative[i][j] = (activated_output[i][j] > 0.0f) ? 1.0f : alpha;
+        }
+    }
+    return derivative;
+}
+
+Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeELU(const Matrix::Matrix<float>& activated_output) const {
+    Matrix::Matrix<float> derivative = activated_output; // Copy dimensions and initial values
+    const float alpha = 1.0f; // Ensure this matches the alpha in ApplyELU
+    for (int i = 0; i < derivative.rows(); ++i) {
+        for (int j = 0; j < derivative.cols(); ++j) {
+            if (activated_output[i][j] > 0.0f) {
+                derivative[i][j] = 1.0f;
+            } else {
+                // If output = alpha * (exp(x) - 1), then derivative = alpha * exp(x) = output + alpha
+                derivative[i][j] = activated_output[i][j] + alpha;
+            }
+        }
+    }
+    return derivative;
+}
+
+// Computes S_i * (1 - S_i) element-wise, where S is the softmax output (activated_output).
+// This is the diagonal of the Jacobian dS/dZ, commonly used with Cross-Entropy loss.
+Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeSoftmax(const Matrix::Matrix<float>& activated_output) const {
+    Matrix::Matrix<float> derivative = activated_output; // Copy dimensions and initial values
+    for (int i = 0; i < derivative.rows(); ++i) {
+        for (int j = 0; j < derivative.cols(); ++j) {
+            float s_ij = activated_output[i][j];
+            derivative[i][j] = s_ij * (1.0f - s_ij);
+        }
+    }
+    return derivative;
+}
+
+Matrix::Matrix<float> NeuroNet::NeuroNetLayer::BackwardPass(const Matrix::Matrix<float>& dLdOutput, const Matrix::Matrix<float>& input_to_this_layer) {
+    // Ensure gradient matrices are initialized/resized correctly
+    // This check is a safeguard; ResizeLayer should have already initialized them.
+    if (this->dLdW.rows() != this->WeightMatrix.rows() || this->dLdW.cols() != this->WeightMatrix.cols()) {
+        this->dLdW.resize(this->WeightMatrix.rows(), this->WeightMatrix.cols());
+        this->dLdW.assign(0.0f); // Initialize gradients to zero
+    }
+    if (this->dLdB.rows() != this->BiasMatrix.rows() || this->dLdB.cols() != this->BiasMatrix.cols()) {
+        this->dLdB.resize(this->BiasMatrix.rows(), this->BiasMatrix.cols());
+        this->dLdB.assign(0.0f); // Initialize gradients to zero
+    }
+
+    // Step a: Calculate dLdActivationInput = dLdOutput * f'(OutputMatrix)
+    // f'(OutputMatrix) is the derivative of the activation function w.r.t. its input,
+    // evaluated at the pre-activation output, but our derivative functions take activated_output.
+    // Let Z = WX + B (pre-activation), A = f(Z) (OutputMatrix).
+    // We have dLdA (dLdOutput). We need dAdZ.
+    // Our derivative functions compute dAdZ based on A.
+    Matrix::Matrix<float> dAdZ; // Derivative of activation function output w.r.t its input
+    switch (this->vActivationFunction) {
+        case ActivationFunctionType::ReLU:
+            dAdZ = DerivativeReLU(this->OutputMatrix); // OutputMatrix stores f(Z)
+            break;
+        case ActivationFunctionType::LeakyReLU:
+            dAdZ = DerivativeLeakyReLU(this->OutputMatrix);
+            break;
+        case ActivationFunctionType::ELU:
+            dAdZ = DerivativeELU(this->OutputMatrix);
+            break;
+        case ActivationFunctionType::Softmax:
+            // For Softmax with Cross-Entropy loss, dL/dZ = A - Y (output - target).
+            // If dLdOutput *is* already (A-Y) for the output layer, then dLdActivationInput = dLdOutput.
+            // But the plan is generic. dLdOutput is dL/dA.
+            // dL/dZ_i = sum_j (dL/dA_j * dA_j/dZ_i).
+            // If using the simplified S_i(1-S_i) from DerivativeSoftmax:
+            dAdZ = DerivativeSoftmax(this->OutputMatrix);
+            break;
+        case ActivationFunctionType::None:
+            // If no activation, f(Z) = Z, so f'(Z) = 1.
+            // dAdZ should be a matrix of ones with the same dimensions as OutputMatrix.
+            dAdZ.resize(this->OutputMatrix.rows(), this->OutputMatrix.cols());
+            dAdZ.assign(1.0f);
+            break;
+        default:
+            // Should not happen or throw error
+            // For safety, resize and fill, but consider throwing an exception for unsupported types.
+            dAdZ.resize(this->OutputMatrix.rows(), this->OutputMatrix.cols());
+            dAdZ.assign(1.0f); // Fallback, or throw std::runtime_error("Unsupported activation function in BackwardPass");
+            break;
+    }
+
+    // dLdActivationInput (dLdZ) = dLdOutput (dLdA) element-wise_multiply dAdZ
+    Matrix::Matrix<float> dLdZ = dLdOutput; // Copy dimensions
+    if (dLdOutput.rows() != dAdZ.rows() || dLdOutput.cols() != dAdZ.cols()) {
+        // Error handling: dimensions must match for element-wise product
+        throw std::runtime_error("Dimension mismatch for element-wise multiplication in BackwardPass (dLdOutput vs dAdZ). "
+                                 "dLdOutput: (" + std::to_string(dLdOutput.rows()) + "," + std::to_string(dLdOutput.cols()) + ") "
+                                 "dAdZ: (" + std::to_string(dAdZ.rows()) + "," + std::to_string(dAdZ.cols()) + ")");
+    }
+    for (int i = 0; i < dLdZ.rows(); ++i) {
+        for (int j = 0; j < dLdZ.cols(); ++j) {
+            dLdZ[i][j] = dLdOutput[i][j] * dAdZ[i][j];
+        }
+    }
+
+    // Step b: Calculate dLdW = input_to_this_layer.transpose() * dLdZ
+    this->dLdW = input_to_this_layer.Transpose() * dLdZ;
+
+    // Step c: Calculate dLdB = dLdZ
+    // This assumes dLdZ is (1, num_neurons) for a single instance.
+    // If batch processing were implemented where dLdZ could be (batch_size, num_neurons),
+    // dLdB would require summing dLdZ across the batch dimension.
+    // For now, direct assignment is consistent with other matrix shapes (e.g. BiasMatrix is 1xN).
+    this->dLdB = dLdZ;
+
+    // Step d: Calculate dLdInput (dLdX for this layer, which is dLdA_prev for previous layer)
+    Matrix::Matrix<float> dLdInput = dLdZ * this->WeightMatrix.Transpose();
+
+    // Step e: Return dLdInput
+    return dLdInput;
+}
+
+// Implementations for gradient getters
+Matrix::Matrix<float> NeuroNet::NeuroNetLayer::get_dLdW() const {
+    return this->dLdW;
+}
+
+Matrix::Matrix<float> NeuroNet::NeuroNetLayer::get_dLdB() const {
+    return this->dLdB;
+}
+
+const Matrix::Matrix<float>& NeuroNet::NeuroNetLayer::get_input_matrix() const {
+    return this->InputMatrix;
+}
+
+int NeuroNet::NeuroNetLayer::get_input_size() const {
+    return this->InputSize;
 }
 
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplySoftmax(const Matrix::Matrix<float>& input) {
@@ -621,6 +982,61 @@ bool NeuroNet::NeuroNetLayer::SetWeights(LayerWeights pWeights) {
 		}
 	}
 	return true;
+}
+
+void NeuroNet::NeuroNet::Backpropagate(const Matrix::Matrix<float>& actual_output, const Matrix::Matrix<float>& target_output) {
+    if (this->NeuroNetVector.empty()) {
+        return; // No layers to backpropagate through.
+    }
+
+    // Ensure target_output and actual_output have the same dimensions.
+    if (actual_output.rows() != target_output.rows() || actual_output.cols() != target_output.cols()) {
+        throw std::runtime_error("Dimension mismatch between actual_output (" +
+                                 std::to_string(actual_output.rows()) + "x" + std::to_string(actual_output.cols()) +
+                                 ") and target_output (" +
+                                 std::to_string(target_output.rows()) + "x" + std::to_string(target_output.cols()) +
+                                 ") in Backpropagate.");
+    }
+
+    // Step a: Calculate initial dLdOutput for the last layer.
+    // This is typically (actual_output - target_output) for MSE loss,
+    // or (softmax_output - target_one_hot) if used as dL/dZ for softmax + CCE.
+    // Our Layer::BackwardPass expects dL/dActivation_Output.
+    Matrix::Matrix<float> dLdOutput_current = actual_output - target_output; // Element-wise subtraction
+
+    // Step b: Iterate backward through layers
+    // Using LayerCount as it's explicitly managed by ResizeNeuroNet and represents the intended number of layers.
+    for (int i = this->LayerCount - 1; i >= 0; --i) {
+        // Ensure layer index is valid for NeuroNetVector (safety check, though LayerCount should be consistent)
+        if (static_cast<size_t>(i) >= this->NeuroNetVector.size()) {
+            throw std::out_of_range("Layer index " + std::to_string(i) +
+                                    " is out of bounds for NeuroNetVector with size " + std::to_string(this->NeuroNetVector.size()) +
+                                    " during backpropagation.");
+        }
+        NeuroNetLayer& current_layer = this->NeuroNetVector[i];
+
+        // Get the input that was fed to this layer during the forward pass.
+        // Use the new public getter.
+        const Matrix::Matrix<float>& input_to_current_layer = current_layer.get_input_matrix();
+
+        // Validate InputMatrix
+        if (input_to_current_layer.rows() == 0 && current_layer.LayerSize() > 0) { // LayerSize > 0 implies it's a configured layer
+             throw std::runtime_error("Layer " + std::to_string(i) +
+                                     " InputMatrix has 0 rows during backpropagation. Layer output size: " + std::to_string(current_layer.LayerSize()) +
+                                     ". Forward pass might be incomplete or network input not set.");
+        }
+        // Use the new public getter for InputSize.
+        if (input_to_current_layer.cols() == 0 && current_layer.get_input_size() > 0 ) { // InputSize > 0 implies it expects input
+             throw std::runtime_error("Layer " + std::to_string(i) +
+                                     " InputMatrix has 0 columns but layer expects input size " + std::to_string(current_layer.get_input_size()) +
+                                     ". Forward pass might be incomplete or network input not set.");
+        }
+
+
+        dLdOutput_current = current_layer.BackwardPass(dLdOutput_current, input_to_current_layer);
+        // The returned dLdOutput_current is now dL/dInput for the current layer,
+        // which is dL/dOutput for the *previous* layer (i-1).
+    }
 }
 
 bool NeuroNet::NeuroNet::SetInputJSON(const std::string& json_input) {
