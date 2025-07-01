@@ -984,6 +984,26 @@ bool NeuroNet::NeuroNetLayer::SetWeights(LayerWeights pWeights) {
 	return true;
 }
 
+// Implementation for NeuroNetLayer::get_weight
+float NeuroNet::NeuroNetLayer::get_weight(int prev_neuron_idx, int current_neuron_idx_in_layer) const {
+    // WeightMatrix dimensions are InputSize (rows) x vLayerSize (cols).
+    // prev_neuron_idx maps to row, current_neuron_idx_in_layer maps to col.
+
+    // Boundary checks
+    if (prev_neuron_idx < 0 || static_cast<size_t>(prev_neuron_idx) >= this->WeightMatrix.rows()) {
+        throw std::out_of_range("prev_neuron_idx (" + std::to_string(prev_neuron_idx) +
+                                ") is out of bounds for WeightMatrix rows (" +
+                                std::to_string(this->WeightMatrix.rows()) + ").");
+    }
+    if (current_neuron_idx_in_layer < 0 || static_cast<size_t>(current_neuron_idx_in_layer) >= this->WeightMatrix.cols()) {
+        throw std::out_of_range("current_neuron_idx_in_layer (" + std::to_string(current_neuron_idx_in_layer) +
+                                ") is out of bounds for WeightMatrix columns (" +
+                                std::to_string(this->WeightMatrix.cols()) + ").");
+    }
+
+    return this->WeightMatrix[prev_neuron_idx][current_neuron_idx_in_layer];
+}
+
 void NeuroNet::NeuroNet::Backpropagate(const Matrix::Matrix<float>& actual_output, const Matrix::Matrix<float>& target_output) {
     if (this->NeuroNetVector.empty()) {
         return; // No layers to backpropagate through.

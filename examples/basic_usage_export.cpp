@@ -8,11 +8,143 @@
 #include "neural_network/neuronet.h"
 #include "optimization/genetic_algorithm.h"
 #include "math/matrix.h"
+#include "optimization/neural_pathfinder.h" // For NeuralPathfinder
 #include <string> // For std::to_string, std::string
 #include <cstdio> // For std::remove
 // #include "src/utilities/json/json.hpp" // For nlohmann::json - no longer directly used for model export here, but training_metrics.json uses it.
                                        // NeuroNet.h includes it for its own to_nlohmann_json, which is not used here.
                                        // TrainingRunMetrics uses nlohmann::json so it will be pulled by genetic_algorithm.h
+
+
+// Helper function to print a matrix (already exists if merged correctly, but ensure it's available)
+void print_matrix_astar(const Matrix::Matrix<float>& mat, const std::string& title) {
+    std::cout << title << " (" << mat.rows() << "x" << mat.cols() << "):\n";
+    if (mat.rows() == 0 || mat.cols() == 0) {
+        std::cout << "  [Empty Matrix]\n";
+        return;
+    }
+    for (size_t i = 0; i < mat.rows(); ++i) {
+        std::cout << "  [";
+        for (size_t j = 0; j < mat.cols(); ++j) {
+            std::cout << mat[i][j] << (j == mat.cols() - 1 ? "" : ", ");
+        }
+        std::cout << "]\n";
+    }
+    std::cout << std::endl;
+}
+
+
+void run_astar_pathfinding_example() {
+    std::cout << "\n--- A* Pathfinding Example ---" << std::endl;
+    NeuroNet::NeuroNet path_network;
+    // Network input size doesn't directly affect A* pathfinding through weights of hidden/output layers,
+    // but it defines the input dimensionality for the first layer's WeightMatrix.
+    path_network.SetInputSize(2);
+    path_network.ResizeNeuroNet(3); // 3 layers: L0 (2 neurons), L1 (3 neurons), L2 (2 neurons - output)
+
+    // Layer 0: InputSize=2 (from network input), LayerSize=2 neurons
+    path_network.ResizeLayer(0, 2);
+    // Activation functions don't affect this A* version, which only uses weights.
+    path_network.getLayer(0).SetActivationFunction(NeuroNet::ActivationFunctionType::None);
+
+    // Layer 1: InputSize=2 (from L0's 2 neurons), LayerSize=3 neurons
+    path_network.ResizeLayer(1, 3);
+    path_network.getLayer(1).SetActivationFunction(NeuroNet::ActivationFunctionType::None);
+
+    // Layer 2: InputSize=3 (from L1's 3 neurons), LayerSize=2 neurons (output layer)
+    path_network.ResizeLayer(2, 2);
+    path_network.getLayer(2).SetActivationFunction(NeuroNet::ActivationFunctionType::None);
+
+    // Set weights for Layer 0 (Network Input -> Layer 0 neurons)
+    // WeightMatrix in Layer 0 is 2 (network inputs) x 2 (L0 neurons)
+    NeuroNet::LayerWeights weights_L0_for_astar;
+    weights_L0_for_astar.WeightCount = 2 * 2;
+    weights_L0_for_astar.WeightsVector = {
+        1.0f, 0.5f,  // From Network Input 0 to L0 Neurons 0,1
+        0.2f, 2.0f   // From Network Input 1 to L0 Neurons 0,1
+    };
+    path_network.getLayer(0).SetWeights(weights_L0_for_astar);
+    // Note: The A* pathfinding as defined starts from neurons in the first hidden layer (Layer 0).
+    // The weights above (Network Input -> Layer 0) are not part of the A* path cost calculation itself,
+    // but they are part of the network definition. The first set of weights A* will use are those
+    // connecting Layer 0 neurons to Layer 1 neurons (i.e., the weights belonging to Layer 1).
+
+    // Set weights for Layer 1 (Layer 0 neurons -> Layer 1 neurons)
+    // WeightMatrix in Layer 1 is 2 (L0 neurons) x 3 (L1 neurons)
+    NeuroNet::LayerWeights weights_L1_for_astar;
+    weights_L1_for_astar.WeightCount = 2 * 3;
+    weights_L1_for_astar.WeightsVector = {
+        1.0f, 2.0f, 0.1f,  // From L0 Neuron 0 to L1 Neurons 0,1,2
+        0.5f, 0.5f, 3.0f   // From L0 Neuron 1 to L1 Neurons 0,1,2
+    };
+    path_network.getLayer(1).SetWeights(weights_L1_for_astar);
+
+    // Set weights for Layer 2 (Layer 1 neurons -> Layer 2 neurons)
+    // WeightMatrix in Layer 2 is 3 (L1 neurons) x 2 (L2 neurons)
+    NeuroNet::LayerWeights weights_L2_for_astar;
+    weights_L2_for_astar.WeightCount = 3 * 2;
+    weights_L2_for_astar.WeightsVector = {
+        4.0f, 0.2f,  // From L1 Neuron 0 to L2 Neurons 0,1
+        0.3f, 5.0f,  // From L1 Neuron 1 to L2 Neurons 0,1
+        0.4f, 0.1f   // From L1 Neuron 2 to L2 Neurons 0,1
+    };
+    path_network.getLayer(2).SetWeights(weights_L2_for_astar);
+
+    std::cout << "A* example network configured with specific weights." << std::endl;
+    // Expected path for max product of abs weights:
+    // Start L0N0:
+    //   L0N0 -> L1N0 (w:1.0) -> L2N0 (w:4.0). Prod: 1*4 = 4. Path: (0,0)->(1,0)->(2,0)
+    //   L0N0 -> L1N1 (w:2.0) -> L2N1 (w:5.0). Prod: 2*5 = 10. Path: (0,0)->(1,1)->(2,1) <-- Best overall
+    // Start L0N1:
+    //   L0N1 -> L1N2 (w:3.0) -> L2N0 (w:0.4). Prod: 3*0.4 = 1.2 Path: (0,1)->(1,2)->(2,0)
+    // The pathfinder should identify (0,0) -> (1,1) -> (2,1)
+
+    try {
+        NeuroNet::Optimization::NeuralPathfinder pathfinder(path_network);
+        std::vector<NeuroNet::Optimization::AStarPathNode> optimal_path = pathfinder.FindOptimalPathAStar();
+
+        if (optimal_path.empty()) {
+            std::cout << "A* Pathfinder: No optimal path found." << std::endl;
+        } else {
+            std::cout << "A* Pathfinder: Optimal path found:" << std::endl;
+            double calculated_product = 1.0;
+            for (size_t i = 0; i < optimal_path.size(); ++i) {
+                const auto& node = optimal_path[i];
+                std::cout << "  Layer " << node.layer_idx << ", Neuron " << node.neuron_idx;
+                if (i < optimal_path.size() - 1) {
+                    const auto& next_node = optimal_path[i+1];
+                    // Get weight from current_node.neuron_idx in layer current_node.layer_idx
+                    // to next_node.neuron_idx in layer next_node.layer_idx.
+                    // Weights are stored in the layer *receiving* the input.
+                    float weight = path_network.getLayer(next_node.layer_idx).get_weight(node.neuron_idx, next_node.neuron_idx);
+                    std::cout << " --(w:" << weight << ")--> ";
+                    calculated_product *= std::abs(weight);
+                }
+            }
+            std::cout << "\nCalculated Path Product (abs weights): " << calculated_product << std::endl;
+
+            // Verification for the specific setup:
+            bool path_matches = optimal_path.size() == 3 &&
+                                optimal_path[0].layer_idx == 0 && optimal_path[0].neuron_idx == 0 &&
+                                optimal_path[1].layer_idx == 1 && optimal_path[1].neuron_idx == 1 &&
+                                optimal_path[2].layer_idx == 2 && optimal_path[2].neuron_idx == 1;
+            bool product_matches = std::abs(calculated_product - 10.0) < NeuroNet::Optimization::NeuralPathfinder::EPSILON * 100;
+
+
+            if (path_matches && product_matches) {
+                std::cout << "Path and product match expected: (0,0) -> (1,1) -> (2,1), Product ~10.0" << std::endl;
+            } else {
+                std::cerr << "Path or product DOES NOT match expected!" << std::endl;
+                if (!path_matches) std::cerr << "  Path mismatch." << std::endl;
+                if (!product_matches) std::cerr << "  Product mismatch (got " << calculated_product << ", expected 10.0)." << std::endl;
+            }
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Exception during A* pathfinding: " << e.what() << std::endl;
+    }
+    std::cout << "--- A* Pathfinding Example End ---" << std::endl;
+}
+
 
 // Fitness function for XOR
 // Inputs: {0,0}, {0,1}, {1,0}, {1,1}
@@ -307,5 +439,9 @@ int main() {
     }
 
     std::cout << "\nExample finished." << std::endl;
+
+    // Run the A* pathfinding example
+    run_astar_pathfinding_example();
+
     return 0;
 }
