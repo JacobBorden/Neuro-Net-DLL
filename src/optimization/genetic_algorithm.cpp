@@ -13,8 +13,22 @@
 #include <algorithm> // For std::shuffle, std::transform, std::min_element, std::max_element, std::sort
 #include <limits>    // For std::numeric_limits
 #include <stdexcept> // For std::runtime_error (optional, for error handling)
+#include <fstream>   // For std::ofstream (file output)
+#include <chrono>    // For std::chrono::system_clock
+#include <iomanip>   // For std::put_time
+#include <sstream>   // For std::ostringstream
+#include <numeric>   // For std::accumulate
 
-namespace NeuroNet {
+#include "../utilities/timer.h" // For Timer class
+#include "../utilities/json/json.hpp" // For custom JsonValue, JsonParser (used for export_training_metrics_json)
+#include "../utilities/json/json_exception.hpp" // For JsonParseException (used by custom JsonValue)
+
+
+// Define ENABLE_BENCHMARKING to enable timing of genetic algorithm operations.
+// This can be defined in project settings or uncommented here for testing.
+// #define ENABLE_BENCHMARKING
+
+namespace Optimization {
 
 /**
  * @brief Constructs a GeneticAlgorithm instance.
@@ -23,20 +37,23 @@ namespace NeuroNet {
  * The template_network is copied and used as a blueprint for all individuals
  * in the population, ensuring consistent network architecture.
  */
-GeneticAlgorithm::GeneticAlgorithm(
+Optimization::GeneticAlgorithm::GeneticAlgorithm(
     int population_size,
     double mutation_rate,
     double crossover_rate,
     int num_generations,
-    const NeuroNet& template_network)
+    const NeuroNet::NeuroNet& template_network)
     : population_size_(population_size),
       mutation_rate_(mutation_rate),
       crossover_rate_(crossover_rate),
       num_generations_(num_generations),
       template_network_(template_network), // Make a copy of the template network
       best_individual_(template_network), // Initialize best_individual_ with template structure
-      best_fitness_score_(std::numeric_limits<double>::lowest()) { // Initialize best score to a very low value
+      best_fitness_score_(std::numeric_limits<double>::lowest()),
+      current_generation_(0) { // Initialize best score to a very low value
     
+    current_run_metrics_ = {}; // Initialize training metrics
+
     // Seed the random number generator for reproducibility during a run,
     // but different seeds across different program executions.
     std::random_device rd;
@@ -54,8 +71,8 @@ GeneticAlgorithm::GeneticAlgorithm(
  * values, typically between -1.0 and 1.0.
  * @return NeuroNet A new, randomly initialized NeuroNet individual.
  */
-NeuroNet GeneticAlgorithm::create_random_individual() const {
-    NeuroNet individual = template_network_; // Start with the template structure.
+NeuroNet::NeuroNet Optimization::GeneticAlgorithm::create_random_individual() const {
+    NeuroNet::NeuroNet individual = template_network_; // Start with the template structure.
 
     // Retrieve the total number of weights and biases from the template structure.
     // This uses the NeuroNet's flat accessor methods, which is convenient.
@@ -87,7 +104,7 @@ NeuroNet GeneticAlgorithm::create_random_individual() const {
  * new individuals, each created by `create_random_individual()`.
  * Fitness scores are also cleared, as they will need to be re-evaluated.
  */
-void GeneticAlgorithm::initialize_population() {
+void Optimization::GeneticAlgorithm::initialize_population() {
     population_.clear();
     fitness_scores_.clear(); // Fitness scores are now invalid.
     population_.reserve(population_size_); // Pre-allocate memory.
@@ -99,8 +116,12 @@ void GeneticAlgorithm::initialize_population() {
     // Fitness scores will be calculated when evaluate_fitness is called.
     // Reset overall best fitness score for a new evolution run.
     best_fitness_score_ = std::numeric_limits<double>::lowest();
+    current_generation_ = 0; // Reset generation counter
     // best_individual_ can be left as is, or reset to a default NeuroNet,
     // as it will be updated when a better individual is found.
+    // Clear previous run data
+    current_run_metrics_ = {}; 
+    current_run_metrics_.generation_data.reserve(num_generations_);
 }
 
 /**
@@ -112,9 +133,17 @@ void GeneticAlgorithm::initialize_population() {
  * but does not update the overall `best_individual_` or `best_fitness_score_` (across all generations);
  * that update is handled in `evolve_one_generation` after selection and other operations.
  */
-void GeneticAlgorithm::evaluate_fitness(const std::function<double(NeuroNet&)>& fitness_function) {
+void Optimization::GeneticAlgorithm::evaluate_fitness(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function) {
+#ifdef ENABLE_BENCHMARKING
+    utilities::Timer eval_timer;
+    eval_timer.start();
+#endif
     if (population_.empty()) {
         // Or throw std::runtime_error("Population is empty, cannot evaluate fitness.");
+#ifdef ENABLE_BENCHMARKING
+        eval_timer.stop();
+        std::cout << "GeneticAlgorithm::evaluate_fitness() (Population Empty) took: " << eval_timer.elapsed_milliseconds() << " ms" << std::endl;
+#endif
         return;
     }
     fitness_scores_.resize(population_.size());
@@ -131,6 +160,11 @@ void GeneticAlgorithm::evaluate_fitness(const std::function<double(NeuroNet&)>& 
     }
     // Note: The overall best_individual_ and best_fitness_score_ (across all generations)
     // are updated in evolve_one_generation after new individuals might be created.
+#ifdef ENABLE_BENCHMARKING
+    eval_timer.stop();
+    std::cout << "GeneticAlgorithm::evaluate_fitness() (Population Size: " << population_.size() 
+              << ") took: " << eval_timer.elapsed_milliseconds() << " ms" << std::endl;
+#endif
 }
 
 /**
@@ -142,7 +176,7 @@ void GeneticAlgorithm::evaluate_fitness(const std::function<double(NeuroNet&)>& 
  * @return const NeuroNet& A reference to the selected parent individual.
  * @throws std::runtime_error if the population is empty.
  */
-const NeuroNet& GeneticAlgorithm::tournament_selection(int tournament_size) const {
+const NeuroNet::NeuroNet& Optimization::GeneticAlgorithm::tournament_selection(int tournament_size) const {
     if (population_.empty()) {
         throw std::runtime_error("Tournament selection called on an empty population.");
     }
@@ -151,7 +185,7 @@ const NeuroNet& GeneticAlgorithm::tournament_selection(int tournament_size) cons
     }
     
     std::uniform_int_distribution<int> dist(0, population_.size() - 1);
-    const NeuroNet* best_participant = nullptr;
+    const NeuroNet::NeuroNet* best_participant = nullptr;
     double max_fitness_in_tournament = std::numeric_limits<double>::lowest();
 
     for (int i = 0; i < tournament_size; ++i) {
@@ -182,13 +216,21 @@ const NeuroNet& GeneticAlgorithm::tournament_selection(int tournament_size) cons
  *    c. Otherwise (no crossover), the selected parents are mutated and added.
  * The `population_` member is updated with the new generation.
  */
-void GeneticAlgorithm::selection() {
+void Optimization::GeneticAlgorithm::selection() {
+#ifdef ENABLE_BENCHMARKING
+    utilities::Timer selection_timer;
+    selection_timer.start();
+#endif
     if (population_.empty() || fitness_scores_.empty() || fitness_scores_.size() != population_.size()) {
         // Or throw std::runtime_error("Population or fitness scores are not ready for selection.");
+#ifdef ENABLE_BENCHMARKING
+        selection_timer.stop();
+        std::cout << "GeneticAlgorithm::selection() (Population/Fitness Scores Empty or Mismatched) took: " << selection_timer.elapsed_milliseconds() << " ms" << std::endl;
+#endif
         return;
     }
 
-    std::vector<NeuroNet> new_population;
+    std::vector<NeuroNet::NeuroNet> new_population;
     new_population.reserve(population_size_);
 
     // Elitism: Carry over the best individual from the current population.
@@ -205,12 +247,12 @@ void GeneticAlgorithm::selection() {
 
     // Fill the rest of the new population.
     while (new_population.size() < static_cast<size_t>(population_size_)) {
-        const NeuroNet& parent1 = tournament_selection();
-        const NeuroNet& parent2 = tournament_selection();
+        const NeuroNet::NeuroNet& parent1 = tournament_selection();
+        const NeuroNet::NeuroNet& parent2 = tournament_selection();
 
         std::uniform_real_distribution<double> cross_dist(0.0, 1.0);
         if (cross_dist(random_engine_) < crossover_rate_) {
-            std::vector<NeuroNet> offspring = crossover(parent1, parent2); // Get two offspring
+            std::vector<NeuroNet::NeuroNet> offspring = crossover(parent1, parent2); // Get two offspring
             mutate(offspring[0]); // Mutate first offspring
             if (new_population.size() < static_cast<size_t>(population_size_)) {
                 new_population.push_back(offspring[0]);
@@ -221,20 +263,24 @@ void GeneticAlgorithm::selection() {
             }
         } else {
             // No crossover: clone parents, mutate, and add to new population.
-            NeuroNet p1_copy = parent1;
+            NeuroNet::NeuroNet p1_copy = parent1;
             mutate(p1_copy);
             if (new_population.size() < static_cast<size_t>(population_size_)) {
                 new_population.push_back(p1_copy);
             }
 
             if (new_population.size() < static_cast<size_t>(population_size_)) { // Check size again
-                NeuroNet p2_copy = parent2;
+                NeuroNet::NeuroNet p2_copy = parent2;
                 mutate(p2_copy);
                 new_population.push_back(p2_copy);
             }
         }
     }
     population_ = new_population; // Replace old population with the new one.
+#ifdef ENABLE_BENCHMARKING
+    selection_timer.stop();
+    std::cout << "GeneticAlgorithm::selection() took: " << selection_timer.elapsed_milliseconds() << " ms" << std::endl;
+#endif
 }
 
 /**
@@ -246,9 +292,13 @@ void GeneticAlgorithm::selection() {
  * @param parent2 The second parent NeuroNet.
  * @return std::vector<NeuroNet> A vector containing two new offspring NeuroNet individuals.
  */
-std::vector<NeuroNet> GeneticAlgorithm::crossover(const NeuroNet& parent1, const NeuroNet& parent2) {
-    NeuroNet offspring1 = template_network_; // Ensure offspring have the correct structure.
-    NeuroNet offspring2 = template_network_;
+std::vector<NeuroNet::NeuroNet> Optimization::GeneticAlgorithm::crossover(const NeuroNet::NeuroNet& parent1, const NeuroNet::NeuroNet& parent2) {
+#ifdef ENABLE_BENCHMARKING
+    utilities::Timer crossover_timer;
+    crossover_timer.start();
+#endif
+    NeuroNet::NeuroNet offspring1 = template_network_; // Ensure offspring have the correct structure.
+    NeuroNet::NeuroNet offspring2 = template_network_;
 
     // Crossover for weights
     std::vector<float> p1_weights = parent1.get_all_weights_flat();
@@ -295,6 +345,10 @@ std::vector<NeuroNet> GeneticAlgorithm::crossover(const NeuroNet& parent1, const
         offspring2.set_all_biases_flat(p2_biases);
     }
 
+#ifdef ENABLE_BENCHMARKING
+    crossover_timer.stop();
+    std::cout << "GeneticAlgorithm::crossover() took: " << crossover_timer.elapsed_microseconds() << " us" << std::endl;
+#endif
     return {offspring1, offspring2};
 }
 
@@ -305,7 +359,11 @@ std::vector<NeuroNet> GeneticAlgorithm::crossover(const NeuroNet& parent1, const
  * by a small random value (e.g., adding a value between -0.1 and 0.1).
  * @param individual The NeuroNet to mutate (modified in place).
  */
-void GeneticAlgorithm::mutate(NeuroNet& individual) {
+void Optimization::GeneticAlgorithm::mutate(NeuroNet::NeuroNet& individual) {
+#ifdef ENABLE_BENCHMARKING
+    utilities::Timer mutate_timer;
+    mutate_timer.start();
+#endif
     std::uniform_real_distribution<double> prob_dist(0.0, 1.0); // For checking against mutation_rate_
     std::uniform_real_distribution<float> mutation_val_dist(-0.1f, 0.1f); // Magnitude of mutation
 
@@ -330,6 +388,10 @@ void GeneticAlgorithm::mutate(NeuroNet& individual) {
         }
     }
     individual.set_all_biases_flat(biases);
+#ifdef ENABLE_BENCHMARKING
+    mutate_timer.stop();
+    std::cout << "GeneticAlgorithm::mutate() took: " << mutate_timer.elapsed_microseconds() << " us" << std::endl;
+#endif
 }
 
 /**
@@ -340,51 +402,63 @@ void GeneticAlgorithm::mutate(NeuroNet& individual) {
  * 2. Updating the record of the best individual found so far if a better one emerges in this generation.
  * 3. Performing selection (which internally handles crossover and mutation for the new population).
  * @param fitness_function The function used to evaluate the fitness of each individual.
+ * @param current_generation_number The current generation number for metrics.
  */
-void GeneticAlgorithm::evolve_one_generation(const std::function<double(NeuroNet&)>& fitness_function) {
+void Optimization::GeneticAlgorithm::evolve_one_generation(
+    const std::function<double(NeuroNet::NeuroNet&)>& fitness_function,
+    int current_generation_number) {
     if (population_.empty()) {
-        // This might happen if initialize_population was not called before the first evolution step.
-        // Or if population_size_ is 0.
         initialize_population(); 
-        if(population_.empty() && population_size_ > 0) { // If still empty after trying to init
+        if(population_.empty() && population_size_ > 0) {
              throw std::runtime_error("Population is empty even after initialization attempt in evolve_one_generation.");
-        } else if (population_size_ == 0) { // If population_size_ is 0
-            return; // Nothing to evolve
+        } else if (population_size_ == 0) {
+            return; 
         }
     }
     
-    evaluate_fitness(fitness_function); // Fitness scores are now up-to-date for the current population.
+    evaluate_fitness(fitness_function); 
 
-    // Identify the best individual in the current generation and update overall best if it's better.
-    // This ensures best_individual_ always reflects the absolute best found up to this point.
-    auto it_current_gen_best = std::max_element(fitness_scores_.begin(), fitness_scores_.end());
-    if (it_current_gen_best != fitness_scores_.end()) {
-        double current_gen_best_fitness = *it_current_gen_best;
-        if (current_gen_best_fitness > best_fitness_score_) {
-            best_fitness_score_ = current_gen_best_fitness;
-            int best_idx = std::distance(fitness_scores_.begin(), it_current_gen_best);
+    double generation_best_fitness = std::numeric_limits<double>::lowest();
+    if (!fitness_scores_.empty()) {
+        generation_best_fitness = *std::max_element(fitness_scores_.begin(), fitness_scores_.end());
+    }
+
+    auto it_current_gen_overall_best = std::max_element(fitness_scores_.begin(), fitness_scores_.end());
+    if (it_current_gen_overall_best != fitness_scores_.end()) {
+        double current_fitness = *it_current_gen_overall_best;
+        if (current_fitness > best_fitness_score_) {
+            best_fitness_score_ = current_fitness;
+            int best_idx = std::distance(fitness_scores_.begin(), it_current_gen_overall_best);
             if (best_idx >= 0 && static_cast<size_t>(best_idx) < population_.size()){
-                 best_individual_ = population_[best_idx]; // Store a copy of the new best
+                 best_individual_ = population_[best_idx]; 
             }
         }
-    } else if (best_individual_.get_all_weights_flat().empty() && !population_.empty()) {
-        // Handle case for the very first generation where best_fitness_score_ is lowest_double
-        // and no overall best is yet set.
-        // This logic is mostly covered by the above, but as a safeguard for first run:
-        if (!fitness_scores_.empty()){ //Ensure fitness_scores_ is not empty before accessing
-            best_fitness_score_ = fitness_scores_[0]; // Initialize with first individual
-            best_individual_ = population_[0];
-            for(size_t i = 1; i < population_.size(); ++i) {
-                if(fitness_scores_[i] > best_fitness_score_){
-                    best_fitness_score_ = fitness_scores_[i];
-                    best_individual_ = population_[i];
-                }
+    } else if (best_individual_.get_all_weights_flat().empty() && !population_.empty() && !fitness_scores_.empty()) {
+        best_fitness_score_ = fitness_scores_[0]; 
+        best_individual_ = population_[0];
+        for(size_t i = 1; i < population_.size(); ++i) {
+            if(fitness_scores_[i] > best_fitness_score_){
+                best_fitness_score_ = fitness_scores_[i];
+                best_individual_ = population_[i];
             }
         }
     }
     
-    selection(); // Create the next generation (population_ is updated internally).
-                 // selection() method as implemented also calls crossover and mutate.
+    // Log generation metrics
+    GenerationMetrics gen_metrics;
+    gen_metrics.generation_number = current_generation_number;
+    if (!fitness_scores_.empty()) {
+        gen_metrics.average_fitness = std::accumulate(fitness_scores_.begin(), fitness_scores_.end(), 0.0) / fitness_scores_.size();
+        gen_metrics.best_fitness = generation_best_fitness; // Best fitness of this generation
+    } else {
+        gen_metrics.average_fitness = std::numeric_limits<double>::quiet_NaN();
+        gen_metrics.best_fitness = std::numeric_limits<double>::quiet_NaN();
+    }
+    gen_metrics.loss = std::numeric_limits<double>::quiet_NaN(); // Not used in this context
+    gen_metrics.accuracy = std::numeric_limits<double>::quiet_NaN(); // Not used in this context
+    current_run_metrics_.generation_data.push_back(gen_metrics);
+    
+    selection(); 
 }
 
 /**
@@ -393,15 +467,63 @@ void GeneticAlgorithm::evolve_one_generation(const std::function<double(NeuroNet
  * It first initializes the population, then iteratively calls `evolve_one_generation`.
  * @param fitness_function The function to evaluate individual fitness.
  */
-void GeneticAlgorithm::run_evolution(const std::function<double(NeuroNet&)>& fitness_function) {
-    initialize_population(); // Prepare the initial random population.
+void Optimization::GeneticAlgorithm::run_evolution(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function) {
+    initialize_population(); // Prepare the initial random population and resets metrics.
+    current_generation_ = 0; // Ensure generation count starts from 0 for the loop.
+
+    // Record start time
+    auto now = std::chrono::system_clock::now();
+    auto in_time_t = std::chrono::system_clock::to_time_t(now);
+    std::tm buf;
+#ifdef _WIN32
+    localtime_s(&buf, &in_time_t);
+#else
+    localtime_r(&in_time_t, &buf);
+#endif
+    std::ostringstream ss_start;
+    ss_start << std::put_time(&buf, "%Y-%m-%dT%H:%M:%S%z");
+    current_run_metrics_.start_time = ss_start.str();
+
+    current_run_metrics_.total_generations = num_generations_;
+    current_run_metrics_.generation_data.clear(); // Clear any data from previous runs
+    current_run_metrics_.generation_data.reserve(num_generations_);
+
 
     for (int i = 0; i < num_generations_; ++i) {
-        evolve_one_generation(fitness_function);
+        current_generation_ = i + 1; // Generation numbers are typically 1-indexed for reporting
+        evolve_one_generation(fitness_function, current_generation_);
         // Optional: Add logging here to track progress, e.g., best fitness per generation.
-        // std::cout << "Generation " << (i + 1) << "/" << num_generations_
+        // std::cout << "Generation " << current_generation_ << "/" << num_generations_
         //           << " - Best Fitness: " << best_fitness_score_ << std::endl;
     }
+
+    // Record end time
+    now = std::chrono::system_clock::now();
+    in_time_t = std::chrono::system_clock::to_time_t(now);
+#ifdef _WIN32
+    localtime_s(&buf, &in_time_t);
+#else
+    localtime_r(&in_time_t, &buf);
+#endif
+    std::ostringstream ss_end;
+    ss_end << std::put_time(&buf, "%Y-%m-%dT%H:%M:%S%z");
+    current_run_metrics_.end_time = ss_end.str();
+
+    // Store best model architecture and overall fitness
+    if (this->best_individual_.getLayerCount() > 0) { 
+        this->current_run_metrics_.best_model_architecture_params_custom_json_string = this->best_individual_.to_custom_json_string();
+    } else {
+        // Create a simple error JSON string for the custom format
+        JsonValue error_json;
+        error_json.SetObject();
+        JsonValue* error_msg = new JsonValue();
+        error_msg->SetString("Best individual was not properly configured or found.");
+        error_json.InsertIntoObject("error", error_msg);
+        this->current_run_metrics_.best_model_architecture_params_custom_json_string = error_json.ToString();
+        // Cleanup for error_json, as InsertIntoObject doesn't mean root owns it in terms of deletion by destructor
+        delete error_msg; 
+    }
+    this->current_run_metrics_.overall_best_fitness = this->best_fitness_score_;
 }
 
 /**
@@ -412,7 +534,7 @@ void GeneticAlgorithm::run_evolution(const std::function<double(NeuroNet&)>& fit
  * (which could be default if no better one was found).
  * @return NeuroNet A copy of the best performing individual.
  */
-NeuroNet GeneticAlgorithm::get_best_individual() const {
+NeuroNet::NeuroNet Optimization::GeneticAlgorithm::get_best_individual() const {
     // If best_individual_ was never updated (e.g. evolution didn't run or no valid individuals),
     // it might be default-constructed.
     // A check could be added: if best_fitness_score_ is still numeric_limits::lowest(),
@@ -425,11 +547,131 @@ NeuroNet GeneticAlgorithm::get_best_individual() const {
         if (it_best != fitness_scores_.end()) {
             int best_idx = std::distance(fitness_scores_.begin(), it_best);
             if (best_idx >= 0 && static_cast<size_t>(best_idx) < population_.size()){
-                return population_[best_idx]; // Return best of current population
+                // This should return a copy, not a reference to an internal object if population can change.
+                // However, get_best_individual() is const, so population_ shouldn't change here.
+                // best_individual_ (member) is already a copy.
+                return population_[best_idx]; 
             }
         }
     }
     return best_individual_; // Return the best found across generations
 }
 
-} // namespace NeuroNet
+
+/**
+ * @brief Exports the collected training metrics to a JSON file.
+ * @param filename The path to the file where metrics should be saved.
+ */
+void Optimization::GeneticAlgorithm::export_training_metrics_json(const std::string& filename) const {
+    std::ofstream file(filename);
+    if (!file.is_open()) {
+        std::cerr << "Error: Could not open file for writing metrics: " << filename << std::endl;
+        return;
+    }
+
+    JsonValue root; // Custom JsonValue
+    root.SetObject();
+    
+    // Pointers to dynamically allocated JsonValues for cleanup
+    std::vector<JsonValue*> allocated_values;
+
+    auto add_string_to_obj = [&](JsonValue& obj, const std::string& key, const std::string& val_str) {
+        JsonValue* str_val = new JsonValue();
+        str_val->SetString(val_str);
+        obj.InsertIntoObject(key, str_val);
+        allocated_values.push_back(str_val);
+    };
+
+    auto add_number_to_obj = [&](JsonValue& obj, const std::string& key, double val_num) {
+        JsonValue* num_val = new JsonValue();
+        num_val->SetNumber(val_num);
+        obj.InsertIntoObject(key, num_val);
+        allocated_values.push_back(num_val);
+    };
+    
+    add_string_to_obj(root, "start_time", current_run_metrics_.start_time);
+    add_string_to_obj(root, "end_time", current_run_metrics_.end_time);
+    add_number_to_obj(root, "total_generations", static_cast<double>(current_run_metrics_.total_generations));
+    add_number_to_obj(root, "overall_best_fitness", current_run_metrics_.overall_best_fitness);
+    add_string_to_obj(root, "best_model_architecture_params_custom_json_string", current_run_metrics_.best_model_architecture_params_custom_json_string);
+
+    JsonValue* gen_data_array_val = new JsonValue();
+    gen_data_array_val->SetArray();
+    root.InsertIntoObject("generation_data", gen_data_array_val);
+    allocated_values.push_back(gen_data_array_val);
+
+    for (const auto& gen_metric : current_run_metrics_.generation_data) {
+        JsonValue gen_metric_obj; // This is a stack object, its members if they are pointers need care
+        gen_metric_obj.SetObject();
+        
+        // Create temporary JsonValue objects for each field in GenerationMetrics
+        JsonValue* gen_num_val = new JsonValue(); 
+        gen_num_val->SetNumber(static_cast<double>(gen_metric.generation_number));
+        gen_metric_obj.InsertIntoObject("generation_number", gen_num_val);
+        // Note: gen_metric_obj now holds pointers. If gen_metric_obj is copied into an array by value,
+        // these pointers are copied. The lifetime of these pointed-to values must exceed gen_metric_obj
+        // if it's temporary. Here, they are added to allocated_values for later cleanup.
+        allocated_values.push_back(gen_num_val);
+
+
+        JsonValue* avg_fit_val = new JsonValue();
+        avg_fit_val->SetNumber(gen_metric.average_fitness);
+        gen_metric_obj.InsertIntoObject("average_fitness", avg_fit_val);
+        allocated_values.push_back(avg_fit_val);
+
+        JsonValue* best_fit_val = new JsonValue();
+        best_fit_val->SetNumber(gen_metric.best_fitness);
+        gen_metric_obj.InsertIntoObject("best_fitness", best_fit_val);
+        allocated_values.push_back(best_fit_val);
+
+        if (!std::isnan(gen_metric.loss)) {
+            JsonValue* loss_val = new JsonValue();
+            loss_val->SetNumber(gen_metric.loss);
+            gen_metric_obj.InsertIntoObject("loss", loss_val);
+            allocated_values.push_back(loss_val);
+        } else {
+            JsonValue* null_loss_val = new JsonValue(JsonValueType::Null);
+            gen_metric_obj.InsertIntoObject("loss", null_loss_val);
+            allocated_values.push_back(null_loss_val);
+        }
+
+        if (!std::isnan(gen_metric.accuracy)) {
+            JsonValue* acc_val = new JsonValue();
+            acc_val->SetNumber(gen_metric.accuracy);
+            gen_metric_obj.InsertIntoObject("accuracy", acc_val);
+            allocated_values.push_back(acc_val);
+        } else {
+            JsonValue* null_acc_val = new JsonValue(JsonValueType::Null);
+            gen_metric_obj.InsertIntoObject("accuracy", null_acc_val);
+            allocated_values.push_back(null_acc_val);
+        }
+        
+        gen_data_array_val->GetArray().push_back(gen_metric_obj); // Pushes a copy; pointers inside are to heap.
+    }
+
+    try {
+        file << root.ToString();
+    } catch (const JsonParseException& e) {
+        std::cerr << "Error: JSON serialization failed (custom parser): " << e.what() << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "Error: An unexpected error occurred during custom JSON export: " << e.what() << std::endl;
+    }
+    
+    file.close();
+
+    // Cleanup dynamically allocated JsonValues
+    // For JsonValues directly inserted into root or into objects owned by root (like gen_metric_obj fields)
+    for (JsonValue* val_ptr : allocated_values) {
+        delete val_ptr;
+    }
+    // The JsonValue objects themselves within gen_data_array_val->GetArray() are copied by value.
+    // However, the map *within* those JsonValue objects (if they are objects) stores pointers.
+    // The cleanup for allocated_values handles all JsonValues that were new'ed for fields.
+    // The `JsonValue gen_metric_obj` was stack allocated, but its members were heap and added to allocated_values.
+    // When `gen_metric_obj` is pushed into `gen_data_array_val->GetArray()`, a copy is made.
+    // This copy includes copies of the pointers. This is the tricky part of the custom JSON lib.
+    // The current cleanup relies on `allocated_values` tracking all `new` calls.
+    // The `root.GetObject().clear()` is not necessary as root is local.
+}
+
+} // namespace Optimization

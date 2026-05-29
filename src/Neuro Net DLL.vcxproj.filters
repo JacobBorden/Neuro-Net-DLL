@@ -21,7 +21,7 @@
     <ClInclude Include="pch.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="neuronet.h">
+    <ClInclude Include="neural_network\neuronet.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -32,7 +32,7 @@
     <ClCompile Include="pch.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="neuronet.cpp">
+    <ClCompile Include="neural_network\neuronet.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
