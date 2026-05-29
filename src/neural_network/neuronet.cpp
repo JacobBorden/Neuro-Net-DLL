@@ -387,7 +387,7 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeSoftmax(const Matrix::M
     return derivative;
 }
 
-Matrix::Matrix<float> NeuroNet::NeuroNetLayer::BackwardPass(const Matrix::Matrix<float>& dLdOutput, const Matrix::Matrix<float>& input_to_this_layer) {
+Matrix::Matrix<float> NeuroNet::NeuroNetLayer::BackwardPass(const Matrix::Matrix<float>& dLdOutput, const Matrix::Matrix<float>& input_to_this_layer, bool is_last_layer) {
     // Ensure gradient matrices are initialized/resized correctly
     // This check is a safeguard; ResizeLayer should have already initialized them.
     if (this->dLdW.rows() != this->WeightMatrix.rows() || this->dLdW.cols() != this->WeightMatrix.cols()) {
@@ -417,12 +417,17 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::BackwardPass(const Matrix::Matrix
             dAdZ = DerivativeELU(this->OutputMatrix);
             break;
         case ActivationFunctionType::Softmax:
-            // For Softmax with Cross-Entropy loss, dL/dZ = A - Y (output - target).
-            // If dLdOutput *is* already (A-Y) for the output layer, then dLdActivationInput = dLdOutput.
-            // But the plan is generic. dLdOutput is dL/dA.
-            // dL/dZ_i = sum_j (dL/dA_j * dA_j/dZ_i).
-            // If using the simplified S_i(1-S_i) from DerivativeSoftmax:
-            dAdZ = DerivativeSoftmax(this->OutputMatrix);
+            if (is_last_layer) {
+                // For Softmax with Cross-Entropy loss on the last layer, dL/dZ = A - Y (output - target).
+                // Since NeuroNet::Backpropagate seeds dLdOutput with (A - Y),
+                // dLdOutput is already dL/dZ. We just return a matrix of ones for dAdZ
+                // so that dLdActivationInput = dLdOutput * 1 = (A - Y).
+                dAdZ.resize(this->OutputMatrix.rows(), this->OutputMatrix.cols());
+                dAdZ.assign(1.0f);
+            } else {
+                // We don't use dAdZ for Softmax when not last layer, because it requires the full Jacobian.
+                // We will compute dLdZ directly to handle the Jacobian below.
+            }
             break;
         case ActivationFunctionType::None:
             // If no activation, f(Z) = Z, so f'(Z) = 1.
@@ -438,17 +443,31 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::BackwardPass(const Matrix::Matrix
             break;
     }
 
-    // dLdActivationInput (dLdZ) = dLdOutput (dLdA) element-wise_multiply dAdZ
     Matrix::Matrix<float> dLdZ = dLdOutput; // Copy dimensions
-    if (dLdOutput.rows() != dAdZ.rows() || dLdOutput.cols() != dAdZ.cols()) {
-        // Error handling: dimensions must match for element-wise product
-        throw std::runtime_error("Dimension mismatch for element-wise multiplication in BackwardPass (dLdOutput vs dAdZ). "
-                                 "dLdOutput: (" + std::to_string(dLdOutput.rows()) + "," + std::to_string(dLdOutput.cols()) + ") "
-                                 "dAdZ: (" + std::to_string(dAdZ.rows()) + "," + std::to_string(dAdZ.cols()) + ")");
-    }
-    for (int i = 0; i < dLdZ.rows(); ++i) {
-        for (int j = 0; j < dLdZ.cols(); ++j) {
-            dLdZ[i][j] = dLdOutput[i][j] * dAdZ[i][j];
+    if (this->vActivationFunction == ActivationFunctionType::Softmax && !is_last_layer) {
+        // Compute dLdZ directly using the Softmax Jacobian:
+        // dL/dZ_i = S_i * (dL/dA_i - sum_j (dL/dA_j * S_j))
+        for (int i = 0; i < dLdZ.rows(); ++i) {
+            float sum_da_s = 0.0f;
+            for (int j = 0; j < dLdZ.cols(); ++j) {
+                sum_da_s += dLdOutput[i][j] * this->OutputMatrix[i][j];
+            }
+            for (int j = 0; j < dLdZ.cols(); ++j) {
+                dLdZ[i][j] = this->OutputMatrix[i][j] * (dLdOutput[i][j] - sum_da_s);
+            }
+        }
+    } else {
+        // dLdActivationInput (dLdZ) = dLdOutput (dLdA) element-wise_multiply dAdZ
+        if (dLdOutput.rows() != dAdZ.rows() || dLdOutput.cols() != dAdZ.cols()) {
+            // Error handling: dimensions must match for element-wise product
+            throw std::runtime_error("Dimension mismatch for element-wise multiplication in BackwardPass (dLdOutput vs dAdZ). "
+                                     "dLdOutput: (" + std::to_string(dLdOutput.rows()) + "," + std::to_string(dLdOutput.cols()) + ") "
+                                     "dAdZ: (" + std::to_string(dAdZ.rows()) + "," + std::to_string(dAdZ.cols()) + ")");
+        }
+        for (int i = 0; i < dLdZ.rows(); ++i) {
+            for (int j = 0; j < dLdZ.cols(); ++j) {
+                dLdZ[i][j] = dLdOutput[i][j] * dAdZ[i][j];
+            }
         }
     }
 
@@ -1053,7 +1072,8 @@ void NeuroNet::NeuroNet::Backpropagate(const Matrix::Matrix<float>& actual_outpu
         }
 
 
-        dLdOutput_current = current_layer.BackwardPass(dLdOutput_current, input_to_current_layer);
+        bool is_last = (i == this->LayerCount - 1);
+        dLdOutput_current = current_layer.BackwardPass(dLdOutput_current, input_to_current_layer, is_last);
         // The returned dLdOutput_current is now dL/dInput for the current layer,
         // which is dL/dOutput for the *previous* layer (i-1).
     }

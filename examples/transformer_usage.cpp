@@ -37,48 +37,29 @@ bool create_dummy_vocab_file(const std::string& filepath, int vocab_size, int& p
         std::cerr << "ERROR: Failed to create dummy vocabulary file at " << filepath << std::endl;
         return false;
     }
-    vocab_file << "{
-";
-    vocab_file << "  \"word_to_token\": {
-";
+    vocab_file << "{\n";
+    vocab_file << "  \"word_to_token\": {\n";
     for (int i = 0; i < vocab_size - 2; ++i) {
-        vocab_file << "    \"token" << i << "\": " << i << (i == vocab_size - 3 ? "" : ",") << "
-";
+        vocab_file << "    \"token" << i << "\": " << i << (i == vocab_size - 3 ? "" : ",") << "\n";
     }
-    vocab_file << "    \"<UNK>\": " << unk_id << ",
-";
-    vocab_file << "    \"<PAD>\": " << pad_id << "
-";
-    vocab_file << "  },
-";
-    vocab_file << "  \"token_to_word\": {
-";
+    vocab_file << "    \"<UNK>\": " << unk_id << ",\n";
+    vocab_file << "    \"<PAD>\": " << pad_id << "\n";
+    vocab_file << "  },\n";
+    vocab_file << "  \"token_to_word\": {\n";
     for (int i = 0; i < vocab_size - 2; ++i) {
-        vocab_file << "    \"" << i << "\": \"token" << i << "\",
-";
+        vocab_file << "    \"" << i << "\": \"token" << i << "\",\n";
     }
-    vocab_file << "    \"" << unk_id << "\": \"<UNK>\",
-";
-    vocab_file << "    \"" << pad_id << "\": \"<PAD>\"
-";
-    vocab_file << "  },
-";
-    vocab_file << "  \"special_tokens\": {
-";
-    vocab_file << "    \"unknown_token\": \"<UNK>\",
-";
-    vocab_file << "    \"padding_token\": \"<PAD>\"
-";
-    vocab_file << "  },
-";
-    vocab_file << "  \"config\": {
-";
-    vocab_file << "    \"max_sequence_length\": 10
-"; // Default max_seq_len for vocab
-    vocab_file << "  }
-";
-    vocab_file << "}
-";
+    vocab_file << "    \"" << unk_id << "\": \"<UNK>\",\n";
+    vocab_file << "    \"" << pad_id << "\": \"<PAD>\"\n";
+    vocab_file << "  },\n";
+    vocab_file << "  \"special_tokens\": {\n";
+    vocab_file << "    \"unknown_token\": \"<UNK>\",\n";
+    vocab_file << "    \"padding_token\": \"<PAD>\"\n";
+    vocab_file << "  },\n";
+    vocab_file << "  \"config\": {\n";
+    vocab_file << "    \"max_sequence_length\": 10\n"; // Default max_seq_len for vocab
+    vocab_file << "  }\n";
+    vocab_file << "}\n";
     vocab_file.close();
     std::cout << "Dummy vocabulary file created: " << filepath << std::endl;
     return true;
@@ -107,8 +88,7 @@ int main() {
         vocab_size_param, max_seq_len_param, d_model_param,
         num_encoder_layers_param, num_heads_param, d_ff_param
     );
-    std::cout << "
-1. TransformerModel instantiated." << std::endl;
+    std::cout << "\n1. TransformerModel instantiated." << std::endl;
     std::cout << "   Vocab Size: " << model.get_vocab_size() << std::endl;
     std::cout << "   Max Seq Len: " << model.get_max_seq_len() << std::endl;
     std::cout << "   D_Model: " << model.get_d_model() << std::endl;
@@ -123,8 +103,7 @@ int main() {
         std::remove(vocab_filepath.c_str()); // Clean up
         return 1;
     }
-    std::cout << "
-2. Vocabulary loaded from " << vocab_filepath << "." << std::endl;
+    std::cout << "\n2. Vocabulary loaded from " << vocab_filepath << "." << std::endl;
     std::cout << "   Vocab max_seq_len (from file): " << vocab.get_max_sequence_length() << std::endl;
     std::cout << "   Padding token ID: " << vocab.get_padding_token_id() << std::endl;
 
@@ -133,8 +112,7 @@ int main() {
         "hello world token0 token1", // 4 tokens
         "token2 token3 unknownword"  // 3 tokens, "unknownword" -> <UNK>
     };
-    std::cout << "
-3. Processing string input batch:" << std::endl;
+    std::cout << "\n3. Processing string input batch:" << std::endl;
     for(const auto&s : text_batch) std::cout << "   \"" << s << "\"" << std::endl;
 
     // `prepare_batch_matrix` pads/truncates to `max_len`.
@@ -145,8 +123,7 @@ int main() {
 
 
     // --- 4. Forward Pass (one sequence at a time, as model.forward expects 1xN) ---
-    std::cout << "
-4. Performing forward pass (one sequence at a time):" << std::endl;
+    std::cout << "\n4. Performing forward pass (one sequence at a time):" << std::endl;
     if (token_id_batch_matrix.rows() > 0) {
         for (size_t i = 0; i < token_id_batch_matrix.rows(); ++i) {
             // Create a (1, seq_len) matrix for the current sequence
@@ -173,14 +150,12 @@ int main() {
 
 
     // --- 5. Save Model ---
-    std::cout << "
-5. Saving model to " << model_save_filepath << "..." << std::endl;
+    std::cout << "\n5. Saving model to " << model_save_filepath << "..." << std::endl;
     if (model.save_model(model_save_filepath)) {
         std::cout << "   Model saved successfully." << std::endl;
 
         // --- 6. Load Model ---
-        std::cout << "
-6. Loading model from " << model_save_filepath << "..." << std::endl;
+        std::cout << "\n6. Loading model from " << model_save_filepath << "..." << std::endl;
         try {
             NeuroNet::Transformer::TransformerModel loaded_model = NeuroNet::Transformer::TransformerModel::load_model(model_save_filepath);
             std::cout << "   Model loaded successfully." << std::endl;
@@ -212,9 +187,7 @@ int main() {
 
     // --- Cleanup ---
     std::remove(vocab_filepath.c_str()); // Clean up dummy vocab file
-    std::cout << "
-Cleaned up temporary vocabulary file: " << vocab_filepath << std::endl;
-    std::cout << "
---- Example Finished ---" << std::endl;
+    std::cout << "\nCleaned up temporary vocabulary file: " << vocab_filepath << std::endl;
+    std::cout << "\n--- Example Finished ---" << std::endl;
     return 0;
 }
