@@ -425,7 +425,8 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::BackwardPass(const Matrix::Matrix
                 dAdZ.resize(this->OutputMatrix.rows(), this->OutputMatrix.cols());
                 dAdZ.assign(1.0f);
             } else {
-                dAdZ = DerivativeSoftmax(this->OutputMatrix);
+                // We don't use dAdZ for Softmax when not last layer, because it requires the full Jacobian.
+                // We will compute dLdZ directly to handle the Jacobian below.
             }
             break;
         case ActivationFunctionType::None:
@@ -442,17 +443,31 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::BackwardPass(const Matrix::Matrix
             break;
     }
 
-    // dLdActivationInput (dLdZ) = dLdOutput (dLdA) element-wise_multiply dAdZ
     Matrix::Matrix<float> dLdZ = dLdOutput; // Copy dimensions
-    if (dLdOutput.rows() != dAdZ.rows() || dLdOutput.cols() != dAdZ.cols()) {
-        // Error handling: dimensions must match for element-wise product
-        throw std::runtime_error("Dimension mismatch for element-wise multiplication in BackwardPass (dLdOutput vs dAdZ). "
-                                 "dLdOutput: (" + std::to_string(dLdOutput.rows()) + "," + std::to_string(dLdOutput.cols()) + ") "
-                                 "dAdZ: (" + std::to_string(dAdZ.rows()) + "," + std::to_string(dAdZ.cols()) + ")");
-    }
-    for (int i = 0; i < dLdZ.rows(); ++i) {
-        for (int j = 0; j < dLdZ.cols(); ++j) {
-            dLdZ[i][j] = dLdOutput[i][j] * dAdZ[i][j];
+    if (this->vActivationFunction == ActivationFunctionType::Softmax && !is_last_layer) {
+        // Compute dLdZ directly using the Softmax Jacobian:
+        // dL/dZ_i = S_i * (dL/dA_i - sum_j (dL/dA_j * S_j))
+        for (int i = 0; i < dLdZ.rows(); ++i) {
+            float sum_da_s = 0.0f;
+            for (int j = 0; j < dLdZ.cols(); ++j) {
+                sum_da_s += dLdOutput[i][j] * this->OutputMatrix[i][j];
+            }
+            for (int j = 0; j < dLdZ.cols(); ++j) {
+                dLdZ[i][j] = this->OutputMatrix[i][j] * (dLdOutput[i][j] - sum_da_s);
+            }
+        }
+    } else {
+        // dLdActivationInput (dLdZ) = dLdOutput (dLdA) element-wise_multiply dAdZ
+        if (dLdOutput.rows() != dAdZ.rows() || dLdOutput.cols() != dAdZ.cols()) {
+            // Error handling: dimensions must match for element-wise product
+            throw std::runtime_error("Dimension mismatch for element-wise multiplication in BackwardPass (dLdOutput vs dAdZ). "
+                                     "dLdOutput: (" + std::to_string(dLdOutput.rows()) + "," + std::to_string(dLdOutput.cols()) + ") "
+                                     "dAdZ: (" + std::to_string(dAdZ.rows()) + "," + std::to_string(dAdZ.cols()) + ")");
+        }
+        for (int i = 0; i < dLdZ.rows(); ++i) {
+            for (int j = 0; j < dLdZ.cols(); ++j) {
+                dLdZ[i][j] = dLdOutput[i][j] * dAdZ[i][j];
+            }
         }
     }
 
