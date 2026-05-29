@@ -20,7 +20,7 @@ public:
      * @brief Constructs a NeuralPathfinder for a given neural network.
      * @param network A const reference to the NeuroNet model to analyze.
      */
-    NeuralPathfinder(const NeuroNet::NeuroNet& network);
+    NeuralPathfinder(const NeuroNet& network);
 
     /**
      * @brief Finds the optimal path based on maximizing the product of absolute weights.
@@ -36,7 +36,7 @@ public:
     std::vector<AStarPathNode> FindOptimalPathAStar();
 
 private:
-    const NeuroNet::NeuroNet& network_; // Reference to the neural network
+    const NeuroNet& network_; // Reference to the neural network
     static constexpr double EPSILON = 1e-9; // Small constant for log calculations
 
     // Helper function to reconstruct the path from came_from map

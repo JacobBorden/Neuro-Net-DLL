@@ -9,7 +9,7 @@
 namespace NeuroNet {
 namespace Optimization {
 
-NeuralPathfinder::NeuralPathfinder(const NeuroNet::NeuroNet& network) : network_(network) {
+NeuralPathfinder::NeuralPathfinder(const NeuroNet& network) : network_(network) {
     if (network_.getLayerCount() == 0) {
         throw std::runtime_error("NeuralPathfinder: Network has no layers.");
     }

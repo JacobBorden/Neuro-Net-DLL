@@ -128,7 +128,7 @@ void run_astar_pathfinding_example() {
                                 optimal_path[0].layer_idx == 0 && optimal_path[0].neuron_idx == 0 &&
                                 optimal_path[1].layer_idx == 1 && optimal_path[1].neuron_idx == 1 &&
                                 optimal_path[2].layer_idx == 2 && optimal_path[2].neuron_idx == 1;
-            bool product_matches = std::abs(calculated_product - 10.0) < NeuroNet::Optimization::NeuralPathfinder::EPSILON * 100;
+            bool product_matches = std::abs(calculated_product - 10.0) < 1e-9 * 100;
 
 
             if (path_matches && product_matches) {
