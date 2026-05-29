@@ -418,11 +418,11 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::BackwardPass(const Matrix::Matrix
             break;
         case ActivationFunctionType::Softmax:
             // For Softmax with Cross-Entropy loss, dL/dZ = A - Y (output - target).
-            // If dLdOutput *is* already (A-Y) for the output layer, then dLdActivationInput = dLdOutput.
-            // But the plan is generic. dLdOutput is dL/dA.
-            // dL/dZ_i = sum_j (dL/dA_j * dA_j/dZ_i).
-            // If using the simplified S_i(1-S_i) from DerivativeSoftmax:
-            dAdZ = DerivativeSoftmax(this->OutputMatrix);
+            // Since NeuroNet::Backpropagate seeds dLdOutput with (A - Y),
+            // dLdOutput is already dL/dZ. We just return a matrix of ones for dAdZ
+            // so that dLdActivationInput = dLdOutput * 1 = (A - Y).
+            dAdZ.resize(this->OutputMatrix.rows(), this->OutputMatrix.cols());
+            dAdZ.assign(1.0f);
             break;
         case ActivationFunctionType::None:
             // If no activation, f(Z) = Z, so f'(Z) = 1.

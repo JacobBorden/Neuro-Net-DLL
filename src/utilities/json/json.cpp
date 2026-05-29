@@ -164,16 +164,20 @@ std::string JsonParser::ParseString(const std::string& json_string, size_t& inde
 							throw JsonParseException("Unexpected end of string");
 						}
 						std::string hex_string = json_string.substr(index, 4);
+						size_t chars_processed = 0;
 						try
 						{
-							int code_point = std::stoi(hex_string, nullptr, 16);
+							int code_point = std::stoi(hex_string, &chars_processed, 16);
+							if (chars_processed != 4) {
+								throw JsonParseException("Invalid Unicode escape sequence");
+							}
 							result += UnicodeCodePointToUtf8(code_point);
 						}
 						catch (const std::invalid_argument& ex)
 						{
 							throw JsonParseException("Invalid Unicode escape sequence");
 						}
-						index +=4;
+						index += 3;
 						break;
 						}
 					default:
