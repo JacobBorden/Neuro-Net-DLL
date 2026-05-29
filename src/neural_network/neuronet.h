@@ -230,11 +230,13 @@ namespace NeuroNet
      *                  Dimensions should match this layer's output dimensions.
      * @param input_to_this_layer The input matrix that was fed to this layer during the forward pass (X, or A_prev).
      *                            Dimensions should match this layer's input dimensions.
+     * @param is_last_layer Boolean flag indicating if this is the final output layer of the network.
+     *                      Used for optimizing the backpropagation step for Softmax layers with CCE loss.
      * @return Matrix::Matrix<float> Gradient of the loss with respect to this layer's input (dL/dX_prev),
      *                               to be passed to the previous layer.
      * @throws std::runtime_error if dimension mismatches occur during calculations.
      */
-    Matrix::Matrix<float> BackwardPass(const Matrix::Matrix<float>& dLdOutput, const Matrix::Matrix<float>& input_to_this_layer);
+    Matrix::Matrix<float> BackwardPass(const Matrix::Matrix<float>& dLdOutput, const Matrix::Matrix<float>& input_to_this_layer, bool is_last_layer = false);
 
     /**
      * @brief Retrieves the stored gradient of the loss with respect to the layer's weights (dL/dW).

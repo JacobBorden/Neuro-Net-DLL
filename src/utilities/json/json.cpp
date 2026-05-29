@@ -164,6 +164,14 @@ std::string JsonParser::ParseString(const std::string& json_string, size_t& inde
 							throw JsonParseException("Unexpected end of string");
 						}
 						std::string hex_string = json_string.substr(index, 4);
+
+						// Verify all 4 characters are valid hex digits before attempting to parse
+						for (char c : hex_string) {
+							if (!std::isxdigit(static_cast<unsigned char>(c))) {
+								throw JsonParseException("Invalid Unicode escape sequence");
+							}
+						}
+
 						size_t chars_processed = 0;
 						try
 						{

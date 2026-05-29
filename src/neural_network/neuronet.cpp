@@ -387,7 +387,7 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeSoftmax(const Matrix::M
     return derivative;
 }
 
-Matrix::Matrix<float> NeuroNet::NeuroNetLayer::BackwardPass(const Matrix::Matrix<float>& dLdOutput, const Matrix::Matrix<float>& input_to_this_layer) {
+Matrix::Matrix<float> NeuroNet::NeuroNetLayer::BackwardPass(const Matrix::Matrix<float>& dLdOutput, const Matrix::Matrix<float>& input_to_this_layer, bool is_last_layer) {
     // Ensure gradient matrices are initialized/resized correctly
     // This check is a safeguard; ResizeLayer should have already initialized them.
     if (this->dLdW.rows() != this->WeightMatrix.rows() || this->dLdW.cols() != this->WeightMatrix.cols()) {
@@ -417,12 +417,16 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::BackwardPass(const Matrix::Matrix
             dAdZ = DerivativeELU(this->OutputMatrix);
             break;
         case ActivationFunctionType::Softmax:
-            // For Softmax with Cross-Entropy loss, dL/dZ = A - Y (output - target).
-            // Since NeuroNet::Backpropagate seeds dLdOutput with (A - Y),
-            // dLdOutput is already dL/dZ. We just return a matrix of ones for dAdZ
-            // so that dLdActivationInput = dLdOutput * 1 = (A - Y).
-            dAdZ.resize(this->OutputMatrix.rows(), this->OutputMatrix.cols());
-            dAdZ.assign(1.0f);
+            if (is_last_layer) {
+                // For Softmax with Cross-Entropy loss on the last layer, dL/dZ = A - Y (output - target).
+                // Since NeuroNet::Backpropagate seeds dLdOutput with (A - Y),
+                // dLdOutput is already dL/dZ. We just return a matrix of ones for dAdZ
+                // so that dLdActivationInput = dLdOutput * 1 = (A - Y).
+                dAdZ.resize(this->OutputMatrix.rows(), this->OutputMatrix.cols());
+                dAdZ.assign(1.0f);
+            } else {
+                dAdZ = DerivativeSoftmax(this->OutputMatrix);
+            }
             break;
         case ActivationFunctionType::None:
             // If no activation, f(Z) = Z, so f'(Z) = 1.
@@ -1053,7 +1057,8 @@ void NeuroNet::NeuroNet::Backpropagate(const Matrix::Matrix<float>& actual_outpu
         }
 
 
-        dLdOutput_current = current_layer.BackwardPass(dLdOutput_current, input_to_current_layer);
+        bool is_last = (i == this->LayerCount - 1);
+        dLdOutput_current = current_layer.BackwardPass(dLdOutput_current, input_to_current_layer, is_last);
         // The returned dLdOutput_current is now dL/dInput for the current layer,
         // which is dL/dOutput for the *previous* layer (i-1).
     }
