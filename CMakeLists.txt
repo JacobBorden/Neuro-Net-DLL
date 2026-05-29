@@ -19,6 +19,7 @@ include_directories(src)
 add_library(neuronet STATIC 
     src/neural_network/neuronet.cpp
     src/optimization/genetic_algorithm.cpp
+    src/optimization/neural_pathfinder.cpp
     src/utilities/json/json.cpp
     src/utilities/timer.cpp
     src/utilities/vocabulary.cpp

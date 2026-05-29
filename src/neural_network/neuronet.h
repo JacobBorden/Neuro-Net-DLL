@@ -262,6 +262,18 @@ namespace NeuroNet
      */
     int get_input_size() const;
 
+    /**
+     * @brief Gets the specific weight connecting a neuron from the previous layer (or input)
+     *        to a neuron in this layer.
+     * @param prev_neuron_idx The index of the neuron in the previous layer (or input feature index).
+     *                        This corresponds to the row in this layer's WeightMatrix.
+     * @param current_neuron_idx_in_layer The index of the neuron in this current layer.
+     *                                   This corresponds to the column in this layer's WeightMatrix.
+     * @return float The weight value.
+     * @throws std::out_of_range if indices are out of bounds for the WeightMatrix.
+     */
+    float get_weight(int prev_neuron_idx, int current_neuron_idx_in_layer) const;
+
 	private:
 		int vLayerSize = 0; ///< Number of neurons in this layer.
 		int InputSize = 0; ///< Number of inputs expected by this layer.
