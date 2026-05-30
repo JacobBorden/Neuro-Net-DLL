@@ -82,6 +82,9 @@ std::string NeuroNet::NeuroNetLayer::get_activation_function_name() const {
         case ActivationFunctionType::LeakyReLU: return "LeakyReLU";
         case ActivationFunctionType::ELU: return "ELU";
         case ActivationFunctionType::Softmax: return "Softmax";
+        case ActivationFunctionType::Sigmoid: return "Sigmoid";
+        case ActivationFunctionType::Tanh: return "Tanh";
+        case ActivationFunctionType::Swish: return "Swish";
         default: return "Unknown";
     }
 }
@@ -298,6 +301,9 @@ NeuroNet::ActivationFunctionType NeuroNet::NeuroNetLayer::activation_type_from_s
     if (name == "LeakyReLU") return ActivationFunctionType::LeakyReLU;
     if (name == "ELU") return ActivationFunctionType::ELU;
     if (name == "Softmax") return ActivationFunctionType::Softmax;
+    if (name == "Sigmoid") return ActivationFunctionType::Sigmoid;
+    if (name == "Tanh") return ActivationFunctionType::Tanh;
+    if (name == "Swish") return ActivationFunctionType::Swish;
     throw std::invalid_argument("Unknown activation function name: " + name);
 }
 
@@ -416,6 +422,15 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::BackwardPass(const Matrix::Matrix
         case ActivationFunctionType::ELU:
             dAdZ = DerivativeELU(this->OutputMatrix);
             break;
+        case ActivationFunctionType::Sigmoid:
+            dAdZ = DerivativeSigmoid(this->OutputMatrix);
+            break;
+        case ActivationFunctionType::Tanh:
+            dAdZ = DerivativeTanh(this->OutputMatrix);
+            break;
+        case ActivationFunctionType::Swish:
+            dAdZ = DerivativeSwish(this->OutputMatrix);
+            break;
         case ActivationFunctionType::Softmax:
             if (is_last_layer) {
                 // For Softmax with Cross-Entropy loss on the last layer, dL/dZ = A - Y (output - target).
@@ -505,6 +520,74 @@ int NeuroNet::NeuroNetLayer::get_input_size() const {
     return this->InputSize;
 }
 
+Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplySigmoid(const Matrix::Matrix<float>& input) {
+    Matrix::Matrix<float> output = input;
+    for (int i = 0; i < output.rows(); ++i) {
+        for (int j = 0; j < output.cols(); ++j) {
+            output[i][j] = 1.0f / (1.0f + std::exp(-output[i][j]));
+        }
+    }
+    return output;
+}
+
+Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyTanh(const Matrix::Matrix<float>& input) {
+    Matrix::Matrix<float> output = input;
+    for (int i = 0; i < output.rows(); ++i) {
+        for (int j = 0; j < output.cols(); ++j) {
+            output[i][j] = std::tanh(output[i][j]);
+        }
+    }
+    return output;
+}
+
+Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplySwish(const Matrix::Matrix<float>& input) {
+    Matrix::Matrix<float> output = input;
+    for (int i = 0; i < output.rows(); ++i) {
+        for (int j = 0; j < output.cols(); ++j) {
+            output[i][j] = output[i][j] * (1.0f / (1.0f + std::exp(-output[i][j])));
+        }
+    }
+    return output;
+}
+
+Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeSigmoid(const Matrix::Matrix<float>& activated_output) const {
+    Matrix::Matrix<float> derivative = activated_output;
+    for (int i = 0; i < derivative.rows(); ++i) {
+        for (int j = 0; j < derivative.cols(); ++j) {
+            float sigmoid_val = activated_output[i][j];
+            derivative[i][j] = sigmoid_val * (1.0f - sigmoid_val);
+        }
+    }
+    return derivative;
+}
+
+Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeTanh(const Matrix::Matrix<float>& activated_output) const {
+    Matrix::Matrix<float> derivative = activated_output;
+    for (int i = 0; i < derivative.rows(); ++i) {
+        for (int j = 0; j < derivative.cols(); ++j) {
+            float tanh_val = activated_output[i][j];
+            derivative[i][j] = 1.0f - (tanh_val * tanh_val);
+        }
+    }
+    return derivative;
+}
+
+Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeSwish(const Matrix::Matrix<float>& activated_output) const {
+    // For Swish, f'(x) = f(x) + sigmoid(x) * (1 - f(x))
+    // To compute sigmoid(x), we'd ideally need pre-activation x.
+    // However, we can reconstruct the pre-activation Z matrix here since we have InputMatrix, WeightMatrix, BiasMatrix.
+    Matrix::Matrix<float> Z = (this->InputMatrix * this->WeightMatrix) + this->BiasMatrix;
+    Matrix::Matrix<float> derivative = activated_output;
+    for (int i = 0; i < derivative.rows(); ++i) {
+        for (int j = 0; j < derivative.cols(); ++j) {
+            float f_x = activated_output[i][j];
+            float sig_x = 1.0f / (1.0f + std::exp(-Z[i][j]));
+            derivative[i][j] = f_x + sig_x * (1.0f - f_x);
+        }
+    }
+    return derivative;
+}
+
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplySoftmax(const Matrix::Matrix<float>& input) {
     Matrix::Matrix<float> output = input; // Make a copy
     float sum_exp = 0.0f;
@@ -568,6 +651,15 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::CalculateOutput() {
             break;
         case ActivationFunctionType::Softmax:
             this->OutputMatrix = ApplySoftmax(this->OutputMatrix);
+            break;
+        case ActivationFunctionType::Sigmoid:
+            this->OutputMatrix = ApplySigmoid(this->OutputMatrix);
+            break;
+        case ActivationFunctionType::Tanh:
+            this->OutputMatrix = ApplyTanh(this->OutputMatrix);
+            break;
+        case ActivationFunctionType::Swish:
+            this->OutputMatrix = ApplySwish(this->OutputMatrix);
             break;
         case ActivationFunctionType::None:
             // No activation function applied, do nothing.
