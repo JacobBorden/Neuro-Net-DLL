@@ -234,7 +234,7 @@ TEST_F(GeneticAlgorithmTest, GetBestIndividual) {
     ga.evolve_one_generation(simple_fitness_function, 1); // Using 1 as a dummy generation number for the test
     
     NeuroNet::NeuroNet reported_best = ga.get_best_individual();
-    double reported_best_fitness = simple_fitness_function(reported_best);
+    //double reported_best_fitness = simple_fitness_function(reported_best);
 
     // We expect that after evaluation, the reported_best_fitness is indeed the max.
     // This doesn't strictly test if `clearly_best_net` was found, but that `get_best_individual` works.

@@ -457,7 +457,7 @@ void JsonParser::SkipComment(const std::string& json_string, size_t& index)
     // For now, Parse() calls SkipComment once at the beginning.
     while (index < json_string.length()) {
         // SkipWhitespace(json_string, index); // Moved to be called before each ParseValue attempt by caller or main loop
-        bool comment_found = false;
+        //bool comment_found = false;
         if (index + 1 < json_string.length()) {
             if (json_string[index] == '/' && json_string[index + 1] == '/') {
                 index += 2; // Skip '//'
