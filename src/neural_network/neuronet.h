@@ -107,6 +107,8 @@ namespace NeuroNet
 		 */
 		Matrix::Matrix<float> ReturnOutputMatrix();
 
+		void UpdateWeights(float learning_rate, int layer_input_size);
+
 		/**
 		 * @brief Sets the input for this layer.
 		 * @param pInputMatrix A const reference to a matrix containing the input values. Must match the expected input dimensions.
