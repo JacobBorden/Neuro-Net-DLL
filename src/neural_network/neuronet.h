@@ -642,6 +642,9 @@ namespace NeuroNet
 		int LayerCount = 0; ///< Total number of layers in the network.
 		std::vector<NeuroNetLayer> NeuroNetVector; ///< Vector storing all layers of the network.
 		Vocabulary vocabulary; // Vocabulary for string processing
+
+			void UpdateSingleLayerWeights(NeuroNetLayer& layer, int layer_input_size, int layer_output_size, float learning_rate, int layer_index);
+			void UpdateSingleLayerBiases(NeuroNetLayer& layer, int layer_output_size, float learning_rate, int layer_index);
 	};
 
 // Inline definition for getVocabulary (outside the class body but in the header for inlining)
