@@ -192,7 +192,7 @@ std::function<double(NeuroNet::NeuroNet&)> xor_fitness_function =
 };
 
 
-int main() {
+NeuroNet::NeuroNet train_xor_model_with_ga() {
     std::cout << "Starting NeuroNet Genetic Algorithm XOR Example..." << std::endl;
 
     // 1. Define NeuroNet Structure
@@ -247,11 +247,199 @@ int main() {
     NeuroNet::NeuroNet best_model = ga_instance.get_best_individual();
     std::cout << "Best individual retrieved from GA." << std::endl;
 
+    return best_model;
+}
+
+void test_best_model(NeuroNet::NeuroNet& best_model) {
+    std::cout << "\nTesting the best model on XOR inputs:" << std::endl;
+    std::vector<std::vector<float>> test_inputs = {{0.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 0.0f}, {1.0f, 1.0f}};
+    std::vector<float> expected_outputs = {0.0f, 1.0f, 1.0f, 0.0f};
+
+    for (size_t i = 0; i < test_inputs.size(); ++i) {
+        Matrix::Matrix<float> input_matrix(1, test_inputs[i].size());
+        for(size_t j=0; j<test_inputs[i].size(); ++j) input_matrix[0][j] = test_inputs[i][j];
+
+        best_model.SetInput(input_matrix);
+        Matrix::Matrix<float> output = best_model.GetOutput();
+        std::cout << "Input: (" << test_inputs[i][0] << ", " << test_inputs[i][1] << ") -> Output: ";
+        if (output.cols() > 0) {
+             std::cout << output[0][0] << " (Expected: " << expected_outputs[i] << ")" << std::endl;
+        } else {
+             std::cout << "[empty output]" << std::endl;
+        }
+    }
+}
+
+void test_model_with_json(NeuroNet::NeuroNet& best_model) {
+    std::vector<std::vector<float>> test_inputs = {{0.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 0.0f}, {1.0f, 1.0f}};
+    std::vector<float> expected_outputs = {0.0f, 1.0f, 1.0f, 0.0f};
+
+    std::cout << "\nTesting the best model using JSON input/output:" << std::endl;
+    for (size_t i = 0; i < test_inputs.size(); ++i) {
+        // Construct JSON input string
+        std::string json_input_str = "{ \"input_matrix\": [[";
+        json_input_str += std::to_string(test_inputs[i][0]);
+        json_input_str += ", ";
+        json_input_str += std::to_string(test_inputs[i][1]);
+        json_input_str += "]] }";
+
+        std::cout << "Input JSON: " << json_input_str << std::endl;
+
+        try {
+            if (!best_model.SetInputJSON(json_input_str)) {
+                std::cerr << "Call to SetInputJSON failed for: " << json_input_str << std::endl;
+                continue;
+            }
+
+            std::string output_json_str = best_model.GetOutputJSON();
+            std::cout << "Output JSON: " << output_json_str << std::endl;
+
+            // Parse output_json_str to verify the numeric value
+            JsonValue output_json_val = JsonParser::Parse(output_json_str);
+            if (output_json_val.type == JsonValueType::Object &&
+                output_json_val.GetObject().count("output_matrix")) {
+                const auto& matrix_val = output_json_val.GetObject().at("output_matrix");
+                if (matrix_val->type == JsonValueType::Array && !matrix_val->GetArray().empty()) {
+                    const auto& row_val = matrix_val->GetArray()[0];
+                    if (row_val.type == JsonValueType::Array && !row_val.GetArray().empty()) {
+                        const auto& cell_val = row_val.GetArray()[0];
+                        if (cell_val.type == JsonValueType::Number) {
+                            std::cout << "Parsed Output Value: " << cell_val.GetNumber()
+                                      << " (Expected: " << expected_outputs[i] << ")" << std::endl;
+                        }
+                    }
+                }
+            }
+            // Cleanup parsed JSON (important for the custom JSON library)
+            if (output_json_val.type == JsonValueType::Object) {
+                for (auto& pair : output_json_val.GetObject()) {
+                    delete pair.second; // Delete the JsonValue*
+                }
+                output_json_val.GetObject().clear(); // Clear the map
+            }
+
+        } catch (const JsonParseException& e) {
+            std::cerr << "Error with JSON processing: " << e.what() << std::endl;
+        } catch (const std::runtime_error& e) {
+            std::cerr << "Runtime error during JSON processing: " << e.what() << std::endl;
+        }
+        std::cout << "----" << std::endl;
+    }
+}
+
+void demonstrate_string_input_and_vocab(NeuroNet::NeuroNet& best_model) {
+    std::cout << "\n--- Demonstrating String Input and Vocabulary Features ---" << std::endl;
+
+    // 1. Define and create a sample vocabulary JSON file for the example
+    const std::string example_vocab_filepath = "example_vocabulary.json";
+    std::ofstream vocab_file(example_vocab_filepath);
+    if (vocab_file.is_open()) {
+        vocab_file << R"({
+            "word_to_token": {
+                "hello": 0, "world": 1, "neuronet": 2, "example": 3,
+                "<UNK>": 4, "<PAD>": 5
+            },
+            "token_to_word": {
+                "0": "hello", "1": "world", "2": "neuronet", "3": "example",
+                "4": "<UNK>", "5": "<PAD>"
+            },
+            "special_tokens": {
+                "unknown_token": "<UNK>",
+                "padding_token": "<PAD>"
+            },
+            "config": {
+                "max_sequence_length": 5
+            }
+        })";
+        vocab_file.close();
+        std::cout << "Sample vocabulary file created: " << example_vocab_filepath << std::endl;
+    } else {
+        std::cerr << "Failed to create sample vocabulary file for example." << std::endl;
+    }
+
+    // We'll use the 'best_model' from the GA, but reconfigure its InputSize
+    // and load the new vocabulary for demonstration purposes.
+    // Its existing weights won't be meaningful for string inputs with this new vocab.
+    // Note: best_model is a copy of the GA's best individual. Modifying it here is fine for demo.
+
+    // 2. Load the vocabulary
+    bool vocab_loaded = false;
+    try {
+        vocab_loaded = best_model.LoadVocabulary(example_vocab_filepath);
+    } catch (const std::exception& e) {
+        std::cerr << "Exception during LoadVocabulary: " << e.what() << std::endl;
+    }
+
+    if (vocab_loaded) {
+        std::cout << "Vocabulary loaded successfully." << std::endl;
+        const auto& loaded_vocab_obj = best_model.getVocabulary(); // Use the new getter
+        std::cout << "  Vocabulary's max_sequence_length: " << loaded_vocab_obj.get_max_sequence_length() << std::endl;
+        std::cout << "  <UNK> token ID: " << loaded_vocab_obj.get_unknown_token_id() << std::endl;
+        std::cout << "  <PAD> token ID: " << loaded_vocab_obj.get_padding_token_id() << std::endl;
+
+
+        // 3. Reconfigure network's InputSize to match vocabulary's max_sequence_length for this demo
+        int required_input_size = loaded_vocab_obj.get_max_sequence_length();
+        if (required_input_size <= 0) {
+             std::cout << "Vocabulary max_sequence_length is not positive, defaulting to 5 for demo." << std::endl;
+             required_input_size = 5; // Fallback for demo if not in vocab file
+        }
+
+        std::cout << "Setting network InputSize to: " << required_input_size << " to match vocab's max_sequence_length for demo." << std::endl;
+        best_model.SetInputSize(required_input_size);
+
+        // Resizing layers to be compatible with the new InputSize.
+        // For simplicity, let's assume the first layer's number of neurons can remain the same.
+        // The internal weight matrix of the first layer will be re-initialized by ResizeLayer.
+        if (best_model.getLayerCount() > 0) {
+             std::cout << "Re-initializing first layer with new InputSize." << std::endl;
+             best_model.ResizeLayer(0, best_model.getLayer(0).LayerSize());
+        }
+
+
+        // 4. Prepare and set string input using SetStringsInput
+        const std::string string_input_json = R"({
+            "input_batch": [
+                "hello world neuronet",   // 3 tokens
+                "an unknown example",     // 3 tokens, "an" will be <UNK>
+                "hello world again test"  // 4 tokens, "again", "test" are <UNK>
+            ]
+        })";
+        std::cout << "Attempting to set string input: " << string_input_json << std::endl;
+
+        try {
+            // SetStringsInput will use the max_sequence_length from the loaded vocabulary (5)
+            // So, sequences will be padded/truncated to 5 tokens.
+            if (best_model.SetStringsInput(string_input_json)) {
+                std::cout << "SetStringsInput successful." << std::endl;
+
+                // 5. Get and display output (as JSON, for consistency with other examples)
+                // The actual numerical output will be based on the (probably unsuitable) XOR weights
+                // or re-initialized weights, but this demonstrates the pipeline.
+                std::string string_net_output_json = best_model.GetOutputJSON();
+                std::cout << "Output from network after string input (JSON): " << string_net_output_json << std::endl;
+            } else {
+                std::cerr << "SetStringsInput failed." << std::endl;
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "Exception during SetStringsInput or GetOutputJSON: " << e.what() << std::endl;
+        }
+    } else {
+        std::cerr << "Failed to load vocabulary for string input demo." << std::endl;
+    }
+    // Clean up the example vocabulary file
+    std::remove(example_vocab_filepath.c_str());
+    std::cout << "Cleaned up temporary vocabulary file: " << example_vocab_filepath << std::endl;
+}
+
+int main() {
+    NeuroNet::NeuroNet best_model = train_xor_model_with_ga();
+
     if (best_model.getLayerCount() > 0) {
         // 6. Save Best Model (using the library's custom JSON format)
         // This format is primarily intended for use with NeuroNet::load_model().
         const std::string custom_model_filename = "best_model_custom_format.json";
-        best_model.save_model(custom_model_filename); 
+        best_model.save_model(custom_model_filename);
         std::cout << "Best model saved in custom JSON format to: " << custom_model_filename << std::endl;
 
         // Note: The training_metrics.json file (exported earlier) contains the
@@ -260,179 +448,13 @@ int main() {
         // or this dedicated custom format file can be used.
 
         // Optional: Test the best model
-        std::cout << "\nTesting the best model on XOR inputs:" << std::endl;
-        std::vector<std::vector<float>> test_inputs = {{0.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 0.0f}, {1.0f, 1.0f}};
-        std::vector<float> expected_outputs = {0.0f, 1.0f, 1.0f, 0.0f};
-
-        for (size_t i = 0; i < test_inputs.size(); ++i) {
-            Matrix::Matrix<float> input_matrix(1, test_inputs[i].size());
-            for(size_t j=0; j<test_inputs[i].size(); ++j) input_matrix[0][j] = test_inputs[i][j];
-            
-            best_model.SetInput(input_matrix);
-            Matrix::Matrix<float> output = best_model.GetOutput();
-            std::cout << "Input: (" << test_inputs[i][0] << ", " << test_inputs[i][1] << ") -> Output: ";
-            if (output.cols() > 0) {
-                 std::cout << output[0][0] << " (Expected: " << expected_outputs[i] << ")" << std::endl;
-            } else {
-                 std::cout << "[empty output]" << std::endl;
-            }
-        }
+        test_best_model(best_model);
 
         // Test with JSON input/output
-        std::cout << "\nTesting the best model using JSON input/output:" << std::endl;
-        for (size_t i = 0; i < test_inputs.size(); ++i) {
-            // Construct JSON input string
-            std::string json_input_str = "{ \"input_matrix\": [[";
-            json_input_str += std::to_string(test_inputs[i][0]);
-            json_input_str += ", ";
-            json_input_str += std::to_string(test_inputs[i][1]);
-            json_input_str += "]] }";
+        test_model_with_json(best_model);
 
-            std::cout << "Input JSON: " << json_input_str << std::endl;
-
-            try {
-                if (!best_model.SetInputJSON(json_input_str)) {
-                    std::cerr << "Call to SetInputJSON failed for: " << json_input_str << std::endl;
-                    continue;
-                }
-
-                std::string output_json_str = best_model.GetOutputJSON();
-                std::cout << "Output JSON: " << output_json_str << std::endl;
-
-                // Parse output_json_str to verify the numeric value
-                JsonValue output_json_val = JsonParser::Parse(output_json_str);
-                if (output_json_val.type == JsonValueType::Object &&
-                    output_json_val.GetObject().count("output_matrix")) {
-                    const auto& matrix_val = output_json_val.GetObject().at("output_matrix");
-                    if (matrix_val->type == JsonValueType::Array && !matrix_val->GetArray().empty()) {
-                        const auto& row_val = matrix_val->GetArray()[0];
-                        if (row_val.type == JsonValueType::Array && !row_val.GetArray().empty()) {
-                            const auto& cell_val = row_val.GetArray()[0];
-                            if (cell_val.type == JsonValueType::Number) {
-                                std::cout << "Parsed Output Value: " << cell_val.GetNumber()
-                                          << " (Expected: " << expected_outputs[i] << ")" << std::endl;
-                            }
-                        }
-                    }
-                }
-                // Cleanup parsed JSON (important for the custom JSON library)
-                if (output_json_val.type == JsonValueType::Object) {
-                    for (auto& pair : output_json_val.GetObject()) {
-                        delete pair.second; // Delete the JsonValue*
-                    }
-                    output_json_val.GetObject().clear(); // Clear the map
-                }
-
-            } catch (const JsonParseException& e) {
-                std::cerr << "Error with JSON processing: " << e.what() << std::endl;
-            } catch (const std::runtime_error& e) {
-                std::cerr << "Runtime error during JSON processing: " << e.what() << std::endl;
-            }
-            std::cout << "----" << std::endl;
-        }
-
-        std::cout << "\n--- Demonstrating String Input and Vocabulary Features ---" << std::endl;
-
-        // 1. Define and create a sample vocabulary JSON file for the example
-        const std::string example_vocab_filepath = "example_vocabulary.json";
-        std::ofstream vocab_file(example_vocab_filepath);
-        if (vocab_file.is_open()) {
-            vocab_file << R"({
-                "word_to_token": {
-                    "hello": 0, "world": 1, "neuronet": 2, "example": 3,
-                    "<UNK>": 4, "<PAD>": 5
-                },
-                "token_to_word": {
-                    "0": "hello", "1": "world", "2": "neuronet", "3": "example",
-                    "4": "<UNK>", "5": "<PAD>"
-                },
-                "special_tokens": {
-                    "unknown_token": "<UNK>",
-                    "padding_token": "<PAD>"
-                },
-                "config": {
-                    "max_sequence_length": 5
-                }
-            })";
-            vocab_file.close();
-            std::cout << "Sample vocabulary file created: " << example_vocab_filepath << std::endl;
-        } else {
-            std::cerr << "Failed to create sample vocabulary file for example." << std::endl;
-        }
-
-        // We'll use the 'best_model' from the GA, but reconfigure its InputSize
-        // and load the new vocabulary for demonstration purposes.
-        // Its existing weights won't be meaningful for string inputs with this new vocab.
-        // Note: best_model is a copy of the GA's best individual. Modifying it here is fine for demo.
-
-        // 2. Load the vocabulary
-        bool vocab_loaded = false;
-        try {
-            vocab_loaded = best_model.LoadVocabulary(example_vocab_filepath);
-        } catch (const std::exception& e) {
-            std::cerr << "Exception during LoadVocabulary: " << e.what() << std::endl;
-        }
-
-        if (vocab_loaded) {
-            std::cout << "Vocabulary loaded successfully." << std::endl;
-            const auto& loaded_vocab_obj = best_model.getVocabulary(); // Use the new getter
-            std::cout << "  Vocabulary's max_sequence_length: " << loaded_vocab_obj.get_max_sequence_length() << std::endl;
-            std::cout << "  <UNK> token ID: " << loaded_vocab_obj.get_unknown_token_id() << std::endl;
-            std::cout << "  <PAD> token ID: " << loaded_vocab_obj.get_padding_token_id() << std::endl;
-
-
-            // 3. Reconfigure network's InputSize to match vocabulary's max_sequence_length for this demo
-            int required_input_size = loaded_vocab_obj.get_max_sequence_length();
-            if (required_input_size <= 0) {
-                 std::cout << "Vocabulary max_sequence_length is not positive, defaulting to 5 for demo." << std::endl;
-                 required_input_size = 5; // Fallback for demo if not in vocab file
-            }
-
-            std::cout << "Setting network InputSize to: " << required_input_size << " to match vocab's max_sequence_length for demo." << std::endl;
-            best_model.SetInputSize(required_input_size);
-
-            // Resizing layers to be compatible with the new InputSize.
-            // For simplicity, let's assume the first layer's number of neurons can remain the same.
-            // The internal weight matrix of the first layer will be re-initialized by ResizeLayer.
-            if (best_model.getLayerCount() > 0) {
-                 std::cout << "Re-initializing first layer with new InputSize." << std::endl;
-                 best_model.ResizeLayer(0, best_model.getLayer(0).LayerSize());
-            }
-
-
-            // 4. Prepare and set string input using SetStringsInput
-            const std::string string_input_json = R"({
-                "input_batch": [
-                    "hello world neuronet",   // 3 tokens
-                    "an unknown example",     // 3 tokens, "an" will be <UNK>
-                    "hello world again test"  // 4 tokens, "again", "test" are <UNK>
-                ]
-            })";
-            std::cout << "Attempting to set string input: " << string_input_json << std::endl;
-
-            try {
-                // SetStringsInput will use the max_sequence_length from the loaded vocabulary (5)
-                // So, sequences will be padded/truncated to 5 tokens.
-                if (best_model.SetStringsInput(string_input_json)) {
-                    std::cout << "SetStringsInput successful." << std::endl;
-
-                    // 5. Get and display output (as JSON, for consistency with other examples)
-                    // The actual numerical output will be based on the (probably unsuitable) XOR weights
-                    // or re-initialized weights, but this demonstrates the pipeline.
-                    std::string string_net_output_json = best_model.GetOutputJSON();
-                    std::cout << "Output from network after string input (JSON): " << string_net_output_json << std::endl;
-                } else {
-                    std::cerr << "SetStringsInput failed." << std::endl;
-                }
-            } catch (const std::exception& e) {
-                std::cerr << "Exception during SetStringsInput or GetOutputJSON: " << e.what() << std::endl;
-            }
-        } else {
-            std::cerr << "Failed to load vocabulary for string input demo." << std::endl;
-        }
-        // Clean up the example vocabulary file
-        std::remove(example_vocab_filepath.c_str());
-        std::cout << "Cleaned up temporary vocabulary file: " << example_vocab_filepath << std::endl;
+        // Demonstrate string input and vocabulary features
+        demonstrate_string_input_and_vocab(best_model);
 
     } else {
         std::cout << "Best model has no layers, cannot save or test." << std::endl;
