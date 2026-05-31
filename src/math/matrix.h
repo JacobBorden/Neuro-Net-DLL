@@ -583,6 +583,9 @@ namespace Matrix
 		void assign(const T val)
 		{
             if (!m_Data) return;
+#ifdef _OPENMP
+		#pragma omp parallel for
+#endif
 			for (size_t i = 0; i < m_Rows; ++i) {
 				// No need for inner loop if MatrixRow::assign(val) works correctly
 				m_Data[i].assign(val); 
@@ -732,7 +735,10 @@ namespace Matrix
 		{
 			Matrix<T> result(*this); // Make a copy
 			if (!result.m_Data) return result; // Return copy if empty
-			for (size_t i = 0; i < result.m_Rows; ++i) // Use size_t
+			#ifdef _OPENMP
+		#pragma omp parallel for
+#endif
+		for (size_t i = 0; i < result.m_Rows; ++i) // Use size_t
 			{
 				for (size_t j = 0; j < result.m_Cols; ++j) // Use size_t
 				{
@@ -931,6 +937,9 @@ namespace Matrix
 	{
         if (m_Rows == 0 || m_Cols == 0) return Matrix<T>(m_Rows, m_Cols);
 		Matrix<T> c(m_Rows, m_Cols);
+		#ifdef _OPENMP
+		#pragma omp parallel for
+#endif
 		for (size_t i = 0; i < m_Rows; i++)
 			for (size_t j = 0; j < m_Cols; j++)
 				c.m_Data[i][j] = m_Data[i][j] + b;
@@ -943,6 +952,9 @@ namespace Matrix
 		if (m_Rows != b.m_Rows || m_Cols != b.m_Cols)
 			throw std::invalid_argument("Matrix dimensions must match for addition assignment.");
 		
+		#ifdef _OPENMP
+		#pragma omp parallel for
+#endif
 		for (size_t i = 0; i < m_Rows; i++)
 			for (size_t j = 0; j < m_Cols; j++)
 				m_Data[i][j] += b.m_Data[i][j]; // Modify self
@@ -953,6 +965,9 @@ namespace Matrix
 	Matrix<T>& operator+=(const T b) // Return reference, not const
 	{
         if (m_Rows == 0 || m_Cols == 0) return *this;
+		#ifdef _OPENMP
+		#pragma omp parallel for
+#endif
 		for (size_t i = 0; i < m_Rows; i++)
 			for (size_t j = 0; j < m_Cols; j++)
 				m_Data[i][j] += b; // Modify self
@@ -966,6 +981,9 @@ namespace Matrix
 			throw std::invalid_argument("Matrix dimensions must match for subtraction.");
 		
 		Matrix<T> c(m_Rows, m_Cols);
+		#ifdef _OPENMP
+		#pragma omp parallel for
+#endif
 		for (size_t i = 0; i < m_Rows; i++)
 			for (size_t j = 0; j < m_Cols; j++)
 				c.m_Data[i][j] = m_Data[i][j] - b.m_Data[i][j];
@@ -977,6 +995,9 @@ namespace Matrix
 	{
         if (m_Rows == 0 || m_Cols == 0) return Matrix<T>(m_Rows, m_Cols);
 		Matrix<T> c(m_Rows, m_Cols);
+		#ifdef _OPENMP
+		#pragma omp parallel for
+#endif
 		for (size_t i = 0; i < m_Rows; i++)
 			for (size_t j = 0; j < m_Cols; j++)
 				c.m_Data[i][j] = m_Data[i][j] - b;
@@ -989,6 +1010,9 @@ namespace Matrix
 		if (m_Rows != b.m_Rows || m_Cols != b.m_Cols)
 			throw std::invalid_argument("Matrix dimensions must match for subtraction assignment.");
 		
+		#ifdef _OPENMP
+		#pragma omp parallel for
+#endif
 		for (size_t i = 0; i < m_Rows; i++)
 			for (size_t j = 0; j < m_Cols; j++)
 				m_Data[i][j] -= b.m_Data[i][j]; // Modify self
@@ -998,6 +1022,9 @@ namespace Matrix
 	Matrix<T>& operator-=(const T b) // Return reference, not const
 	{
         if (m_Rows == 0 || m_Cols == 0) return *this;
+		#ifdef _OPENMP
+		#pragma omp parallel for
+#endif
 		for (size_t i = 0; i < m_Rows; i++)
 			for (size_t j = 0; j < m_Cols; j++)
 				m_Data[i][j] -= b; // Modify self
@@ -1010,6 +1037,9 @@ namespace Matrix
         if (std::abs(b) < T(1e-9)) throw std::runtime_error("Division by zero or very small number.");
         if (m_Rows == 0 || m_Cols == 0) return Matrix<T>(m_Rows, m_Cols);
 		Matrix<T> c(m_Rows, m_Cols);
+		#ifdef _OPENMP
+		#pragma omp parallel for
+#endif
 		for (size_t i = 0; i < m_Rows; i++)
 			for (size_t j = 0; j < m_Cols; j++)
 				c.m_Data[i][j] = m_Data[i][j] / b;
@@ -1021,6 +1051,9 @@ namespace Matrix
 	{
         if (std::abs(b) < T(1e-9)) throw std::runtime_error("Division by zero or very small number in assignment.");
         if (m_Rows == 0 || m_Cols == 0) return *this;
+		#ifdef _OPENMP
+		#pragma omp parallel for
+#endif
 		for (size_t i = 0; i < m_Rows; i++)
 			for (size_t j = 0; j < m_Cols; j++)
 				m_Data[i][j] /= b; // Modify self
@@ -1078,6 +1111,9 @@ namespace Matrix
 	{
         if (m_Rows == 0 || m_Cols == 0) return Matrix<T>(m_Rows, m_Cols);
 		Matrix<T> c(m_Rows, m_Cols);
+		#ifdef _OPENMP
+		#pragma omp parallel for
+#endif
 		for (size_t i = 0; i < m_Rows; i++)
 			for (size_t j = 0; j < m_Cols; j++)
 				c.m_Data[i][j] = m_Data[i][j] * b;
@@ -1088,6 +1124,9 @@ namespace Matrix
 	Matrix<T>& operator*=(const T b) // Return reference, not const
 	{
         if (m_Rows == 0 || m_Cols == 0) return *this;
+		#ifdef _OPENMP
+		#pragma omp parallel for
+#endif
 		for (size_t i = 0; i < m_Rows; i++)
 			for (size_t j = 0; j < m_Cols; j++)
 				m_Data[i][j] *= b; // Modify self
