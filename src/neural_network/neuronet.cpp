@@ -743,6 +743,12 @@ std::string NeuroNet::NeuroNet::to_custom_json_string() const {
     SetJsonNumber(root, "input_size", static_cast<double>(this->InputSize));
     SetJsonNumber(root, "layer_count", static_cast<double>(this->LayerCount));
 
+    // Add Vocabulary Configuration
+    if (this->vocabulary.get_max_sequence_length() > 0) { // Only save if it's meaningfully set
+        JsonValue* vocab_config_obj_ptr = CreateJsonObjectInObject(root, "vocabulary_config");
+        SetJsonNumber(*vocab_config_obj_ptr, "max_sequence_length", static_cast<double>(this->vocabulary.get_max_sequence_length()));
+    }
+
     // 2. Serialize Layers
     JsonValue* layers_array_json_val_ptr = CreateJsonArrayInObject(root, "layers");
 
@@ -800,6 +806,11 @@ std::string NeuroNet::NeuroNet::to_custom_json_string() const {
                     }
                     delete layer_prop_pair.second; 
                 }
+            }
+        } else if (pair.first == "vocabulary_config") {
+            JsonValue* vocab_config_object = pair.second;
+            for (auto& vocab_prop_pair : vocab_config_object->GetObject()) { // e.g., "max_sequence_length"
+                delete vocab_prop_pair.second; // Delete the JsonValue* for "max_sequence_length" value
             }
         }
         delete pair.second; 
@@ -943,111 +954,13 @@ NeuroNet::NeuroNet NeuroNet::NeuroNet::load_model(const std::string& filename)
 
 bool NeuroNet::NeuroNet::save_model(const std::string& filename) const
 {
-	JsonValue root; 
-    root.SetObject();
-
-	// 1. Serialize NeuroNet global parameters
-    SetJsonNumber(root, "input_size", static_cast<double>(this->InputSize));
-    SetJsonNumber(root, "layer_count", static_cast<double>(this->LayerCount));
-
-    // Add Vocabulary Configuration
-    if (this->vocabulary.get_max_sequence_length() > 0) { // Only save if it's meaningfully set
-        JsonValue* vocab_config_obj_ptr = CreateJsonObjectInObject(root, "vocabulary_config");
-        SetJsonNumber(*vocab_config_obj_ptr, "max_sequence_length", static_cast<double>(this->vocabulary.get_max_sequence_length()));
-    }
-
-	// 2. Serialize Layers
-    // Create the main 'layers' array within the root object
-    JsonValue* layers_array_json_val_ptr = CreateJsonArrayInObject(root, "layers");
-
-	for (int i = 0; i < this->LayerCount; ++i)
-	{
-		const NeuroNetLayer& layer = this->NeuroNetVector[i];
-		JsonValue layer_json_val; // This will be an element of layers_array_json_val_ptr
-        layer_json_val.SetObject(); // This layer_json_val itself is an object
-
-		int current_layer_input_size = (i == 0) ? this->InputSize : this->NeuroNetVector[i-1].LayerSize();
-        SetJsonNumber(layer_json_val, "input_size", static_cast<double>(current_layer_input_size));
-        SetJsonNumber(layer_json_val, "layer_size", static_cast<double>(layer.LayerSize()));
-		//SetJsonNumber(layer_json_val, "activation_function", static_cast<double>(layer.get_activation_type())); // Old way
-        JsonValue* act_str_val = new JsonValue(); 
-        act_str_val->SetString(layer.get_activation_function_name()); // New: store as string
-        layer_json_val.InsertIntoObject("activation_function", act_str_val);
-
-		// --- Weights ---
-        // Create 'weights' object within layer_json_val
-		JsonValue* weights_obj_ptr = CreateJsonObjectInObject(layer_json_val, "weights");
-		const auto& weights_data = layer.get_weights(); 
-        SetJsonNumber(*weights_obj_ptr, "rows", static_cast<double>(current_layer_input_size));
-        SetJsonNumber(*weights_obj_ptr, "cols", static_cast<double>(layer.LayerSize()));
-        
-        // Create 'data' array within 'weights' object
-        JsonValue* weights_data_arr_ptr = CreateJsonArrayInObject(*weights_obj_ptr, "data");
-		for (float w : weights_data.WeightsVector) {
-            JsonValue w_val; w_val.SetNumber(w); // w_val is temporary, its value copied
-			weights_data_arr_ptr->GetArray().push_back(w_val); // push_back copies w_val
-		}
-        
-		// --- Biases ---
-        // Create 'biases' object within layer_json_val
-		JsonValue* biases_obj_ptr = CreateJsonObjectInObject(layer_json_val, "biases");
-		const auto& biases_data = layer.get_biases(); 
-        SetJsonNumber(*biases_obj_ptr, "rows", 1.0); // Biases typically have 1 row
-        SetJsonNumber(*biases_obj_ptr, "cols", static_cast<double>(layer.LayerSize()));
-        
-        // Create 'data' array within 'biases' object
-        JsonValue* biases_data_arr_ptr = CreateJsonArrayInObject(*biases_obj_ptr, "data");
-		for (float b : biases_data.BiasVector) {
-            JsonValue b_val; b_val.SetNumber(b);
-			biases_data_arr_ptr->GetArray().push_back(b_val);
-		}
-		
-        // Add the fully constructed layer_json_val to the main 'layers' array
-		layers_array_json_val_ptr->GetArray().push_back(layer_json_val);
-	}
-
-	// 3. Write to file
 	std::ofstream ofs(filename);
 	if (!ofs.is_open()) {
-        // NOTE: Potential memory leak here if we return early, as dynamically allocated
-        // JsonValue objects (via new in SetJsonNumber, CreateJsonObjectInObject, etc.)
-        // are not cleaned up by this function. A robust solution would require
-        // a RAII wrapper or a recursive deletion function for the JsonValue structure
-        // if an error occurs after allocations have begun.
 		return false; 
 	}
 	
-    ofs << root.ToString(); // Use the ToString method from custom JsonValue
-	
+    ofs << this->to_custom_json_string();
 	ofs.close();
-
-    // IMPORTANT: Clean up dynamically allocated JsonValue objects.
-    // The custom JsonValue::object_value stores JsonValue*. These were allocated with 'new'.
-    // This is a simplified cleanup; a real scenario needs a recursive destructor in JsonValue
-    // or a dedicated cleanup utility.
-    for (auto& pair : root.GetObject()) { // For "input_size", "layer_count", "layers", "vocabulary_config"
-        if (pair.first == "layers") {
-            JsonValue* layers_array = pair.second;
-            for (JsonValue& layer_val : layers_array->GetArray()) { // Each layer_val is an object
-                for (auto& layer_prop_pair : layer_val.GetObject()) {
-                    if (layer_prop_pair.first == "weights" || layer_prop_pair.first == "biases") {
-                        JsonValue* wb_object = layer_prop_pair.second; // This is the object for weights/biases
-                        for (auto& wb_prop_pair : wb_object->GetObject()) { // rows, cols, data
-                             delete wb_prop_pair.second; // Delete JsonValue* for rows, cols, data array
-                        }
-                    }
-                    delete layer_prop_pair.second; // Delete JsonValue* for input_size, layer_size, activation_function, weights obj, biases obj
-                }
-            }
-        } else if (pair.first == "vocabulary_config") {
-            JsonValue* vocab_config_object = pair.second;
-            for (auto& vocab_prop_pair : vocab_config_object->GetObject()) { // e.g., "max_sequence_length"
-                delete vocab_prop_pair.second; // Delete the JsonValue* for "max_sequence_length" value
-            }
-        }
-        delete pair.second; // Delete JsonValue* for top-level keys like "input_size", "layer_count", "layers" array itself, "vocabulary_config" object itself
-    }
-    root.GetObject().clear(); // Clear the map in root to remove dangling pointers
 	return true;
 }
 
