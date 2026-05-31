@@ -2,8 +2,25 @@
 #define TIMER_H
 
 #include <chrono>
+#include <iomanip>
+#include <sstream>
+#include <string>
 
 namespace utilities {
+
+inline std::string get_current_time_string() {
+    auto now = std::chrono::system_clock::now();
+    auto in_time_t = std::chrono::system_clock::to_time_t(now);
+    std::tm buf;
+#ifdef _WIN32
+    localtime_s(&buf, &in_time_t);
+#else
+    localtime_r(&in_time_t, &buf);
+#endif
+    std::ostringstream ss;
+    ss << std::put_time(&buf, "%Y-%m-%dT%H:%M:%S%z");
+    return ss.str();
+}
 
 class Timer {
 public:
