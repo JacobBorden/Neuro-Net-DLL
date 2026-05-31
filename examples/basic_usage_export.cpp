@@ -192,7 +192,8 @@ std::function<double(NeuroNet::NeuroNet&)> xor_fitness_function =
 };
 
 
-int main() {
+
+NeuroNet::NeuroNet run_xor_ga_evolution() {
     std::cout << "Starting NeuroNet Genetic Algorithm XOR Example..." << std::endl;
 
     // 1. Define NeuroNet Structure
@@ -246,19 +247,11 @@ int main() {
     // 5. Get Best Model
     NeuroNet::NeuroNet best_model = ga_instance.get_best_individual();
     std::cout << "Best individual retrieved from GA." << std::endl;
+    return best_model;
+}
 
-    if (best_model.getLayerCount() > 0) {
-        // 6. Save Best Model (using the library's custom JSON format)
-        // This format is primarily intended for use with NeuroNet::load_model().
-        const std::string custom_model_filename = "best_model_custom_format.json";
-        best_model.save_model(custom_model_filename); 
-        std::cout << "Best model saved in custom JSON format to: " << custom_model_filename << std::endl;
 
-        // Note: The training_metrics.json file (exported earlier) contains the
-        // best model's architecture as a JSON string (using the custom format)
-        // embedded within its structure. For external analysis, that embedded string
-        // or this dedicated custom format file can be used.
-
+void test_best_model_on_xor(NeuroNet::NeuroNet& best_model) {
         // Optional: Test the best model
         std::cout << "\nTesting the best model on XOR inputs:" << std::endl;
         std::vector<std::vector<float>> test_inputs = {{0.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 0.0f}, {1.0f, 1.0f}};
@@ -330,7 +323,10 @@ int main() {
             }
             std::cout << "----" << std::endl;
         }
+}
 
+
+void demonstrate_string_input_and_vocab(NeuroNet::NeuroNet& best_model) {
         std::cout << "\n--- Demonstrating String Input and Vocabulary Features ---" << std::endl;
 
         // 1. Define and create a sample vocabulary JSON file for the example
@@ -433,7 +429,26 @@ int main() {
         // Clean up the example vocabulary file
         std::remove(example_vocab_filepath.c_str());
         std::cout << "Cleaned up temporary vocabulary file: " << example_vocab_filepath << std::endl;
+}
 
+
+int main() {
+    NeuroNet::NeuroNet best_model = run_xor_ga_evolution();
+
+    if (best_model.getLayerCount() > 0) {
+        // 6. Save Best Model (using the library's custom JSON format)
+        // This format is primarily intended for use with NeuroNet::load_model().
+        const std::string custom_model_filename = "best_model_custom_format.json";
+        best_model.save_model(custom_model_filename);
+        std::cout << "Best model saved in custom JSON format to: " << custom_model_filename << std::endl;
+
+        // Note: The training_metrics.json file (exported earlier) contains the
+        // best model's architecture as a JSON string (using the custom format)
+        // embedded within its structure. For external analysis, that embedded string
+        // or this dedicated custom format file can be used.
+
+        test_best_model_on_xor(best_model);
+        demonstrate_string_input_and_vocab(best_model);
     } else {
         std::cout << "Best model has no layers, cannot save or test." << std::endl;
     }
