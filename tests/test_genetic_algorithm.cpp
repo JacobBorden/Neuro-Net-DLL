@@ -39,13 +39,13 @@ protected:
 };
 
 TEST_F(GeneticAlgorithmTest, Constructor) {
-    Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, num_generations, template_net);
+    Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, template_net);
     // Test if constructor runs, further state checked by other tests
     SUCCEED();
 }
 
 TEST_F(GeneticAlgorithmTest, InitializePopulation) {
-    Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, num_generations, template_net);
+    Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, template_net);
     ga.initialize_population();
     
     // Population size is implicitly tested by other methods using the population.
@@ -85,7 +85,7 @@ TEST_F(GeneticAlgorithmTest, InitializePopulation) {
 
 
 TEST_F(GeneticAlgorithmTest, EvaluateFitness) {
-    Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, num_generations, template_net);
+    Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, template_net);
     ga.initialize_population();
     ga.evaluate_fitness(simple_fitness_function);
     // No direct way to get all fitness scores to verify,
@@ -96,7 +96,7 @@ TEST_F(GeneticAlgorithmTest, EvaluateFitness) {
 }
 
 TEST_F(GeneticAlgorithmTest, Mutate) {
-    Optimization::GeneticAlgorithm ga(population_size, 1.0, crossover_rate, num_generations, template_net); // 100% mutation
+    Optimization::GeneticAlgorithm ga(population_size, 1.0, crossover_rate, template_net); // 100% mutation
     ga.initialize_population();
     NeuroNet::NeuroNet original_individual = template_net; // Use template as a base
     std::vector<float> original_weights = original_individual.get_all_weights_flat();
@@ -132,7 +132,7 @@ TEST_F(GeneticAlgorithmTest, Mutate) {
 }
 
 TEST_F(GeneticAlgorithmTest, Crossover) {
-    Optimization::GeneticAlgorithm ga(population_size, mutation_rate, 1.0, num_generations, template_net); // 100% crossover
+    Optimization::GeneticAlgorithm ga(population_size, mutation_rate, 1.0, template_net); // 100% crossover
     
     NeuroNet::NeuroNet parent1 = template_net;
     std::vector<float> p1_weights(template_net.get_all_weights_flat().size(), 1.0f); // All 1s
@@ -182,14 +182,14 @@ TEST_F(GeneticAlgorithmTest, RunEvolutionImprovesFitness) {
     // This test is probabilistic and might not always pass if the GA gets stuck
     // or if the problem/fitness function is too complex for few generations.
     // For a simple sum-of-weights fitness, we expect improvement.
-    Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, num_generations, template_net);
+    Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, template_net);
     
     ga.initialize_population();
     ga.evaluate_fitness(simple_fitness_function);
     NeuroNet::NeuroNet initial_best = ga.get_best_individual();
     double initial_best_fitness = simple_fitness_function(initial_best);
 
-    ga.run_evolution(simple_fitness_function);
+    ga.run_evolution(num_generations, simple_fitness_function);
 
     NeuroNet::NeuroNet final_best = ga.get_best_individual();
     double final_best_fitness = simple_fitness_function(final_best);
@@ -203,7 +203,7 @@ TEST_F(GeneticAlgorithmTest, RunEvolutionImprovesFitness) {
 }
 
 TEST_F(GeneticAlgorithmTest, GetBestIndividual) {
-    Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, 1, template_net);
+    Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, template_net);
     ga.initialize_population();
     // Manually create an individual that should be the best
     NeuroNet::NeuroNet clearly_best_net = template_net;
@@ -251,18 +251,13 @@ TEST_F(GeneticAlgorithmTest, GetBestIndividual) {
 #include "../src/utilities/json/json_exception.hpp"
 
 TEST_F(GeneticAlgorithmTest, ExportTrainingMetrics) {
-    Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, num_generations, template_net);
+    Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, template_net);
     
     const int generations_to_run = 2; // Keep it small for test speed
-    // Directly modify num_generations_ of the instance for this test
-    // This is a bit of a hack; ideally, GA would take generations as a run_evolution param or similar
-    // For now, we assume ga.num_generations_ can be set, or we rely on the fixture's num_generations
-    // For this test, let's assume the GA object itself is reconfigured or this test is specific to fixture's num_generations
-    // To make it explicit for the test:
-    Optimization::GeneticAlgorithm ga_test_instance(population_size, mutation_rate, crossover_rate, generations_to_run, template_net);
+    Optimization::GeneticAlgorithm ga_test_instance(population_size, mutation_rate, crossover_rate, template_net);
 
 
-    ga_test_instance.run_evolution(simple_fitness_function);
+    ga_test_instance.run_evolution(generations_to_run, simple_fitness_function);
 
     const std::string metrics_filename = "test_training_metrics_custom.json";
     ASSERT_NO_THROW(ga_test_instance.export_training_metrics_json(metrics_filename));

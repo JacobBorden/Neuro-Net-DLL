@@ -62,9 +62,9 @@ This section provides details on the core classes and data structures used in th
     *   **Crossover:** Selected parents are combined to produce "offspring." This involves exchanging genetic material (parts of their flattened weight and bias vectors) with a certain `crossover_rate`. The goal is to combine beneficial traits from different parents.
     *   **Mutation:** Each weight and bias in an offspring's network has a small chance (`mutation_rate`) of being randomly altered. This introduces new genetic variations into the population, helping to avoid premature convergence and explore more of the solution space.
 *   **Key Functionalities:**
-    *   Constructor `GeneticAlgorithm(...)`: Initializes the GA with parameters like population size, mutation rate, crossover rate, number of generations, and a `template_network` which defines the architecture of the individuals.
+    *   Constructor `GeneticAlgorithm(...)`: Initializes the GA with parameters like population size, mutation rate, crossover rate, and a `template_network` which defines the architecture of the individuals.
     *   `initialize_population()`: Creates the initial population of random `NeuroNet` individuals based on the template network.
-    *   `run_evolution(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function)`: Executes the main evolutionary loop for a specified number of generations. This involves repeated cycles of fitness evaluation, selection, crossover, and mutation.
+    *   `run_evolution(int num_generations, const std::function<double(NeuroNet::NeuroNet&)>& fitness_function)`: Executes the main evolutionary loop for a specified number of generations. This involves repeated cycles of fitness evaluation, selection, crossover, and mutation.
     *   `evolve_one_generation(...)`: Carries out a single step of the evolutionary process.
     *   `get_best_individual()`: After the evolution process, this function returns the `NeuroNet` individual that achieved the highest fitness score.
 *   **Source:** Defined in `src/optimization/genetic_algorithm.h`.
@@ -692,13 +692,12 @@ int main() {
         populationSize,
         mutationRate,
         crossoverRate,
-        numGenerations,
         templateNetwork // The configured template network
     );
 
     // d. Run Evolution
     std::cout << "Starting genetic algorithm evolution..." << std::endl;
-    ga.run_evolution(fitness_function);
+    ga.run_evolution(numGenerations, fitness_function);
     std::cout << "Evolution finished." << std::endl;
 
     // e. Get Best Individual
