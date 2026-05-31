@@ -35,7 +35,10 @@ namespace NeuroNet
 		ReLU,      ///< Rectified Linear Unit. Output is max(0, x).
 		LeakyReLU, ///< Leaky Rectified Linear Unit. Output is x if x > 0, otherwise alpha*x.
 		ELU,       ///< Exponential Linear Unit. Output is x if x > 0, otherwise alpha*(exp(x)-1).
-		Softmax    ///< Softmax function. Normalizes outputs to a probability distribution.
+		Softmax,   ///< Softmax function. Normalizes outputs to a probability distribution.
+		Sigmoid,   ///< Sigmoid function. Output is 1 / (1 + exp(-x)).
+		Tanh,      ///< Hyperbolic Tangent. Output is tanh(x).
+		Swish      ///< Swish function. Output is x * sigmoid(x).
 	};
 
 	/**
@@ -220,6 +223,27 @@ namespace NeuroNet
     Matrix::Matrix<float> DerivativeSoftmax(const Matrix::Matrix<float>& activated_output) const;
 
     /**
+     * @brief Computes the element-wise derivative of the Sigmoid activation function.
+     * @param activated_output The matrix of outputs after Sigmoid activation was applied.
+     * @return Matrix::Matrix<float> A matrix containing the derivatives.
+     */
+    Matrix::Matrix<float> DerivativeSigmoid(const Matrix::Matrix<float>& activated_output) const;
+
+    /**
+     * @brief Computes the element-wise derivative of the Tanh activation function.
+     * @param activated_output The matrix of outputs after Tanh activation was applied.
+     * @return Matrix::Matrix<float> A matrix containing the derivatives.
+     */
+    Matrix::Matrix<float> DerivativeTanh(const Matrix::Matrix<float>& activated_output) const;
+
+    /**
+     * @brief Computes the element-wise derivative of the Swish activation function.
+     * @param activated_output The matrix of outputs after Swish activation was applied.
+     * @return Matrix::Matrix<float> A matrix containing the derivatives.
+     */
+    Matrix::Matrix<float> DerivativeSwish(const Matrix::Matrix<float>& activated_output) const;
+
+    /**
      * @brief Performs the backward pass for this layer.
      *
      * Calculates the gradients of the loss with respect to the layer's weights (dLdW),
@@ -315,6 +339,24 @@ namespace NeuroNet
      * @return Matrix::Matrix<float> The matrix after applying Softmax.
      */
     Matrix::Matrix<float> ApplySoftmax(const Matrix::Matrix<float>& input);
+    /**
+     * @brief Applies the Sigmoid activation function element-wise to the input matrix.
+     * @param input The matrix resulting from the linear transformation (Wx + b).
+     * @return Matrix::Matrix<float> The matrix after applying Sigmoid.
+     */
+    Matrix::Matrix<float> ApplySigmoid(const Matrix::Matrix<float>& input);
+    /**
+     * @brief Applies the Tanh activation function element-wise to the input matrix.
+     * @param input The matrix resulting from the linear transformation (Wx + b).
+     * @return Matrix::Matrix<float> The matrix after applying Tanh.
+     */
+    Matrix::Matrix<float> ApplyTanh(const Matrix::Matrix<float>& input);
+    /**
+     * @brief Applies the Swish activation function element-wise to the input matrix.
+     * @param input The matrix resulting from the linear transformation (Wx + b).
+     * @return Matrix::Matrix<float> The matrix after applying Swish.
+     */
+    Matrix::Matrix<float> ApplySwish(const Matrix::Matrix<float>& input);
 	};
 
 	/**

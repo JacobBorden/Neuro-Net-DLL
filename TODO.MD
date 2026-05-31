@@ -1,6 +1,6 @@
 # TODO
 
-- [ ] Add more activation functions (e.g., Sigmoid, Tanh, Swish).
+- [x] Add more activation functions (e.g., Sigmoid, Tanh, Swish).
 - [ ] Implement Backpropagation algorithm as an alternative to Genetic Algorithm for training.
 - [ ] Add support for Convolutional Neural Networks (CNNs).
 - [ ] Add support for Recurrent Neural Networks (RNNs) / LSTMs.

@@ -82,6 +82,9 @@ std::string NeuroNet::NeuroNetLayer::get_activation_function_name() const {
         case ActivationFunctionType::LeakyReLU: return "LeakyReLU";
         case ActivationFunctionType::ELU: return "ELU";
         case ActivationFunctionType::Softmax: return "Softmax";
+        case ActivationFunctionType::Sigmoid: return "Sigmoid";
+        case ActivationFunctionType::Tanh: return "Tanh";
+        case ActivationFunctionType::Swish: return "Swish";
         default: return "Unknown";
     }
 }
@@ -298,13 +301,16 @@ NeuroNet::ActivationFunctionType NeuroNet::NeuroNetLayer::activation_type_from_s
     if (name == "LeakyReLU") return ActivationFunctionType::LeakyReLU;
     if (name == "ELU") return ActivationFunctionType::ELU;
     if (name == "Softmax") return ActivationFunctionType::Softmax;
+    if (name == "Sigmoid") return ActivationFunctionType::Sigmoid;
+    if (name == "Tanh") return ActivationFunctionType::Tanh;
+    if (name == "Swish") return ActivationFunctionType::Swish;
     throw std::invalid_argument("Unknown activation function name: " + name);
 }
 
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyReLU(const Matrix::Matrix<float>& input) {
     Matrix::Matrix<float> output = input; // Make a copy
-    for (int i = 0; i < output.rows(); ++i) {
-        for (int j = 0; j < output.cols(); ++j) {
+    for (size_t i = 0; i < output.rows(); ++i) {
+        for (size_t j = 0; j < output.cols(); ++j) {
             output[i][j] = std::max(0.0f, output[i][j]);
         }
     }
@@ -314,8 +320,8 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyReLU(const Matrix::Matrix<fl
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyLeakyReLU(const Matrix::Matrix<float>& input) {
     Matrix::Matrix<float> output = input; // Make a copy
     const float alpha = 0.01f;
-    for (int i = 0; i < output.rows(); ++i) {
-        for (int j = 0; j < output.cols(); ++j) {
+    for (size_t i = 0; i < output.rows(); ++i) {
+        for (size_t j = 0; j < output.cols(); ++j) {
             if (output[i][j] < 0) {
                 output[i][j] = alpha * output[i][j];
             }
@@ -327,8 +333,8 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyLeakyReLU(const Matrix::Matr
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyELU(const Matrix::Matrix<float>& input) {
     Matrix::Matrix<float> output = input; // Make a copy
     const float alpha = 1.0f;
-    for (int i = 0; i < output.rows(); ++i) {
-        for (int j = 0; j < output.cols(); ++j) {
+    for (size_t i = 0; i < output.rows(); ++i) {
+        for (size_t j = 0; j < output.cols(); ++j) {
             if (output[i][j] < 0) {
                 output[i][j] = alpha * (std::exp(output[i][j]) - 1.0f);
             }
@@ -339,8 +345,8 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyELU(const Matrix::Matrix<flo
 
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeReLU(const Matrix::Matrix<float>& activated_output) const {
     Matrix::Matrix<float> derivative = activated_output; // Copy dimensions and initial values
-    for (int i = 0; i < derivative.rows(); ++i) {
-        for (int j = 0; j < derivative.cols(); ++j) {
+    for (size_t i = 0; i < derivative.rows(); ++i) {
+        for (size_t j = 0; j < derivative.cols(); ++j) {
             derivative[i][j] = (activated_output[i][j] > 0.0f) ? 1.0f : 0.0f;
         }
     }
@@ -350,8 +356,8 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeReLU(const Matrix::Matr
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeLeakyReLU(const Matrix::Matrix<float>& activated_output) const {
     Matrix::Matrix<float> derivative = activated_output; // Copy dimensions and initial values
     const float alpha = 0.01f; // Ensure this matches the alpha in ApplyLeakyReLU
-    for (int i = 0; i < derivative.rows(); ++i) {
-        for (int j = 0; j < derivative.cols(); ++j) {
+    for (size_t i = 0; i < derivative.rows(); ++i) {
+        for (size_t j = 0; j < derivative.cols(); ++j) {
             derivative[i][j] = (activated_output[i][j] > 0.0f) ? 1.0f : alpha;
         }
     }
@@ -361,8 +367,8 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeLeakyReLU(const Matrix:
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeELU(const Matrix::Matrix<float>& activated_output) const {
     Matrix::Matrix<float> derivative = activated_output; // Copy dimensions and initial values
     const float alpha = 1.0f; // Ensure this matches the alpha in ApplyELU
-    for (int i = 0; i < derivative.rows(); ++i) {
-        for (int j = 0; j < derivative.cols(); ++j) {
+    for (size_t i = 0; i < derivative.rows(); ++i) {
+        for (size_t j = 0; j < derivative.cols(); ++j) {
             if (activated_output[i][j] > 0.0f) {
                 derivative[i][j] = 1.0f;
             } else {
@@ -378,8 +384,8 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeELU(const Matrix::Matri
 // This is the diagonal of the Jacobian dS/dZ, commonly used with Cross-Entropy loss.
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeSoftmax(const Matrix::Matrix<float>& activated_output) const {
     Matrix::Matrix<float> derivative = activated_output; // Copy dimensions and initial values
-    for (int i = 0; i < derivative.rows(); ++i) {
-        for (int j = 0; j < derivative.cols(); ++j) {
+    for (size_t i = 0; i < derivative.rows(); ++i) {
+        for (size_t j = 0; j < derivative.cols(); ++j) {
             float s_ij = activated_output[i][j];
             derivative[i][j] = s_ij * (1.0f - s_ij);
         }
@@ -416,6 +422,15 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::BackwardPass(const Matrix::Matrix
         case ActivationFunctionType::ELU:
             dAdZ = DerivativeELU(this->OutputMatrix);
             break;
+        case ActivationFunctionType::Sigmoid:
+            dAdZ = DerivativeSigmoid(this->OutputMatrix);
+            break;
+        case ActivationFunctionType::Tanh:
+            dAdZ = DerivativeTanh(this->OutputMatrix);
+            break;
+        case ActivationFunctionType::Swish:
+            dAdZ = DerivativeSwish(this->OutputMatrix);
+            break;
         case ActivationFunctionType::Softmax:
             if (is_last_layer) {
                 // For Softmax with Cross-Entropy loss on the last layer, dL/dZ = A - Y (output - target).
@@ -447,12 +462,12 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::BackwardPass(const Matrix::Matrix
     if (this->vActivationFunction == ActivationFunctionType::Softmax && !is_last_layer) {
         // Compute dLdZ directly using the Softmax Jacobian:
         // dL/dZ_i = S_i * (dL/dA_i - sum_j (dL/dA_j * S_j))
-        for (int i = 0; i < dLdZ.rows(); ++i) {
+        for (size_t i = 0; i < dLdZ.rows(); ++i) {
             float sum_da_s = 0.0f;
-            for (int j = 0; j < dLdZ.cols(); ++j) {
+            for (size_t j = 0; j < dLdZ.cols(); ++j) {
                 sum_da_s += dLdOutput[i][j] * this->OutputMatrix[i][j];
             }
-            for (int j = 0; j < dLdZ.cols(); ++j) {
+            for (size_t j = 0; j < dLdZ.cols(); ++j) {
                 dLdZ[i][j] = this->OutputMatrix[i][j] * (dLdOutput[i][j] - sum_da_s);
             }
         }
@@ -464,8 +479,8 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::BackwardPass(const Matrix::Matrix
                                      "dLdOutput: (" + std::to_string(dLdOutput.rows()) + "," + std::to_string(dLdOutput.cols()) + ") "
                                      "dAdZ: (" + std::to_string(dAdZ.rows()) + "," + std::to_string(dAdZ.cols()) + ")");
         }
-        for (int i = 0; i < dLdZ.rows(); ++i) {
-            for (int j = 0; j < dLdZ.cols(); ++j) {
+        for (size_t i = 0; i < dLdZ.rows(); ++i) {
+            for (size_t j = 0; j < dLdZ.cols(); ++j) {
                 dLdZ[i][j] = dLdOutput[i][j] * dAdZ[i][j];
             }
         }
@@ -505,6 +520,74 @@ int NeuroNet::NeuroNetLayer::get_input_size() const {
     return this->InputSize;
 }
 
+Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplySigmoid(const Matrix::Matrix<float>& input) {
+    Matrix::Matrix<float> output = input;
+    for (size_t i = 0; i < output.rows(); ++i) {
+        for (size_t j = 0; j < output.cols(); ++j) {
+            output[i][j] = 1.0f / (1.0f + std::exp(-output[i][j]));
+        }
+    }
+    return output;
+}
+
+Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyTanh(const Matrix::Matrix<float>& input) {
+    Matrix::Matrix<float> output = input;
+    for (size_t i = 0; i < output.rows(); ++i) {
+        for (size_t j = 0; j < output.cols(); ++j) {
+            output[i][j] = std::tanh(output[i][j]);
+        }
+    }
+    return output;
+}
+
+Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplySwish(const Matrix::Matrix<float>& input) {
+    Matrix::Matrix<float> output = input;
+    for (size_t i = 0; i < output.rows(); ++i) {
+        for (size_t j = 0; j < output.cols(); ++j) {
+            output[i][j] = output[i][j] * (1.0f / (1.0f + std::exp(-output[i][j])));
+        }
+    }
+    return output;
+}
+
+Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeSigmoid(const Matrix::Matrix<float>& activated_output) const {
+    Matrix::Matrix<float> derivative = activated_output;
+    for (size_t i = 0; i < derivative.rows(); ++i) {
+        for (size_t j = 0; j < derivative.cols(); ++j) {
+            float sigmoid_val = activated_output[i][j];
+            derivative[i][j] = sigmoid_val * (1.0f - sigmoid_val);
+        }
+    }
+    return derivative;
+}
+
+Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeTanh(const Matrix::Matrix<float>& activated_output) const {
+    Matrix::Matrix<float> derivative = activated_output;
+    for (size_t i = 0; i < derivative.rows(); ++i) {
+        for (size_t j = 0; j < derivative.cols(); ++j) {
+            float tanh_val = activated_output[i][j];
+            derivative[i][j] = 1.0f - (tanh_val * tanh_val);
+        }
+    }
+    return derivative;
+}
+
+Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeSwish(const Matrix::Matrix<float>& activated_output) const {
+    // For Swish, f'(x) = f(x) + sigmoid(x) * (1 - f(x))
+    // To compute sigmoid(x), we'd ideally need pre-activation x.
+    // However, we can reconstruct the pre-activation Z matrix here since we have InputMatrix, WeightMatrix, BiasMatrix.
+    Matrix::Matrix<float> Z = (this->InputMatrix * this->WeightMatrix) + this->BiasMatrix;
+    Matrix::Matrix<float> derivative = activated_output;
+    for (size_t i = 0; i < derivative.rows(); ++i) {
+        for (size_t j = 0; j < derivative.cols(); ++j) {
+            float f_x = activated_output[i][j];
+            float sig_x = 1.0f / (1.0f + std::exp(-Z[i][j]));
+            derivative[i][j] = f_x + sig_x * (1.0f - f_x);
+        }
+    }
+    return derivative;
+}
+
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplySoftmax(const Matrix::Matrix<float>& input) {
     Matrix::Matrix<float> output = input; // Make a copy
     float sum_exp = 0.0f;
@@ -516,14 +599,14 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplySoftmax(const Matrix::Matrix
         // this logic would need to be adjusted. For now, it processes a single output vector.
     }
 
-    for (int j = 0; j < output.cols(); ++j) {
+    for (size_t j = 0; j < output.cols(); ++j) {
         output[0][j] = std::exp(output[0][j]);
         sum_exp += output[0][j];
     }
 
     // Normalize
     if (sum_exp != 0.0f) { // Avoid division by zero
-        for (int j = 0; j < output.cols(); ++j) {
+        for (size_t j = 0; j < output.cols(); ++j) {
             output[0][j] /= sum_exp;
         }
     }
@@ -568,6 +651,15 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::CalculateOutput() {
             break;
         case ActivationFunctionType::Softmax:
             this->OutputMatrix = ApplySoftmax(this->OutputMatrix);
+            break;
+        case ActivationFunctionType::Sigmoid:
+            this->OutputMatrix = ApplySigmoid(this->OutputMatrix);
+            break;
+        case ActivationFunctionType::Tanh:
+            this->OutputMatrix = ApplyTanh(this->OutputMatrix);
+            break;
+        case ActivationFunctionType::Swish:
+            this->OutputMatrix = ApplySwish(this->OutputMatrix);
             break;
         case ActivationFunctionType::None:
             // No activation function applied, do nothing.
@@ -989,8 +1081,8 @@ bool NeuroNet::NeuroNetLayer::SetWeights(LayerWeights pWeights) {
 	// Or, more directly, the Matrix class might handle this if it can be constructed from a flat vector.
 	// Here, we map it assuming WeightMatrix is InputSize x vLayerSize.
 	int k = 0; // Index for the flat WeightsVector.
-	for (int i = 0; i < this->WeightMatrix.rows(); i++) { // Iterating through rows (inputs)
-		for (int j = 0; j < this->WeightMatrix.cols(); j++) { // Iterating through columns (neurons)
+	for (size_t i = 0; i < this->WeightMatrix.rows(); i++) { // Iterating through rows (inputs)
+		for (size_t j = 0; j < this->WeightMatrix.cols(); j++) { // Iterating through columns (neurons)
 			if (k < this->Weights.WeightCount) {
 				this->WeightMatrix[i][j] = this->Weights.WeightsVector[k];
 				k++;
@@ -1305,8 +1397,8 @@ bool NeuroNet::NeuroNetLayer::SetBiases(LayerBiases pBiases) {
 	// Populate the internal BiasMatrix from the BiasVector.
 	// BiasMatrix is 1 x vLayerSize.
 	int k = 0; // Index for the flat BiasVector.
-	for (int i = 0; i < this->BiasMatrix.rows(); i++) { // Should only be 1 row.
-		for (int j = 0; j < this->BiasMatrix.cols(); j++) { // Iterating through columns (neurons)
+	for (size_t i = 0; i < this->BiasMatrix.rows(); i++) { // Should only be 1 row.
+		for (size_t j = 0; j < this->BiasMatrix.cols(); j++) { // Iterating through columns (neurons)
 			if (k < this->Biases.BiasCount) {
 				this->BiasMatrix[i][j] = this->Biases.BiasVector[k];
 				k++;
@@ -1448,7 +1540,7 @@ NeuroNet::LayerWeights NeuroNet::NeuroNetLayer::get_weights() const {
     LayerWeights current_weights_struct;
     // Use the WeightCount already stored in this->Weights, which ResizeLayer correctly sets.
     current_weights_struct.WeightCount = this->Weights.WeightCount; 
-    if (this->WeightMatrix.rows() * this->WeightMatrix.cols() != current_weights_struct.WeightCount) {
+    if ((int)(this->WeightMatrix.rows() * this->WeightMatrix.cols()) != current_weights_struct.WeightCount) {
         // Optional: Add error handling or log if counts mismatch,
         // but this->Weights.WeightCount should be authoritative if ResizeLayer is always used.
     }
@@ -1456,8 +1548,8 @@ NeuroNet::LayerWeights NeuroNet::NeuroNetLayer::get_weights() const {
     current_weights_struct.WeightsVector.clear(); // Ensure vector is empty before filling
     current_weights_struct.WeightsVector.reserve(current_weights_struct.WeightCount);
 
-    for (int i = 0; i < this->WeightMatrix.rows(); ++i) {
-        for (int j = 0; j < this->WeightMatrix.cols(); ++j) {
+    for (size_t i = 0; i < this->WeightMatrix.rows(); ++i) {
+        for (size_t j = 0; j < this->WeightMatrix.cols(); ++j) {
             current_weights_struct.WeightsVector.push_back(this->WeightMatrix[i][j]);
         }
     }
@@ -1468,7 +1560,7 @@ NeuroNet::LayerBiases NeuroNet::NeuroNetLayer::get_biases() const {
     LayerBiases current_biases_struct;
     // Use the BiasCount already stored in this->Biases, which ResizeLayer correctly sets.
     current_biases_struct.BiasCount = this->Biases.BiasCount;
-    if (this->BiasMatrix.cols() != current_biases_struct.BiasCount && this->BiasMatrix.rows() == 1) {
+    if ((int)this->BiasMatrix.cols() != current_biases_struct.BiasCount && this->BiasMatrix.rows() == 1) {
          // Optional: Add error handling or log if counts mismatch
     }
 
@@ -1476,7 +1568,7 @@ NeuroNet::LayerBiases NeuroNet::NeuroNetLayer::get_biases() const {
     current_biases_struct.BiasVector.reserve(current_biases_struct.BiasCount);
 
     // BiasMatrix is 1xN (1 row, N columns where N is number of neurons/biases)
-    for (int j = 0; j < this->BiasMatrix.cols(); ++j) {
+    for (size_t j = 0; j < this->BiasMatrix.cols(); ++j) {
         current_biases_struct.BiasVector.push_back(this->BiasMatrix[0][j]);
     }
     return current_biases_struct;
