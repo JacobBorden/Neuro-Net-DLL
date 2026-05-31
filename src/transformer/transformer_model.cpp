@@ -181,29 +181,38 @@ static void cleanup_serialized_matrix_json(JsonValue& matrix_json) {
 }
 
 
+
+// Helper function to insert a number into a JsonValue object
+static void insert_number_into_json(JsonValue& obj, const std::string& key, double value) {
+    JsonValue* val = new JsonValue();
+    val->SetNumber(value);
+    obj.InsertIntoObject(key, val);
+}
+
+// Helper function to serialize a matrix and insert it into a JsonValue object
+static void insert_matrix_into_json(JsonValue& obj, const std::string& key, const Matrix::Matrix<float>& matrix) {
+    JsonValue matrix_json = serialize_matrix_to_json(matrix);
+    JsonValue* matrix_ptr = new JsonValue(matrix_json);
+    obj.InsertIntoObject(key, matrix_ptr);
+}
+
 bool TransformerModel::save_model(const std::string& filename) const { // Fixed std::string
     JsonValue root;
     root.SetObject();
 
     // Save hyperparameters
-    JsonValue* vs_val = new JsonValue(); vs_val->SetNumber(vocab_size_); root.InsertIntoObject("vocab_size", vs_val);
-    JsonValue* msl_val = new JsonValue(); msl_val->SetNumber(max_seq_len_); root.InsertIntoObject("max_seq_len", msl_val);
-    JsonValue* dm_val = new JsonValue(); dm_val->SetNumber(d_model_); root.InsertIntoObject("d_model", dm_val);
-    JsonValue* nel_val = new JsonValue(); nel_val->SetNumber(num_encoder_layers_); root.InsertIntoObject("num_encoder_layers", nel_val);
-    JsonValue* nh_val = new JsonValue(); nh_val->SetNumber(num_heads_); root.InsertIntoObject("num_heads", nh_val);
-    JsonValue* dff_val = new JsonValue(); dff_val->SetNumber(d_ff_); root.InsertIntoObject("d_ff", dff_val);
-    JsonValue* mha_do_val = new JsonValue(); mha_do_val->SetNumber(MHA_dropout_rate_); root.InsertIntoObject("MHA_dropout_rate", mha_do_val);
-    JsonValue* ffn_do_val = new JsonValue(); ffn_do_val->SetNumber(FFN_dropout_rate_); root.InsertIntoObject("FFN_dropout_rate", ffn_do_val);
-    JsonValue* lne_val = new JsonValue(); lne_val->SetNumber(layer_norm_epsilon_); root.InsertIntoObject("layer_norm_epsilon", lne_val);
+    insert_number_into_json(root, "vocab_size", vocab_size_);
+    insert_number_into_json(root, "max_seq_len", max_seq_len_);
+    insert_number_into_json(root, "d_model", d_model_);
+    insert_number_into_json(root, "num_encoder_layers", num_encoder_layers_);
+    insert_number_into_json(root, "num_heads", num_heads_);
+    insert_number_into_json(root, "d_ff", d_ff_);
+    insert_number_into_json(root, "MHA_dropout_rate", MHA_dropout_rate_);
+    insert_number_into_json(root, "FFN_dropout_rate", FFN_dropout_rate_);
+    insert_number_into_json(root, "layer_norm_epsilon", layer_norm_epsilon_);
 
     // Save EmbeddingLayer weights
-    // Need to use a JsonValue* for the object that serialize_matrix_to_json returns, then cleanup.
-    JsonValue embedding_weights_json_obj = serialize_matrix_to_json(embedding_layer_.get_weights());
-    JsonValue* embedding_weights_json_ptr = new JsonValue(embedding_weights_json_obj); // Copy constructor
-    root.InsertIntoObject("embedding_weights", embedding_weights_json_ptr);
-    // No need to call cleanup_serialized_matrix_json on embedding_weights_json_obj as its members were copied.
-    // The pointers within embedding_weights_json_ptr will be cleaned up at the end.
-
+    insert_matrix_into_json(root, "embedding_weights", embedding_layer_.get_weights());
 
     // Save EncoderLayers weights
     JsonValue* encoder_layers_array_val = new JsonValue();
@@ -213,38 +222,16 @@ bool TransformerModel::save_model(const std::string& filename) const { // Fixed 
         encoder_layer_json.SetObject();
 
         // MHA weights
-        JsonValue mha_wq_json = serialize_matrix_to_json(layer.get_multi_head_attention_module().get_wq());
-        JsonValue* mha_wq_ptr = new JsonValue(mha_wq_json);
-        encoder_layer_json.InsertIntoObject("mha_Wq", mha_wq_ptr);
-
-        JsonValue mha_wk_json = serialize_matrix_to_json(layer.get_multi_head_attention_module().get_wk());
-        JsonValue* mha_wk_ptr = new JsonValue(mha_wk_json);
-        encoder_layer_json.InsertIntoObject("mha_Wk", mha_wk_ptr);
-
-        JsonValue mha_wv_json = serialize_matrix_to_json(layer.get_multi_head_attention_module().get_wv());
-        JsonValue* mha_wv_ptr = new JsonValue(mha_wv_json);
-        encoder_layer_json.InsertIntoObject("mha_Wv", mha_wv_ptr);
-
-        JsonValue mha_wo_json = serialize_matrix_to_json(layer.get_multi_head_attention_module().get_wo());
-        JsonValue* mha_wo_ptr = new JsonValue(mha_wo_json);
-        encoder_layer_json.InsertIntoObject("mha_Wo", mha_wo_ptr);
+        insert_matrix_into_json(encoder_layer_json, "mha_Wq", layer.get_multi_head_attention_module().get_wq());
+        insert_matrix_into_json(encoder_layer_json, "mha_Wk", layer.get_multi_head_attention_module().get_wk());
+        insert_matrix_into_json(encoder_layer_json, "mha_Wv", layer.get_multi_head_attention_module().get_wv());
+        insert_matrix_into_json(encoder_layer_json, "mha_Wo", layer.get_multi_head_attention_module().get_wo());
 
         // FFN weights
-        JsonValue ffn_w1_json = serialize_matrix_to_json(layer.get_ffn_module().get_W1());
-        JsonValue* ffn_w1_ptr = new JsonValue(ffn_w1_json);
-        encoder_layer_json.InsertIntoObject("ffn_W1", ffn_w1_ptr);
-
-        JsonValue ffn_b1_json = serialize_matrix_to_json(layer.get_ffn_module().get_b1());
-        JsonValue* ffn_b1_ptr = new JsonValue(ffn_b1_json);
-        encoder_layer_json.InsertIntoObject("ffn_b1", ffn_b1_ptr);
-
-        JsonValue ffn_w2_json = serialize_matrix_to_json(layer.get_ffn_module().get_W2());
-        JsonValue* ffn_w2_ptr = new JsonValue(ffn_w2_json);
-        encoder_layer_json.InsertIntoObject("ffn_W2", ffn_w2_ptr);
-
-        JsonValue ffn_b2_json = serialize_matrix_to_json(layer.get_ffn_module().get_b2());
-        JsonValue* ffn_b2_ptr = new JsonValue(ffn_b2_json);
-        encoder_layer_json.InsertIntoObject("ffn_b2", ffn_b2_ptr);
+        insert_matrix_into_json(encoder_layer_json, "ffn_W1", layer.get_ffn_module().get_W1());
+        insert_matrix_into_json(encoder_layer_json, "ffn_b1", layer.get_ffn_module().get_b1());
+        insert_matrix_into_json(encoder_layer_json, "ffn_W2", layer.get_ffn_module().get_W2());
+        insert_matrix_into_json(encoder_layer_json, "ffn_b2", layer.get_ffn_module().get_b2());
 
         encoder_layers_array_val->GetArray().push_back(encoder_layer_json); // Pushes a copy
     }
@@ -275,11 +262,6 @@ bool TransformerModel::save_model(const std::string& filename) const { // Fixed 
     ofs.close();
 
     // Cleanup allocated JsonValues
-    // This is tricky with the custom library. The JsonValue objects pointed to by the map in 'root'
-    // and nested objects/arrays need their own pointed-to members deleted if they were also objects/arrays.
-    // The serialize_matrix_to_json creates JsonValue that owns its internal pointers.
-    // When we do `new JsonValue(mha_wq_json)`, the new JsonValue copies mha_wq_json.
-    // The map in `root` and `encoder_layer_json` now store these `new JsonValue*`.
     for (auto& pair : root.GetObject()) { // Top-level properties of root
         if (pair.first == "encoder_layers_weights") {
             JsonValue* layers_array = pair.second; // This is the JsonValue* for the array itself
@@ -288,7 +270,6 @@ bool TransformerModel::save_model(const std::string& filename) const { // Fixed 
                     cleanup_serialized_matrix_json(*layer_prop_pair.second); // Cleanup matrix object's internal JsonValue*s
                     delete layer_prop_pair.second; // Delete the JsonValue* for the matrix object itself
                 }
-                // layer_val_obj.GetObject().clear(); // Not strictly needed as layer_val_obj is a copy
             }
         } else if (pair.first == "embedding_weights") {
              cleanup_serialized_matrix_json(*pair.second); // Cleanup matrix object's internals
