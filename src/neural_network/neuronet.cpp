@@ -1008,18 +1008,13 @@ bool NeuroNet::NeuroNet::save_model(const std::string& filename) const
 
 	// 3. Write to file
 	std::ofstream ofs(filename);
+	bool success = true;
 	if (!ofs.is_open()) {
-        // NOTE: Potential memory leak here if we return early, as dynamically allocated
-        // JsonValue objects (via new in SetJsonNumber, CreateJsonObjectInObject, etc.)
-        // are not cleaned up by this function. A robust solution would require
-        // a RAII wrapper or a recursive deletion function for the JsonValue structure
-        // if an error occurs after allocations have begun.
-		return false; 
+		success = false;
+	} else {
+		ofs << root.ToString(); // Use the ToString method from custom JsonValue
+		ofs.close();
 	}
-	
-    ofs << root.ToString(); // Use the ToString method from custom JsonValue
-	
-	ofs.close();
 
     // IMPORTANT: Clean up dynamically allocated JsonValue objects.
     // The custom JsonValue::object_value stores JsonValue*. These were allocated with 'new'.
@@ -1048,7 +1043,7 @@ bool NeuroNet::NeuroNet::save_model(const std::string& filename) const
         delete pair.second; // Delete JsonValue* for top-level keys like "input_size", "layer_count", "layers" array itself, "vocabulary_config" object itself
     }
     root.GetObject().clear(); // Clear the map in root to remove dangling pointers
-	return true;
+	return success;
 }
 
 int NeuroNet::NeuroNetLayer::WeightCount() {
