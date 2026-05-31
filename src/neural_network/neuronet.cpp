@@ -955,6 +955,11 @@ static void deserialize_layer(NeuroNet::NeuroNet& model, const JsonValue& layer_
 
 NeuroNet::NeuroNet NeuroNet::NeuroNet::load_model(const std::string& filename)
 {
+	if (filename.find("..") != std::string::npos ||
+	    (!filename.empty() && (filename[0] == '/' || filename[0] == '\\' || (filename.length() > 1 && filename[1] == ':')))) {
+		throw std::runtime_error("Invalid filename: Path traversal and absolute paths are not allowed.");
+	}
+
 	std::ifstream ifs(filename);
 	if (!ifs.is_open()) {
 		throw std::runtime_error("Failed to open model file: " + filename);
