@@ -192,7 +192,7 @@ std::function<double(NeuroNet::NeuroNet&)> xor_fitness_function =
 };
 
 
-int main() {
+void run_ga_xor_example() {
     std::cout << "Starting NeuroNet Genetic Algorithm XOR Example..." << std::endl;
 
     // 1. Define NeuroNet Structure
@@ -439,6 +439,11 @@ int main() {
     }
 
     std::cout << "\nExample finished." << std::endl;
+}
+
+int main() {
+    // Run the GA XOR example
+    run_ga_xor_example();
 
     // Run the A* pathfinding example
     run_astar_pathfinding_example();
