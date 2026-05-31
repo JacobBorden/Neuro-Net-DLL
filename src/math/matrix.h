@@ -1053,7 +1053,9 @@ namespace Matrix
         // `i` is the loop control variable for the parallel for.
         // `k`, `j`, and `sum` are declared inside the scope of the `i` loop,
         // making them private to each iteration of the outer loop, and thus to each thread handling an `i`.
-		//#pragma omp parallel for
+#ifdef _OPENMP
+		#pragma omp parallel for
+#endif
 		for (size_t i = 0; i < m_Rows; i++) {
 			for (size_t k = 0; k < b.m_Cols; k++) { // Iterate over columns of b (which is cols of c)
                 T sum = T(0); // Initialize sum for c[i][k]
