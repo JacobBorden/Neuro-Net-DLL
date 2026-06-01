@@ -1055,12 +1055,14 @@ namespace Matrix
         // making them private to each iteration of the outer loop, and thus to each thread handling an `i`.
 		#pragma omp parallel for
 		for (size_t i = 0; i < m_Rows; i++) {
-			for (size_t k = 0; k < b.m_Cols; k++) { // Iterate over columns of b (which is cols of c)
-                T sum = T(0); // Initialize sum for c[i][k]
-				for (size_t j = 0; j < m_Cols; j++) { // Iterate over columns of a / rows of b
-					sum += m_Data[i][j] * b.m_Data[j][k];
+            T* c_row = &c.m_Data[i][0];
+			for (size_t k = 0; k < m_Cols; k++) {
+                T a_val = m_Data[i][k];
+                const T* b_row = &b.m_Data[k][0];
+                #pragma omp simd
+				for (size_t j = 0; j < b.m_Cols; j++) {
+					c_row[j] += a_val * b_row[j];
 				}
-                c.m_Data[i][k] = sum; // Each thread writes to a different c.m_Data[i] row part
             }
         }
 
