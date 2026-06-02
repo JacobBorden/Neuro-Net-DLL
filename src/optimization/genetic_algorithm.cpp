@@ -472,17 +472,7 @@ void Optimization::GeneticAlgorithm::run_evolution(const std::function<double(Ne
     current_generation_ = 0; // Ensure generation count starts from 0 for the loop.
 
     // Record start time
-    auto now = std::chrono::system_clock::now();
-    auto in_time_t = std::chrono::system_clock::to_time_t(now);
-    std::tm buf;
-#ifdef _WIN32
-    localtime_s(&buf, &in_time_t);
-#else
-    localtime_r(&in_time_t, &buf);
-#endif
-    std::ostringstream ss_start;
-    ss_start << std::put_time(&buf, "%Y-%m-%dT%H:%M:%S%z");
-    current_run_metrics_.start_time = ss_start.str();
+    current_run_metrics_.start_time = utilities::get_current_time_string();
 
     current_run_metrics_.total_generations = num_generations_;
     current_run_metrics_.generation_data.clear(); // Clear any data from previous runs
@@ -498,16 +488,7 @@ void Optimization::GeneticAlgorithm::run_evolution(const std::function<double(Ne
     }
 
     // Record end time
-    now = std::chrono::system_clock::now();
-    in_time_t = std::chrono::system_clock::to_time_t(now);
-#ifdef _WIN32
-    localtime_s(&buf, &in_time_t);
-#else
-    localtime_r(&in_time_t, &buf);
-#endif
-    std::ostringstream ss_end;
-    ss_end << std::put_time(&buf, "%Y-%m-%dT%H:%M:%S%z");
-    current_run_metrics_.end_time = ss_end.str();
+    current_run_metrics_.end_time = utilities::get_current_time_string();
 
     // Store best model architecture and overall fitness
     if (this->best_individual_.getLayerCount() > 0) { 
