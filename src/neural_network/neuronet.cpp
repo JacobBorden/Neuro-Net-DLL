@@ -309,6 +309,9 @@ NeuroNet::ActivationFunctionType NeuroNet::NeuroNetLayer::activation_type_from_s
 
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyReLU(const Matrix::Matrix<float>& input) {
     Matrix::Matrix<float> output = input; // Make a copy
+    #ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+    #endif
     for (size_t i = 0; i < output.rows(); ++i) {
         for (size_t j = 0; j < output.cols(); ++j) {
             output[i][j] = std::max(0.0f, output[i][j]);
@@ -320,6 +323,9 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyReLU(const Matrix::Matrix<fl
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyLeakyReLU(const Matrix::Matrix<float>& input) {
     Matrix::Matrix<float> output = input; // Make a copy
     const float alpha = 0.01f;
+    #ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+    #endif
     for (size_t i = 0; i < output.rows(); ++i) {
         for (size_t j = 0; j < output.cols(); ++j) {
             if (output[i][j] < 0) {
@@ -333,6 +339,9 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyLeakyReLU(const Matrix::Matr
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyELU(const Matrix::Matrix<float>& input) {
     Matrix::Matrix<float> output = input; // Make a copy
     const float alpha = 1.0f;
+    #ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+    #endif
     for (size_t i = 0; i < output.rows(); ++i) {
         for (size_t j = 0; j < output.cols(); ++j) {
             if (output[i][j] < 0) {
@@ -345,6 +354,9 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyELU(const Matrix::Matrix<flo
 
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeReLU(const Matrix::Matrix<float>& activated_output) const {
     Matrix::Matrix<float> derivative = activated_output; // Copy dimensions and initial values
+    #ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+    #endif
     for (size_t i = 0; i < derivative.rows(); ++i) {
         for (size_t j = 0; j < derivative.cols(); ++j) {
             derivative[i][j] = (activated_output[i][j] > 0.0f) ? 1.0f : 0.0f;
@@ -356,6 +368,9 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeReLU(const Matrix::Matr
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeLeakyReLU(const Matrix::Matrix<float>& activated_output) const {
     Matrix::Matrix<float> derivative = activated_output; // Copy dimensions and initial values
     const float alpha = 0.01f; // Ensure this matches the alpha in ApplyLeakyReLU
+    #ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+    #endif
     for (size_t i = 0; i < derivative.rows(); ++i) {
         for (size_t j = 0; j < derivative.cols(); ++j) {
             derivative[i][j] = (activated_output[i][j] > 0.0f) ? 1.0f : alpha;
@@ -367,6 +382,9 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeLeakyReLU(const Matrix:
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeELU(const Matrix::Matrix<float>& activated_output) const {
     Matrix::Matrix<float> derivative = activated_output; // Copy dimensions and initial values
     const float alpha = 1.0f; // Ensure this matches the alpha in ApplyELU
+    #ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+    #endif
     for (size_t i = 0; i < derivative.rows(); ++i) {
         for (size_t j = 0; j < derivative.cols(); ++j) {
             if (activated_output[i][j] > 0.0f) {
@@ -384,6 +402,9 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeELU(const Matrix::Matri
 // This is the diagonal of the Jacobian dS/dZ, commonly used with Cross-Entropy loss.
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeSoftmax(const Matrix::Matrix<float>& activated_output) const {
     Matrix::Matrix<float> derivative = activated_output; // Copy dimensions and initial values
+    #ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+    #endif
     for (size_t i = 0; i < derivative.rows(); ++i) {
         for (size_t j = 0; j < derivative.cols(); ++j) {
             float s_ij = activated_output[i][j];
@@ -462,6 +483,9 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::BackwardPass(const Matrix::Matrix
     if (this->vActivationFunction == ActivationFunctionType::Softmax && !is_last_layer) {
         // Compute dLdZ directly using the Softmax Jacobian:
         // dL/dZ_i = S_i * (dL/dA_i - sum_j (dL/dA_j * S_j))
+        #ifdef _OPENMP
+        #pragma omp parallel for
+        #endif
         for (size_t i = 0; i < dLdZ.rows(); ++i) {
             float sum_da_s = 0.0f;
             for (size_t j = 0; j < dLdZ.cols(); ++j) {
@@ -479,6 +503,9 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::BackwardPass(const Matrix::Matrix
                                      "dLdOutput: (" + std::to_string(dLdOutput.rows()) + "," + std::to_string(dLdOutput.cols()) + ") "
                                      "dAdZ: (" + std::to_string(dAdZ.rows()) + "," + std::to_string(dAdZ.cols()) + ")");
         }
+        #ifdef _OPENMP
+        #pragma omp parallel for collapse(2)
+        #endif
         for (size_t i = 0; i < dLdZ.rows(); ++i) {
             for (size_t j = 0; j < dLdZ.cols(); ++j) {
                 dLdZ[i][j] = dLdOutput[i][j] * dAdZ[i][j];
@@ -522,6 +549,9 @@ int NeuroNet::NeuroNetLayer::get_input_size() const {
 
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplySigmoid(const Matrix::Matrix<float>& input) {
     Matrix::Matrix<float> output = input;
+    #ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+    #endif
     for (size_t i = 0; i < output.rows(); ++i) {
         for (size_t j = 0; j < output.cols(); ++j) {
             output[i][j] = 1.0f / (1.0f + std::exp(-output[i][j]));
@@ -532,6 +562,9 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplySigmoid(const Matrix::Matrix
 
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyTanh(const Matrix::Matrix<float>& input) {
     Matrix::Matrix<float> output = input;
+    #ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+    #endif
     for (size_t i = 0; i < output.rows(); ++i) {
         for (size_t j = 0; j < output.cols(); ++j) {
             output[i][j] = std::tanh(output[i][j]);
@@ -542,6 +575,9 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyTanh(const Matrix::Matrix<fl
 
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplySwish(const Matrix::Matrix<float>& input) {
     Matrix::Matrix<float> output = input;
+    #ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+    #endif
     for (size_t i = 0; i < output.rows(); ++i) {
         for (size_t j = 0; j < output.cols(); ++j) {
             output[i][j] = output[i][j] * (1.0f / (1.0f + std::exp(-output[i][j])));
@@ -552,6 +588,9 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplySwish(const Matrix::Matrix<f
 
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeSigmoid(const Matrix::Matrix<float>& activated_output) const {
     Matrix::Matrix<float> derivative = activated_output;
+    #ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+    #endif
     for (size_t i = 0; i < derivative.rows(); ++i) {
         for (size_t j = 0; j < derivative.cols(); ++j) {
             float sigmoid_val = activated_output[i][j];
@@ -563,6 +602,9 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeSigmoid(const Matrix::M
 
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeTanh(const Matrix::Matrix<float>& activated_output) const {
     Matrix::Matrix<float> derivative = activated_output;
+    #ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+    #endif
     for (size_t i = 0; i < derivative.rows(); ++i) {
         for (size_t j = 0; j < derivative.cols(); ++j) {
             float tanh_val = activated_output[i][j];
@@ -578,6 +620,9 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeSwish(const Matrix::Mat
     // However, we can reconstruct the pre-activation Z matrix here since we have InputMatrix, WeightMatrix, BiasMatrix.
     Matrix::Matrix<float> Z = (this->InputMatrix * this->WeightMatrix) + this->BiasMatrix;
     Matrix::Matrix<float> derivative = activated_output;
+    #ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+    #endif
     for (size_t i = 0; i < derivative.rows(); ++i) {
         for (size_t j = 0; j < derivative.cols(); ++j) {
             float f_x = activated_output[i][j];
