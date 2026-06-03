@@ -1,0 +1,3 @@
+## 2024-11-20 - Cache-friendly Matrix Multiplication
+**Learning:** The custom `Matrix<T>` class uses an array of `MatrixRow<T>`, so elements are stored row by row (row-major). The matrix multiplication algorithm `c.m_Data[i][k] += m_Data[i][j] * b.m_Data[j][k];` accesses `b` column-wise `b.m_Data[j][k]`, causing cache misses because we change rows for every step in `j`.
+**Action:** Transpose `b` before multiplying, or reorder the loops from `i-k-j` to `i-j-k`. Given memory layout, `i-j-k` means we iterate `k` in the innermost loop: `c.m_Data[i][k] += m_Data[i][j] * b.m_Data[j][k]`. As we iterate `k`, we access contiguous elements in `c.m_Data[i]` and `b.m_Data[j]`. This avoids transposing and improves cache locality, resulting in a large performance win for O(N^3) ops.
