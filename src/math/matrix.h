@@ -1053,16 +1053,17 @@ namespace Matrix
         // `i` is the loop control variable for the parallel for.
         // `k`, `j`, and `sum` are declared inside the scope of the `i` loop,
         // making them private to each iteration of the outer loop, and thus to each thread handling an `i`.
+		// Parallelize the outermost loop using OpenMP.
 		#pragma omp parallel for
 		for (size_t i = 0; i < m_Rows; i++) {
-			for (size_t k = 0; k < b.m_Cols; k++) { // Iterate over columns of b (which is cols of c)
-                T sum = T(0); // Initialize sum for c[i][k]
-				for (size_t j = 0; j < m_Cols; j++) { // Iterate over columns of a / rows of b
-					sum += m_Data[i][j] * b.m_Data[j][k];
+			for (size_t k = 0; k < m_Cols; k++) { // Iterate over columns of a / rows of b
+				T a_ik = m_Data[i][k]; // Cache value of a[i][k]
+				for (size_t j = 0; j < b.m_Cols; j++) { // Iterate over columns of b (which is cols of c)
+					// Cache-friendly sequential memory access in inner loop (i-k-j loop interchange)
+					c.m_Data[i][j] += a_ik * b.m_Data[k][j];
 				}
-                c.m_Data[i][k] = sum; // Each thread writes to a different c.m_Data[i] row part
-            }
-        }
+			}
+		}
 
 #ifdef ENABLE_BENCHMARKING
         timer.stop();
