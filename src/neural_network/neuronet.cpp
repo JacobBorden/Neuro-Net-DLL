@@ -858,6 +858,90 @@ std::string NeuroNet::NeuroNet::to_custom_json_string() const {
     return result_string;
 }
 
+
+static NeuroNet::LayerWeights deserialize_layer_weights(const JsonValue& layer_obj, int layer_idx) {
+    const JsonValue& weights_json_val = *layer_obj.GetObject().at("weights");
+    if (weights_json_val.type != JsonValueType::Object) {
+        throw std::runtime_error("Weights is not an object for layer " + std::to_string(layer_idx));
+    }
+    const auto& weights_obj = weights_json_val.GetObject();
+
+    if (weights_obj.count("rows") == 0 || weights_obj.at("rows")->type != JsonValueType::Number ||
+        weights_obj.count("cols") == 0 || weights_obj.at("cols")->type != JsonValueType::Number ||
+        weights_obj.count("data") == 0 || weights_obj.at("data")->type != JsonValueType::Array) {
+        throw std::runtime_error("Invalid weights format for layer " + std::to_string(layer_idx));
+    }
+    const std::vector<JsonValue>& weights_data_array = weights_obj.at("data")->GetArray();
+
+    NeuroNet::LayerWeights layer_weights;
+    layer_weights.WeightCount = weights_data_array.size();
+    for (const auto& w_val_json : weights_data_array) {
+        if (w_val_json.type != JsonValueType::Number) {
+            throw std::runtime_error("Non-numeric weight value in layer " + std::to_string(layer_idx));
+        }
+        layer_weights.WeightsVector.push_back(static_cast<float>(w_val_json.GetNumber()));
+    }
+    return layer_weights;
+}
+
+static NeuroNet::LayerBiases deserialize_layer_biases(const JsonValue& layer_obj, int layer_idx) {
+    const JsonValue& biases_json_val = *layer_obj.GetObject().at("biases");
+    if (biases_json_val.type != JsonValueType::Object) {
+        throw std::runtime_error("Biases is not an object for layer " + std::to_string(layer_idx));
+    }
+    const auto& biases_obj = biases_json_val.GetObject();
+
+    if (biases_obj.count("rows") == 0 || biases_obj.at("rows")->type != JsonValueType::Number ||
+        biases_obj.count("cols") == 0 || biases_obj.at("cols")->type != JsonValueType::Number ||
+        biases_obj.count("data") == 0 || biases_obj.at("data")->type != JsonValueType::Array) {
+        throw std::runtime_error("Invalid biases format for layer " + std::to_string(layer_idx));
+    }
+    const std::vector<JsonValue>& biases_data_array = biases_obj.at("data")->GetArray();
+
+    NeuroNet::LayerBiases layer_biases;
+    layer_biases.BiasCount = biases_data_array.size();
+    for (const auto& b_val_json : biases_data_array) {
+         if (b_val_json.type != JsonValueType::Number) {
+             throw std::runtime_error("Non-numeric bias value in layer " + std::to_string(layer_idx));
+         }
+        layer_biases.BiasVector.push_back(static_cast<float>(b_val_json.GetNumber()));
+    }
+    return layer_biases;
+}
+
+static void deserialize_layer(NeuroNet::NeuroNet& model, const JsonValue& layer_json, int layer_idx) {
+    if (layer_json.type != JsonValueType::Object) {
+        throw std::runtime_error("Invalid layer format (not an object) in JSON for layer " + std::to_string(layer_idx));
+    }
+
+    const auto& layer_obj = layer_json.GetObject();
+    if (layer_obj.count("layer_size") == 0 || layer_obj.at("layer_size")->type != JsonValueType::Number ||
+        layer_obj.count("input_size") == 0 || layer_obj.at("input_size")->type != JsonValueType::Number ||
+        layer_obj.count("activation_function") == 0 || layer_obj.at("activation_function")->type != JsonValueType::String ||
+        layer_obj.count("weights") == 0 || layer_obj.at("weights")->type != JsonValueType::Object ||
+        layer_obj.count("biases") == 0 || layer_obj.at("biases")->type != JsonValueType::Object) {
+        throw std::runtime_error("Invalid layer format in JSON for layer " + std::to_string(layer_idx) + ": missing or invalid type for key members (activation_function should be string).");
+    }
+
+    int layer_output_size = static_cast<int>(layer_obj.at("layer_size")->GetNumber());
+    model.ResizeLayer(layer_idx, layer_output_size);
+
+    NeuroNet::NeuroNetLayer& current_layer = model.getLayer(layer_idx);
+
+    std::string activation_str = layer_obj.at("activation_function")->GetString();
+    current_layer.SetActivationFunction(NeuroNet::NeuroNetLayer::activation_type_from_string(activation_str));
+
+    auto layer_weights = deserialize_layer_weights(layer_json, layer_idx);
+    if (!current_layer.SetWeights(layer_weights)) {
+         throw std::runtime_error("Failed to set weights for layer " + std::to_string(layer_idx) + ". Count mismatch or other error.");
+    }
+
+    auto layer_biases = deserialize_layer_biases(layer_json, layer_idx);
+    if (!current_layer.SetBiases(layer_biases)) {
+         throw std::runtime_error("Failed to set biases for layer " + std::to_string(layer_idx) + ". Count mismatch or other error.");
+    }
+}
+
 NeuroNet::NeuroNet NeuroNet::NeuroNet::load_model(const std::string& filename)
 {
 	std::ifstream ifs(filename);
@@ -911,73 +995,7 @@ NeuroNet::NeuroNet NeuroNet::NeuroNet::load_model(const std::string& filename)
 
 	for (int i = 0; i < layer_count; ++i)
 	{
-		const JsonValue& layer_json = layers_array[i];
-		if (layer_json.type != JsonValueType::Object) {
-			throw std::runtime_error("Invalid layer format (not an object) in JSON for layer " + std::to_string(i));
-		}
-		
-		const auto& layer_obj = layer_json.GetObject(); // Use a reference for convenience
-		if (layer_obj.count("layer_size") == 0 || layer_obj.at("layer_size")->type != JsonValueType::Number ||
-			layer_obj.count("input_size") == 0 || layer_obj.at("input_size")->type != JsonValueType::Number ||
-			layer_obj.count("activation_function") == 0 || layer_obj.at("activation_function")->type != JsonValueType::String || // Expect String now
-			layer_obj.count("weights") == 0 || layer_obj.at("weights")->type != JsonValueType::Object ||
-			layer_obj.count("biases") == 0 || layer_obj.at("biases")->type != JsonValueType::Object) {
-			throw std::runtime_error("Invalid layer format in JSON for layer " + std::to_string(i) + ": missing or invalid type for key members (activation_function should be string).");
-		}
-
-		int layer_output_size = static_cast<int>(layer_obj.at("layer_size")->GetNumber());
-		model.ResizeLayer(i, layer_output_size); 
-		
-		NeuroNetLayer& current_layer = model.getLayer(i);
-
-		//int activation_int = static_cast<int>(layer_obj.at("activation_function")->GetNumber()); // Old way
-		//current_layer.SetActivationFunction(static_cast<ActivationFunctionType>(activation_int)); // Old way
-        std::string activation_str = layer_obj.at("activation_function")->GetString(); // New: get as string
-        current_layer.SetActivationFunction(NeuroNetLayer::activation_type_from_string(activation_str)); // New: convert string to enum
-
-		// --- Weights ---
-		const JsonValue& weights_json_val = *layer_obj.at("weights"); // Dereference pointer
-		if (weights_json_val.type != JsonValueType::Object) throw std::runtime_error("Weights is not an object for layer " + std::to_string(i));
-		const auto& weights_obj = weights_json_val.GetObject();
-
-		if (weights_obj.count("rows") == 0 || weights_obj.at("rows")->type != JsonValueType::Number ||
-			weights_obj.count("cols") == 0 || weights_obj.at("cols")->type != JsonValueType::Number ||
-			weights_obj.count("data") == 0 || weights_obj.at("data")->type != JsonValueType::Array) {
-			throw std::runtime_error("Invalid weights format for layer " + std::to_string(i));
-		}
-		const std::vector<JsonValue>& weights_data_array = weights_obj.at("data")->GetArray();
-		
-		LayerWeights layer_weights;
-		layer_weights.WeightCount = weights_data_array.size();
-		for (const auto& w_val_json : weights_data_array) { // Iterate over JsonValue
-			if (w_val_json.type != JsonValueType::Number) throw std::runtime_error("Non-numeric weight value in layer " + std::to_string(i));
-			layer_weights.WeightsVector.push_back(static_cast<float>(w_val_json.GetNumber()));
-		}
-		if (!current_layer.SetWeights(layer_weights)) {
-			 throw std::runtime_error("Failed to set weights for layer " + std::to_string(i) + ". Count mismatch or other error.");
-		}
-
-		// --- Biases ---
-		const JsonValue& biases_json_val = *layer_obj.at("biases"); // Dereference pointer
-		if (biases_json_val.type != JsonValueType::Object) throw std::runtime_error("Biases is not an object for layer " + std::to_string(i));
-		const auto& biases_obj = biases_json_val.GetObject();
-
-		if (biases_obj.count("rows") == 0 || biases_obj.at("rows")->type != JsonValueType::Number ||
-			biases_obj.count("cols") == 0 || biases_obj.at("cols")->type != JsonValueType::Number ||
-			biases_obj.count("data") == 0 || biases_obj.at("data")->type != JsonValueType::Array) {
-			throw std::runtime_error("Invalid biases format for layer " + std::to_string(i));
-		}
-		const std::vector<JsonValue>& biases_data_array = biases_obj.at("data")->GetArray();
-
-		LayerBiases layer_biases;
-		layer_biases.BiasCount = biases_data_array.size();
-		for (const auto& b_val_json : biases_data_array) { // Iterate over JsonValue
-			 if (b_val_json.type != JsonValueType::Number) throw std::runtime_error("Non-numeric bias value in layer " + std::to_string(i));
-			layer_biases.BiasVector.push_back(static_cast<float>(b_val_json.GetNumber()));
-		}
-		if (!current_layer.SetBiases(layer_biases)) {
-			 throw std::runtime_error("Failed to set biases for layer " + std::to_string(i) + ". Count mismatch or other error.");
-		}
+		deserialize_layer(model, layers_array[i], i);
 	}
 	return model;
 }
