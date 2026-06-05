@@ -41,12 +41,10 @@ Optimization::GeneticAlgorithm::GeneticAlgorithm(
     int population_size,
     double mutation_rate,
     double crossover_rate,
-    int num_generations,
     const NeuroNet::NeuroNet& template_network)
     : population_size_(population_size),
       mutation_rate_(mutation_rate),
       crossover_rate_(crossover_rate),
-      num_generations_(num_generations),
       template_network_(template_network), // Make a copy of the template network
       best_individual_(template_network), // Initialize best_individual_ with template structure
       best_fitness_score_(std::numeric_limits<double>::lowest()),
@@ -121,7 +119,6 @@ void Optimization::GeneticAlgorithm::initialize_population() {
     // as it will be updated when a better individual is found.
     // Clear previous run data
     current_run_metrics_ = {}; 
-    current_run_metrics_.generation_data.reserve(num_generations_);
 }
 
 /**
@@ -467,23 +464,23 @@ void Optimization::GeneticAlgorithm::evolve_one_generation(
  * It first initializes the population, then iteratively calls `evolve_one_generation`.
  * @param fitness_function The function to evaluate individual fitness.
  */
-void Optimization::GeneticAlgorithm::run_evolution(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function) {
+void Optimization::GeneticAlgorithm::run_evolution(int num_generations, const std::function<double(NeuroNet::NeuroNet&)>& fitness_function) {
     initialize_population(); // Prepare the initial random population and resets metrics.
     current_generation_ = 0; // Ensure generation count starts from 0 for the loop.
 
     // Record start time
     current_run_metrics_.start_time = utilities::get_current_time_string();
 
-    current_run_metrics_.total_generations = num_generations_;
+    current_run_metrics_.total_generations = num_generations;
     current_run_metrics_.generation_data.clear(); // Clear any data from previous runs
-    current_run_metrics_.generation_data.reserve(num_generations_);
+    current_run_metrics_.generation_data.reserve(num_generations);
 
 
-    for (int i = 0; i < num_generations_; ++i) {
+    for (int i = 0; i < num_generations; ++i) {
         current_generation_ = i + 1; // Generation numbers are typically 1-indexed for reporting
         evolve_one_generation(fitness_function, current_generation_);
         // Optional: Add logging here to track progress, e.g., best fitness per generation.
-        // std::cout << "Generation " << current_generation_ << "/" << num_generations_
+        // std::cout << "Generation " << current_generation_ << "/" << num_generations
         //           << " - Best Fitness: " << best_fitness_score_ << std::endl;
     }
 

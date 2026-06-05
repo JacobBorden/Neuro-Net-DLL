@@ -35,7 +35,6 @@ public:
      * @param population_size The number of individuals in the population.
      * @param mutation_rate The probability of mutating a gene (e.g., a weight or bias).
      * @param crossover_rate The probability of performing crossover between two parents.
-     * @param num_generations The total number of generations to run the evolution.
      * @param template_network A NeuroNet object configured with the desired layer structure
      *                         (input size, layer sizes). This template is used to create
      *                         new individuals in the population.
@@ -44,7 +43,6 @@ public:
         int population_size,
         double mutation_rate,
         double crossover_rate,
-        int num_generations,
         const NeuroNet::NeuroNet& template_network
     );
 
@@ -99,9 +97,10 @@ public:
     /**
      * @brief Runs the complete evolution process for the specified number of generations.
      * Initializes the population and then iteratively calls evolve_one_generation.
+     * @param num_generations The total number of generations to run the evolution.
      * @param fitness_function The fitness function to evaluate individuals.
      */
-    void run_evolution(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function);
+    void run_evolution(int num_generations, const std::function<double(NeuroNet::NeuroNet&)>& fitness_function);
 
     /**
      * @brief Retrieves the best NeuroNet individual found during the evolution process.
@@ -121,7 +120,6 @@ private:
     int population_size_;       ///< Number of individuals in the population.
     double mutation_rate_;      ///< Probability of mutation for each gene.
     double crossover_rate_;     ///< Probability of performing crossover.
-    int num_generations_;       ///< Total number of generations for evolution.
     NeuroNet::NeuroNet template_network_; ///< Template NeuroNet defining the structure of individuals.
 
     std::vector<NeuroNet::NeuroNet> population_;     ///< Current population of NeuroNet individuals.

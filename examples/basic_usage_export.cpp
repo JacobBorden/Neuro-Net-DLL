@@ -388,14 +388,13 @@ void run_genetic_algorithm_xor_example() {
         population_size,
         mutation_rate,
         crossover_rate,
-        num_generations,
         template_network
     );
     std::cout << "Genetic Algorithm instance created." << std::endl;
 
     // 3. Run Evolution
     std::cout << "Running evolution for " << num_generations << " generations..." << std::endl;
-    ga_instance.run_evolution(xor_fitness_function);
+    ga_instance.run_evolution(num_generations, xor_fitness_function);
     std::cout << "Evolution finished." << std::endl;
 
     // 4. Export Training Metrics

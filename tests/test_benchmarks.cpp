@@ -149,7 +149,6 @@ int main() {
         population_size,
         mutation_rate,
         crossover_rate,
-        num_generations_for_benchmark, // Will run only one generation via evolve_one_generation
         small_nn // Use the configured small_nn as template
     );
 
@@ -204,13 +203,13 @@ int main() {
     // and call run_evolution.
     int few_generations = 3;
     Optimization::GeneticAlgorithm ga_run(
-        population_size, mutation_rate, crossover_rate, few_generations, small_nn
+        population_size, mutation_rate, crossover_rate, small_nn
     );
     // run_evolution calls initialize_population and then evolve_one_generation multiple times.
     // The internal timers for evaluate_fitness, selection, crossover, mutate will be called for each generation.
     utilities::Timer run_evol_timer;
     run_evol_timer.start();
-    ga_run.run_evolution(fitness_func);
+    ga_run.run_evolution(few_generations, fitness_func);
     run_evol_timer.stop();
      std::cout << "GA run_evolution() for " << few_generations << " generations (pop size " << population_size 
               << ") took: " << run_evol_timer.elapsed_milliseconds() << " ms (external timer)" << std::endl;
