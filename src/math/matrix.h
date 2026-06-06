@@ -1053,14 +1053,19 @@ namespace Matrix
         // `i` is the loop control variable for the parallel for.
         // `k`, `j`, and `sum` are declared inside the scope of the `i` loop,
         // making them private to each iteration of the outer loop, and thus to each thread handling an `i`.
+		// ⚡ Bolt: Memory is pre-initialized to 0 by MatrixRow constructor.
+		// Changing loop order to i-j-k instead of i-k-j.
+		// In row-major layout, this ensures sequential memory access for b.m_Data[j][k] and c.m_Data[i][k]
+		// in the innermost loop, avoiding frequent cache misses.
+		#ifdef _OPENMP
 		#pragma omp parallel for
+		#endif
 		for (size_t i = 0; i < m_Rows; i++) {
-			for (size_t k = 0; k < b.m_Cols; k++) { // Iterate over columns of b (which is cols of c)
-                T sum = T(0); // Initialize sum for c[i][k]
-				for (size_t j = 0; j < m_Cols; j++) { // Iterate over columns of a / rows of b
-					sum += m_Data[i][j] * b.m_Data[j][k];
+			for (size_t j = 0; j < m_Cols; j++) {
+				T a_ij = m_Data[i][j];
+				for (size_t k = 0; k < b.m_Cols; k++) {
+					c.m_Data[i][k] += a_ij * b.m_Data[j][k];
 				}
-                c.m_Data[i][k] = sum; // Each thread writes to a different c.m_Data[i] row part
             }
         }
 

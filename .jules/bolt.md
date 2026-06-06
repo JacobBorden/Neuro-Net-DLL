@@ -1,0 +1,3 @@
+## 2024-06-06 - [Loop Order Optimization in Matrix Multiplication]
+**Learning:** The custom row-major matrix implementation was suffering from significant cache misses during matrix multiplication due to an `i-k-j` loop ordering. The previous inner loop iteration was over the rows of `B`, jumping large memory segments instead of reading sequentially.
+**Action:** When working with row-major matrices, always use `i-j-k` loop order (loop interchange) to ensure sequential memory access in the inner loop, avoiding the O(N^2) memory overhead of transposing `B` prior to multiplication. Added `#ifdef _OPENMP` guarding.
