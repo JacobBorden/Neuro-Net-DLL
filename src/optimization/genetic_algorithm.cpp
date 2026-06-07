@@ -467,7 +467,7 @@ void Optimization::GeneticAlgorithm::evolve_one_generation(
  * It first initializes the population, then iteratively calls `evolve_one_generation`.
  * @param fitness_function The function to evaluate individual fitness.
  */
-void Optimization::GeneticAlgorithm::run_evolution(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function) {
+void Optimization::GeneticAlgorithm::run_evolution(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function, int early_stopping_patience) {
     initialize_population(); // Prepare the initial random population and resets metrics.
     current_generation_ = 0; // Ensure generation count starts from 0 for the loop.
 
@@ -478,6 +478,8 @@ void Optimization::GeneticAlgorithm::run_evolution(const std::function<double(Ne
     current_run_metrics_.generation_data.clear(); // Clear any data from previous runs
     current_run_metrics_.generation_data.reserve(num_generations_);
 
+    int generations_without_improvement = 0;
+    double previous_best_fitness = std::numeric_limits<double>::lowest();
 
     for (int i = 0; i < num_generations_; ++i) {
         current_generation_ = i + 1; // Generation numbers are typically 1-indexed for reporting
@@ -485,6 +487,19 @@ void Optimization::GeneticAlgorithm::run_evolution(const std::function<double(Ne
         // Optional: Add logging here to track progress, e.g., best fitness per generation.
         // std::cout << "Generation " << current_generation_ << "/" << num_generations_
         //           << " - Best Fitness: " << best_fitness_score_ << std::endl;
+
+        if (early_stopping_patience > 0) {
+            if (best_fitness_score_ > previous_best_fitness) {
+                previous_best_fitness = best_fitness_score_;
+                generations_without_improvement = 0;
+            } else {
+                generations_without_improvement++;
+                if (generations_without_improvement >= early_stopping_patience) {
+                    current_run_metrics_.total_generations = current_generation_; // Update total to actual runs
+                    break;
+                }
+            }
+        }
     }
 
     // Record end time
