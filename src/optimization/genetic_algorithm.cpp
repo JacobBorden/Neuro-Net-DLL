@@ -484,10 +484,6 @@ void Optimization::GeneticAlgorithm::run_evolution(const std::function<double(Ne
     for (int i = 0; i < num_generations_; ++i) {
         current_generation_ = i + 1; // Generation numbers are typically 1-indexed for reporting
         evolve_one_generation(fitness_function, current_generation_);
-        // Optional: Add logging here to track progress, e.g., best fitness per generation.
-        // std::cout << "Generation " << current_generation_ << "/" << num_generations_
-        //           << " - Best Fitness: " << best_fitness_score_ << std::endl;
-
         if (early_stopping_patience > 0) {
             if (best_fitness_score_ > previous_best_fitness) {
                 previous_best_fitness = best_fitness_score_;
