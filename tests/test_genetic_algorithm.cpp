@@ -1,9 +1,12 @@
 #include "gtest/gtest.h"
 #include "optimization/genetic_algorithm.h" // Access to GeneticAlgorithm
 #include "neural_network/neuronet.h"          // Access to NeuroNet for template and individuals
+#include "../src/utilities/json/json.hpp"
+#include "../src/utilities/json/json_exception.hpp"
+#include <cstdio>              // For std::remove
+#include <fstream>             // For std::ifstream
 #include <numeric>             // For std::accumulate
 #include <set>                 // For checking distinctness
-#include <fstream>             // For std::ifstream
 
 // Simple fitness function for testing: sum of all weights and biases
 // Assumes higher sum is better.
@@ -273,12 +276,6 @@ TEST_F(GeneticAlgorithmTest, GetBestIndividual) {
     EXPECT_GT(reported_best.get_all_weights_flat().size(), 0);
 }
 
-
-#include <fstream> // For std::ifstream for reading file
-#include <cstdio>  // For std::remove
-// Use custom JSON library for parsing the output file
-#include "../src/utilities/json/json.hpp"
-#include "../src/utilities/json/json_exception.hpp"
 
 TEST_F(GeneticAlgorithmTest, ExportTrainingMetrics) {
     Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, num_generations, template_net);
