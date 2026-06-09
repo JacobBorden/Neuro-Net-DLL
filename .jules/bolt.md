@@ -1,0 +1,3 @@
+## 2024-05-18 - [Matrix Multiplication Cache Optimization]
+**Learning:** The custom `Matrix::Matrix<T>` class uses row-major ordering. In standard matrix multiplication algorithms (i-k-j loop order), this leads to non-sequential memory accesses when iterating over columns of the second matrix, resulting in frequent CPU cache misses.
+**Action:** When working with row-major multi-dimensional structures, explicitly implement `i-j-k` loop interchange optimization to ensure that innermost loop accesses are strictly sequential in memory, which allows for vectorization and significantly improves CPU cache hit rates.
