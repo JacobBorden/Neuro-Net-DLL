@@ -580,6 +580,12 @@ void Optimization::GeneticAlgorithm::export_training_metrics_json(const std::str
         obj.InsertIntoObject(key, num_val);
         allocated_values.push_back(num_val);
     };
+
+    auto add_null_to_obj = [&](JsonValue& obj, const std::string& key) {
+        JsonValue* null_val = new JsonValue(JsonValueType::Null);
+        obj.InsertIntoObject(key, null_val);
+        allocated_values.push_back(null_val);
+    };
     
     add_string_to_obj(root, "start_time", current_run_metrics_.start_time);
     add_string_to_obj(root, "end_time", current_run_metrics_.end_time);
@@ -596,46 +602,23 @@ void Optimization::GeneticAlgorithm::export_training_metrics_json(const std::str
         JsonValue gen_metric_obj; // This is a stack object, its members if they are pointers need care
         gen_metric_obj.SetObject();
         
-        // Create temporary JsonValue objects for each field in GenerationMetrics
-        JsonValue* gen_num_val = new JsonValue(); 
-        gen_num_val->SetNumber(static_cast<double>(gen_metric.generation_number));
-        gen_metric_obj.InsertIntoObject("generation_number", gen_num_val);
         // Note: gen_metric_obj now holds pointers. If gen_metric_obj is copied into an array by value,
         // these pointers are copied. The lifetime of these pointed-to values must exceed gen_metric_obj
         // if it's temporary. Here, they are added to allocated_values for later cleanup.
-        allocated_values.push_back(gen_num_val);
-
-
-        JsonValue* avg_fit_val = new JsonValue();
-        avg_fit_val->SetNumber(gen_metric.average_fitness);
-        gen_metric_obj.InsertIntoObject("average_fitness", avg_fit_val);
-        allocated_values.push_back(avg_fit_val);
-
-        JsonValue* best_fit_val = new JsonValue();
-        best_fit_val->SetNumber(gen_metric.best_fitness);
-        gen_metric_obj.InsertIntoObject("best_fitness", best_fit_val);
-        allocated_values.push_back(best_fit_val);
+        add_number_to_obj(gen_metric_obj, "generation_number", static_cast<double>(gen_metric.generation_number));
+        add_number_to_obj(gen_metric_obj, "average_fitness", gen_metric.average_fitness);
+        add_number_to_obj(gen_metric_obj, "best_fitness", gen_metric.best_fitness);
 
         if (!std::isnan(gen_metric.loss)) {
-            JsonValue* loss_val = new JsonValue();
-            loss_val->SetNumber(gen_metric.loss);
-            gen_metric_obj.InsertIntoObject("loss", loss_val);
-            allocated_values.push_back(loss_val);
+            add_number_to_obj(gen_metric_obj, "loss", gen_metric.loss);
         } else {
-            JsonValue* null_loss_val = new JsonValue(JsonValueType::Null);
-            gen_metric_obj.InsertIntoObject("loss", null_loss_val);
-            allocated_values.push_back(null_loss_val);
+            add_null_to_obj(gen_metric_obj, "loss");
         }
 
         if (!std::isnan(gen_metric.accuracy)) {
-            JsonValue* acc_val = new JsonValue();
-            acc_val->SetNumber(gen_metric.accuracy);
-            gen_metric_obj.InsertIntoObject("accuracy", acc_val);
-            allocated_values.push_back(acc_val);
+            add_number_to_obj(gen_metric_obj, "accuracy", gen_metric.accuracy);
         } else {
-            JsonValue* null_acc_val = new JsonValue(JsonValueType::Null);
-            gen_metric_obj.InsertIntoObject("accuracy", null_acc_val);
-            allocated_values.push_back(null_acc_val);
+            add_null_to_obj(gen_metric_obj, "accuracy");
         }
         
         gen_data_array_val->GetArray().push_back(gen_metric_obj); // Pushes a copy; pointers inside are to heap.
