@@ -14,6 +14,7 @@ add_executable(runTests
     test_naive_bayes.cpp
     test_extended_matrix_ops.cpp
     test_timer.cpp
+    test_neural_pathfinder.cpp
 )
 
 # Link libraries
