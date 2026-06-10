@@ -176,7 +176,8 @@ std::vector<AStarPathNode> NeuralPathfinder::FindOptimalPathAStar() {
             double tentative_g_score = g_score.at(current_node) + edge_cost;
 
             // Check if this path to neighbor is better or if neighbor hasn't been visited
-            if (g_score.find(neighbor_node) == g_score.end() || tentative_g_score < g_score.at(neighbor_node)) {
+            auto it = g_score.find(neighbor_node);
+            if (it == g_score.end() || tentative_g_score < it->second) {
                 came_from[neighbor_node] = current_node;
                 g_score[neighbor_node] = tentative_g_score;
                 double h_val_neighbor = CalculateHeuristic(neighbor_node, goal_layer_idx, min_single_edge_cost);
