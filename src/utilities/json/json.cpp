@@ -320,9 +320,12 @@ double JsonParser::ParseNumber(const std::string& json_string, size_t& index)
 
     std::string num_str;
     // Integer part
+    size_t int_start = index;
     while (index < json_string.length() && IsDigit(json_string[index])) {
-        num_str += json_string[index];
         index++;
+    }
+    if (index > int_start) {
+        num_str.append(json_string, int_start, index - int_start);
     }
 
     // Check for leading zeros (e.g. "01", but "0" or "0.1" is fine)
@@ -340,32 +343,31 @@ double JsonParser::ParseNumber(const std::string& json_string, size_t& index)
 
     // Fractional part
     if (index < json_string.length() && json_string[index] == '.') {
-        num_str += json_string[index];
+        size_t frac_start = index;
         index++;
         if (index >= json_string.length() || !IsDigit(json_string[index])) {
             throw JsonParseException("Decimal point must be followed by at least one digit.");
         }
         while (index < json_string.length() && IsDigit(json_string[index])) {
-            num_str += json_string[index];
             index++;
         }
+        num_str.append(json_string, frac_start, index - frac_start);
     }
 
     // Exponent part
     if (index < json_string.length() && (json_string[index] == 'e' || json_string[index] == 'E')) {
-        num_str += json_string[index];
+        size_t exp_start = index;
         index++;
         if (index < json_string.length() && (json_string[index] == '+' || json_string[index] == '-')) {
-            num_str += json_string[index];
             index++;
         }
         if (index >= json_string.length() || !IsDigit(json_string[index])) {
             throw JsonParseException("Exponent 'e' or 'E' must be followed by at least one digit (after optional sign).");
         }
         while (index < json_string.length() && IsDigit(json_string[index])) {
-            num_str += json_string[index];
             index++;
         }
+        num_str.append(json_string, exp_start, index - exp_start);
     }
     
     // Make sure something was actually parsed as part of the number's magnitude
