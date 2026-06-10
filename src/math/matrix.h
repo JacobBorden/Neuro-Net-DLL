@@ -748,8 +748,8 @@ namespace Matrix
 		Matrix<T>& Randomize() // Modified to return reference to self
 		{
             if (!m_Data) return *this; // Do nothing if empty
-			// Seed with system clock for better randomness across runs.
-			static std::mt19937 gen(static_cast<unsigned int>(std::chrono::system_clock::now().time_since_epoch().count()));
+			// Seed with random_device to avoid predictable time-based seeds.
+			static std::mt19937 gen(std::random_device{}());
 			std::uniform_real_distribution<double> dis(-1.0, 1.0); // Use double for distribution
 			for (size_t i = 0; i < m_Rows; ++i)
 			{
