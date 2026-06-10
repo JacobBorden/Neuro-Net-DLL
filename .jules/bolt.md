@@ -1,0 +1,3 @@
+## 2024-05-18 - [Matrix Multiplication Loop Interchange]
+**Learning:** For row-major data layouts like the custom `Matrix` implementation, performing matrix multiplication using standard `i-k-j` or `i-j-k` affects performance significantly. Reordering from O(N^3) standard loop traversal to `i-j-k` ensures cache-friendly sequential memory access during the innermost loop, dramatically improving multiplication performance.
+**Action:** Always verify matrix iteration patterns align with the underlying memory structure (row-major or column-major). For row-major structures, ensure inner loops iterate over columns sequentially.
