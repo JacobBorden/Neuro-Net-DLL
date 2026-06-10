@@ -141,7 +141,7 @@ TEST_F(TransformerModelTest, ForwardPassInputTooLong) {
 
     const int current_seq_len = max_seq_len_test + 1; // Sequence length 6
     Matrix::Matrix<float> long_input_sequence(1, current_seq_len);
-    for (size_t j = 0; j < long_input_sequence.cols(); ++j) {
+    for (int j = 0; j < long_input_sequence.cols(); ++j) {
         long_input_sequence[0][j] = static_cast<float>(j + 1);
     }
     Matrix::Matrix<float> mask(1, current_seq_len);

@@ -100,9 +100,8 @@ public:
      * @brief Runs the complete evolution process for the specified number of generations.
      * Initializes the population and then iteratively calls evolve_one_generation.
      * @param fitness_function The fitness function to evaluate individuals.
-     * @param early_stopping_patience Number of generations to wait for an improvement before stopping. 0 means no early stopping.
      */
-    void run_evolution(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function, int early_stopping_patience = 0);
+    void run_evolution(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function);
 
     /**
      * @brief Retrieves the best NeuroNet individual found during the evolution process.

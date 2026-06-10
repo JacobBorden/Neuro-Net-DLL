@@ -40,7 +40,7 @@ bool create_dummy_vocab_file(const std::string& filepath, int vocab_size, int& p
     vocab_file << "{\n";
     vocab_file << "  \"word_to_token\": {\n";
     for (int i = 0; i < vocab_size - 2; ++i) {
-        vocab_file << "    \"token" << i << "\": " << i << ",\n";
+        vocab_file << "    \"token" << i << "\": " << i << (i == vocab_size - 3 ? "" : ",") << "\n";
     }
     vocab_file << "    \"<UNK>\": " << unk_id << ",\n";
     vocab_file << "    \"<PAD>\": " << pad_id << "\n";
@@ -65,70 +65,6 @@ bool create_dummy_vocab_file(const std::string& filepath, int vocab_size, int& p
     return true;
 }
 
-
-void run_forward_pass(NeuroNet::Transformer::TransformerModel& model, const Matrix::Matrix<float>& token_id_batch_matrix) {
-    std::cout << "\n4. Performing forward pass (one sequence at a time):" << std::endl;
-    if (token_id_batch_matrix.rows() > 0) {
-        for (size_t i = 0; i < token_id_batch_matrix.rows(); ++i) {
-            // Create a (1, seq_len) matrix for the current sequence
-            Matrix::Matrix<float> single_sequence_tokens(1, token_id_batch_matrix.cols());
-            for(size_t j=0; j < token_id_batch_matrix.cols(); ++j) {
-                single_sequence_tokens[0][j] = token_id_batch_matrix[i][j];
-            }
-
-            std::cout << "  Forward pass for sequence " << i << ":" << std::endl;
-            print_matrix_summary(single_sequence_tokens, "  Input Token IDs for sequence " + std::to_string(i));
-
-            // Create a dummy attention mask (no masking) for this example
-            // A real mask might be (seq_len, seq_len)
-            Matrix::Matrix<float> dummy_attention_mask(0,0); // Empty mask = no mask in attention layer
-
-            try {
-                Matrix::Matrix<float> output_embeddings = model.forward(single_sequence_tokens, dummy_attention_mask);
-                print_matrix_summary(output_embeddings, "  Output Embeddings for sequence " + std::to_string(i));
-            } catch (const std::exception& e) {
-                std::cerr << "  ERROR during forward pass for sequence " << i << ": " << e.what() << std::endl;
-            }
-        }
-    }
-}
-
-void test_model_save_load(NeuroNet::Transformer::TransformerModel& model, const std::string& model_save_filepath, const Matrix::Matrix<float>& token_id_batch_matrix) {
-    std::cout << "\n5. Saving model to " << model_save_filepath << "..." << std::endl;
-    if (model.save_model(model_save_filepath)) {
-        std::cout << "   Model saved successfully." << std::endl;
-
-        // --- 6. Load Model ---
-        std::cout << "\n6. Loading model from " << model_save_filepath << "..." << std::endl;
-        try {
-            NeuroNet::Transformer::TransformerModel loaded_model = NeuroNet::Transformer::TransformerModel::load_model(model_save_filepath);
-            std::cout << "   Model loaded successfully." << std::endl;
-            std::cout << "   Loaded Model Vocab Size: " << loaded_model.get_vocab_size() << std::endl;
-            std::cout << "   Loaded Model D_Model: " << loaded_model.get_d_model() << std::endl;
-
-            // --- Optional: Test loaded model with the first sequence ---
-            if (token_id_batch_matrix.rows() > 0) {
-                 Matrix::Matrix<float> first_sequence_tokens(1, token_id_batch_matrix.cols());
-                 for(size_t j=0; j < token_id_batch_matrix.cols(); ++j) {
-                     first_sequence_tokens[0][j] = token_id_batch_matrix[0][j];
-                 }
-                std::cout << "   Testing loaded model with first sequence..." << std::endl;
-                Matrix::Matrix<float> loaded_model_output = loaded_model.forward(first_sequence_tokens);
-                print_matrix_summary(loaded_model_output, "   Output from loaded model (first sequence)");
-                // For a true test, one would compare this output to the original model's output
-                // if the random initialization was seeded or if weights were deterministic.
-            }
-
-        } catch (const std::exception& e) {
-            std::cerr << "   ERROR: Failed to load or test model: " << e.what() << std::endl;
-        }
-        std::remove(model_save_filepath.c_str()); // Clean up saved model file
-        std::cout << "   Cleaned up temporary model file: " << model_save_filepath << std::endl;
-
-    } else {
-        std::cerr << "   ERROR: Failed to save model." << std::endl;
-    }
-}
 
 int main() {
     std::cout << "--- Transformer Model Usage Example ---" << std::endl;
@@ -186,11 +122,68 @@ int main() {
     print_matrix_summary(token_id_batch_matrix, "Token ID Batch Matrix (from vocab.prepare_batch_matrix)");
 
 
-    // --- 4. Forward Pass ---
-    run_forward_pass(model, token_id_batch_matrix);
+    // --- 4. Forward Pass (one sequence at a time, as model.forward expects 1xN) ---
+    std::cout << "\n4. Performing forward pass (one sequence at a time):" << std::endl;
+    if (token_id_batch_matrix.rows() > 0) {
+        for (size_t i = 0; i < token_id_batch_matrix.rows(); ++i) {
+            // Create a (1, seq_len) matrix for the current sequence
+            Matrix::Matrix<float> single_sequence_tokens(1, token_id_batch_matrix.cols());
+            for(size_t j=0; j < token_id_batch_matrix.cols(); ++j) {
+                single_sequence_tokens[0][j] = token_id_batch_matrix[i][j];
+            }
 
-    // --- 5 & 6. Save and Load Model ---
-    test_model_save_load(model, model_save_filepath, token_id_batch_matrix);
+            std::cout << "  Forward pass for sequence " << i << ":" << std::endl;
+            print_matrix_summary(single_sequence_tokens, "  Input Token IDs for sequence " + std::to_string(i));
+
+            // Create a dummy attention mask (no masking) for this example
+            // A real mask might be (seq_len, seq_len)
+            Matrix::Matrix<float> dummy_attention_mask(0,0); // Empty mask = no mask in attention layer
+
+            try {
+                Matrix::Matrix<float> output_embeddings = model.forward(single_sequence_tokens, dummy_attention_mask);
+                print_matrix_summary(output_embeddings, "  Output Embeddings for sequence " + std::to_string(i));
+            } catch (const std::exception& e) {
+                std::cerr << "  ERROR during forward pass for sequence " << i << ": " << e.what() << std::endl;
+            }
+        }
+    }
+
+
+    // --- 5. Save Model ---
+    std::cout << "\n5. Saving model to " << model_save_filepath << "..." << std::endl;
+    if (model.save_model(model_save_filepath)) {
+        std::cout << "   Model saved successfully." << std::endl;
+
+        // --- 6. Load Model ---
+        std::cout << "\n6. Loading model from " << model_save_filepath << "..." << std::endl;
+        try {
+            NeuroNet::Transformer::TransformerModel loaded_model = NeuroNet::Transformer::TransformerModel::load_model(model_save_filepath);
+            std::cout << "   Model loaded successfully." << std::endl;
+            std::cout << "   Loaded Model Vocab Size: " << loaded_model.get_vocab_size() << std::endl;
+            std::cout << "   Loaded Model D_Model: " << loaded_model.get_d_model() << std::endl;
+
+            // --- Optional: Test loaded model with the first sequence ---
+            if (token_id_batch_matrix.rows() > 0) {
+                 Matrix::Matrix<float> first_sequence_tokens(1, token_id_batch_matrix.cols());
+                 for(size_t j=0; j < token_id_batch_matrix.cols(); ++j) {
+                     first_sequence_tokens[0][j] = token_id_batch_matrix[0][j];
+                 }
+                std::cout << "   Testing loaded model with first sequence..." << std::endl;
+                Matrix::Matrix<float> loaded_model_output = loaded_model.forward(first_sequence_tokens);
+                print_matrix_summary(loaded_model_output, "   Output from loaded model (first sequence)");
+                // For a true test, one would compare this output to the original model's output
+                // if the random initialization was seeded or if weights were deterministic.
+            }
+
+        } catch (const std::exception& e) {
+            std::cerr << "   ERROR: Failed to load or test model: " << e.what() << std::endl;
+        }
+        std::remove(model_save_filepath.c_str()); // Clean up saved model file
+        std::cout << "   Cleaned up temporary model file: " << model_save_filepath << std::endl;
+
+    } else {
+        std::cerr << "   ERROR: Failed to save model." << std::endl;
+    }
 
     // --- Cleanup ---
     std::remove(vocab_filepath.c_str()); // Clean up dummy vocab file
