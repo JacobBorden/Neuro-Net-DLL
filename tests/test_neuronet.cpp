@@ -938,6 +938,10 @@ TEST_F(NeuroNetTest, Serialization) {
     // 5. Test error handling for load_model
     EXPECT_THROW(NeuroNet::NeuroNet::load_model("non_existent_file.json"), std::runtime_error);
 
+    // Path policy test
+    EXPECT_THROW(NeuroNet::NeuroNet::load_model("../test.json"), std::runtime_error);
+    EXPECT_THROW(NeuroNet::NeuroNet::load_model("/etc/passwd"), std::runtime_error);
+
     // Test with an empty file
     std::ofstream ofs_empty(empty_filename);
     ofs_empty.close();
