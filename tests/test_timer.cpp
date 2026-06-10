@@ -18,7 +18,8 @@ TEST(TimerTest, BasicTiming) {
     timer.stop();
 
     long long elapsed = timer.elapsed_milliseconds();
-    EXPECT_GE(elapsed, 45);
+    EXPECT_GE(elapsed, 45); // Allow some tolerance
+    EXPECT_LT(elapsed, 100);
 }
 
 TEST(TimerTest, MicrosecondsTiming) {
@@ -28,7 +29,8 @@ TEST(TimerTest, MicrosecondsTiming) {
     timer.stop();
 
     long long elapsed = timer.elapsed_microseconds();
-    EXPECT_GE(elapsed, 45000);
+    EXPECT_GE(elapsed, 45000); // Allow some tolerance
+    EXPECT_LT(elapsed, 100000);
 }
 
 TEST(TimerTest, ElapsedWhileRunning) {
@@ -38,6 +40,7 @@ TEST(TimerTest, ElapsedWhileRunning) {
 
     long long elapsed = timer.elapsed_milliseconds();
     EXPECT_GE(elapsed, 45);
+    EXPECT_LT(elapsed, 100);
 
     timer.stop();
 }
@@ -59,4 +62,5 @@ TEST(TimerTest, RestartTimer) {
 
     EXPECT_GE(first_elapsed, 15);
     EXPECT_GE(second_elapsed, 45);
+    EXPECT_LT(first_elapsed, second_elapsed);
 }
