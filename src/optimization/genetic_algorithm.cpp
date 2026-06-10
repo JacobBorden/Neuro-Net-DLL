@@ -467,39 +467,47 @@ void Optimization::GeneticAlgorithm::evolve_one_generation(
  * It first initializes the population, then iteratively calls `evolve_one_generation`.
  * @param fitness_function The function to evaluate individual fitness.
  */
-void Optimization::GeneticAlgorithm::run_evolution(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function, int early_stopping_patience) {
+void Optimization::GeneticAlgorithm::run_evolution(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function) {
     initialize_population(); // Prepare the initial random population and resets metrics.
     current_generation_ = 0; // Ensure generation count starts from 0 for the loop.
 
     // Record start time
-    current_run_metrics_.start_time = utilities::get_current_time_string();
+    auto now = std::chrono::system_clock::now();
+    auto in_time_t = std::chrono::system_clock::to_time_t(now);
+    std::tm buf;
+#ifdef _WIN32
+    localtime_s(&buf, &in_time_t);
+#else
+    localtime_r(&in_time_t, &buf);
+#endif
+    std::ostringstream ss_start;
+    ss_start << std::put_time(&buf, "%Y-%m-%dT%H:%M:%S%z");
+    current_run_metrics_.start_time = ss_start.str();
 
     current_run_metrics_.total_generations = num_generations_;
     current_run_metrics_.generation_data.clear(); // Clear any data from previous runs
     current_run_metrics_.generation_data.reserve(num_generations_);
 
-    int generations_without_improvement = 0;
-    double previous_best_fitness = std::numeric_limits<double>::lowest();
 
     for (int i = 0; i < num_generations_; ++i) {
         current_generation_ = i + 1; // Generation numbers are typically 1-indexed for reporting
         evolve_one_generation(fitness_function, current_generation_);
-        if (early_stopping_patience > 0) {
-            if (best_fitness_score_ > previous_best_fitness) {
-                previous_best_fitness = best_fitness_score_;
-                generations_without_improvement = 0;
-            } else {
-                generations_without_improvement++;
-                if (generations_without_improvement >= early_stopping_patience) {
-                    current_run_metrics_.total_generations = current_generation_; // Update total to actual runs
-                    break;
-                }
-            }
-        }
+        // Optional: Add logging here to track progress, e.g., best fitness per generation.
+        // std::cout << "Generation " << current_generation_ << "/" << num_generations_
+        //           << " - Best Fitness: " << best_fitness_score_ << std::endl;
     }
 
     // Record end time
-    current_run_metrics_.end_time = utilities::get_current_time_string();
+    now = std::chrono::system_clock::now();
+    in_time_t = std::chrono::system_clock::to_time_t(now);
+#ifdef _WIN32
+    localtime_s(&buf, &in_time_t);
+#else
+    localtime_r(&in_time_t, &buf);
+#endif
+    std::ostringstream ss_end;
+    ss_end << std::put_time(&buf, "%Y-%m-%dT%H:%M:%S%z");
+    current_run_metrics_.end_time = ss_end.str();
 
     // Store best model architecture and overall fitness
     if (this->best_individual_.getLayerCount() > 0) { 
@@ -580,12 +588,6 @@ void Optimization::GeneticAlgorithm::export_training_metrics_json(const std::str
         obj.InsertIntoObject(key, num_val);
         allocated_values.push_back(num_val);
     };
-
-    auto add_null_to_obj = [&](JsonValue& obj, const std::string& key) {
-        JsonValue* null_val = new JsonValue(JsonValueType::Null);
-        obj.InsertIntoObject(key, null_val);
-        allocated_values.push_back(null_val);
-    };
     
     add_string_to_obj(root, "start_time", current_run_metrics_.start_time);
     add_string_to_obj(root, "end_time", current_run_metrics_.end_time);
@@ -602,23 +604,46 @@ void Optimization::GeneticAlgorithm::export_training_metrics_json(const std::str
         JsonValue gen_metric_obj; // This is a stack object, its members if they are pointers need care
         gen_metric_obj.SetObject();
         
+        // Create temporary JsonValue objects for each field in GenerationMetrics
+        JsonValue* gen_num_val = new JsonValue();
+        gen_num_val->SetNumber(static_cast<double>(gen_metric.generation_number));
+        gen_metric_obj.InsertIntoObject("generation_number", gen_num_val);
         // Note: gen_metric_obj now holds pointers. If gen_metric_obj is copied into an array by value,
         // these pointers are copied. The lifetime of these pointed-to values must exceed gen_metric_obj
         // if it's temporary. Here, they are added to allocated_values for later cleanup.
-        add_number_to_obj(gen_metric_obj, "generation_number", static_cast<double>(gen_metric.generation_number));
-        add_number_to_obj(gen_metric_obj, "average_fitness", gen_metric.average_fitness);
-        add_number_to_obj(gen_metric_obj, "best_fitness", gen_metric.best_fitness);
+        allocated_values.push_back(gen_num_val);
+
+
+        JsonValue* avg_fit_val = new JsonValue();
+        avg_fit_val->SetNumber(gen_metric.average_fitness);
+        gen_metric_obj.InsertIntoObject("average_fitness", avg_fit_val);
+        allocated_values.push_back(avg_fit_val);
+
+        JsonValue* best_fit_val = new JsonValue();
+        best_fit_val->SetNumber(gen_metric.best_fitness);
+        gen_metric_obj.InsertIntoObject("best_fitness", best_fit_val);
+        allocated_values.push_back(best_fit_val);
 
         if (!std::isnan(gen_metric.loss)) {
-            add_number_to_obj(gen_metric_obj, "loss", gen_metric.loss);
+            JsonValue* loss_val = new JsonValue();
+            loss_val->SetNumber(gen_metric.loss);
+            gen_metric_obj.InsertIntoObject("loss", loss_val);
+            allocated_values.push_back(loss_val);
         } else {
-            add_null_to_obj(gen_metric_obj, "loss");
+            JsonValue* null_loss_val = new JsonValue(JsonValueType::Null);
+            gen_metric_obj.InsertIntoObject("loss", null_loss_val);
+            allocated_values.push_back(null_loss_val);
         }
 
         if (!std::isnan(gen_metric.accuracy)) {
-            add_number_to_obj(gen_metric_obj, "accuracy", gen_metric.accuracy);
+            JsonValue* acc_val = new JsonValue();
+            acc_val->SetNumber(gen_metric.accuracy);
+            gen_metric_obj.InsertIntoObject("accuracy", acc_val);
+            allocated_values.push_back(acc_val);
         } else {
-            add_null_to_obj(gen_metric_obj, "accuracy");
+            JsonValue* null_acc_val = new JsonValue(JsonValueType::Null);
+            gen_metric_obj.InsertIntoObject("accuracy", null_acc_val);
+            allocated_values.push_back(null_acc_val);
         }
         
         gen_data_array_val->GetArray().push_back(gen_metric_obj); // Pushes a copy; pointers inside are to heap.

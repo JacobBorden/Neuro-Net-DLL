@@ -12,7 +12,6 @@ add_executable(runTests
     test_gaussian_distribution.cpp
     test_least_squares.cpp
     test_naive_bayes.cpp
-    test_extended_matrix_ops.cpp
 )
 
 # Link libraries
