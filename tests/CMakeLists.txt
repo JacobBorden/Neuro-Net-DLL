@@ -13,6 +13,7 @@ add_executable(runTests
     test_least_squares.cpp
     test_naive_bayes.cpp
     test_extended_matrix_ops.cpp
+    test_timer.cpp
 )
 
 # Link libraries
