@@ -300,6 +300,17 @@ namespace NeuroNet
      */
     float get_weight(int prev_neuron_idx, int current_neuron_idx_in_layer) const;
 
+    /**
+     * @brief Checks if a weight exists connecting a neuron from the previous layer (or input)
+     *        to a neuron in this layer.
+     * @param prev_neuron_idx The index of the neuron in the previous layer (or input feature index).
+     *                        This corresponds to the row in this layer's WeightMatrix.
+     * @param current_neuron_idx_in_layer The index of the neuron in this current layer.
+     *                                   This corresponds to the column in this layer's WeightMatrix.
+     * @return bool True if the weight exists (indices are within bounds), false otherwise.
+     */
+    bool has_weight(int prev_neuron_idx, int current_neuron_idx_in_layer) const;
+
 	private:
 		int vLayerSize = 0; ///< Number of neurons in this layer.
 		int InputSize = 0; ///< Number of inputs expected by this layer.

@@ -1084,6 +1084,17 @@ bool NeuroNet::NeuroNetLayer::SetWeights(LayerWeights pWeights) {
 	return true;
 }
 
+// Implementation for NeuroNetLayer::has_weight
+bool NeuroNet::NeuroNetLayer::has_weight(int prev_neuron_idx, int current_neuron_idx_in_layer) const {
+    if (prev_neuron_idx < 0 || static_cast<size_t>(prev_neuron_idx) >= this->WeightMatrix.rows()) {
+        return false;
+    }
+    if (current_neuron_idx_in_layer < 0 || static_cast<size_t>(current_neuron_idx_in_layer) >= this->WeightMatrix.cols()) {
+        return false;
+    }
+    return true;
+}
+
 // Implementation for NeuroNetLayer::get_weight
 float NeuroNet::NeuroNetLayer::get_weight(int prev_neuron_idx, int current_neuron_idx_in_layer) const {
     // WeightMatrix dimensions are InputSize (rows) x vLayerSize (cols).
