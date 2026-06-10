@@ -34,9 +34,7 @@ void print_matrix_astar(const Matrix::Matrix<float>& mat, const std::string& tit
 }
 
 
-void run_astar_pathfinding_example() {
-    std::cout << "\n--- A* Pathfinding Example ---" << std::endl;
-    NeuroNet::NeuroNet path_network;
+void setup_astar_network(NeuroNet::NeuroNet& path_network) {
     // Network input size doesn't directly affect A* pathfinding through weights of hidden/output layers,
     // but it defines the input dimensionality for the first layer's WeightMatrix.
     path_network.SetInputSize(2);
@@ -91,14 +89,9 @@ void run_astar_pathfinding_example() {
     path_network.getLayer(2).SetWeights(weights_L2_for_astar);
 
     std::cout << "A* example network configured with specific weights." << std::endl;
-    // Expected path for max product of abs weights:
-    // Start L0N0:
-    //   L0N0 -> L1N0 (w:1.0) -> L2N0 (w:4.0). Prod: 1*4 = 4. Path: (0,0)->(1,0)->(2,0)
-    //   L0N0 -> L1N1 (w:2.0) -> L2N1 (w:5.0). Prod: 2*5 = 10. Path: (0,0)->(1,1)->(2,1) <-- Best overall
-    // Start L0N1:
-    //   L0N1 -> L1N2 (w:3.0) -> L2N0 (w:0.4). Prod: 3*0.4 = 1.2 Path: (0,1)->(1,2)->(2,0)
-    // The pathfinder should identify (0,0) -> (1,1) -> (2,1)
+}
 
+void execute_and_verify_astar_path(NeuroNet::NeuroNet& path_network) {
     try {
         NeuroNet::Optimization::NeuralPathfinder pathfinder(path_network);
         std::vector<NeuroNet::Optimization::AStarPathNode> optimal_path = pathfinder.FindOptimalPathAStar();
@@ -142,6 +135,24 @@ void run_astar_pathfinding_example() {
     } catch (const std::exception& e) {
         std::cerr << "Exception during A* pathfinding: " << e.what() << std::endl;
     }
+}
+
+void run_astar_pathfinding_example() {
+    std::cout << "\n--- A* Pathfinding Example ---" << std::endl;
+    NeuroNet::NeuroNet path_network;
+
+    setup_astar_network(path_network);
+
+    // Expected path for max product of abs weights:
+    // Start L0N0:
+    //   L0N0 -> L1N0 (w:1.0) -> L2N0 (w:4.0). Prod: 1*4 = 4. Path: (0,0)->(1,0)->(2,0)
+    //   L0N0 -> L1N1 (w:2.0) -> L2N1 (w:5.0). Prod: 2*5 = 10. Path: (0,0)->(1,1)->(2,1) <-- Best overall
+    // Start L0N1:
+    //   L0N1 -> L1N2 (w:3.0) -> L2N0 (w:0.4). Prod: 3*0.4 = 1.2 Path: (0,1)->(1,2)->(2,0)
+    // The pathfinder should identify (0,0) -> (1,1) -> (2,1)
+
+    execute_and_verify_astar_path(path_network);
+
     std::cout << "--- A* Pathfinding Example End ---" << std::endl;
 }
 
