@@ -21,6 +21,12 @@ protected:
 //     // ASSERT_NE(&model, nullptr);
 // }
 
+TEST_F(TransformerModelTest, LoadModelRejectsUnsafePaths) {
+    EXPECT_THROW(NeuroNet::Transformer::TransformerModel::load_model("../transformer_model.json"), std::runtime_error);
+    EXPECT_THROW(NeuroNet::Transformer::TransformerModel::load_model("/tmp/transformer_model.json"), std::runtime_error);
+    EXPECT_THROW(NeuroNet::Transformer::TransformerModel::load_model("C:\\temp\\transformer_model.json"), std::runtime_error);
+}
+
 // Test case for initialization with parameters
 TEST_F(TransformerModelTest, Initialization) {
     const int vocab_size = 1000;
