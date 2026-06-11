@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased] - YYYY-MM-DD
 
 ### Added
+- `NeuralPathfinder` tests covering empty networks, single-layer networks, multi-layer path selection, and all-zero weights.
+- Unsafe-path regression tests for `Vocabulary` and `TransformerModel` loading.
 - **NeuroNet Model Serialization & Deserialization:**
     - Implemented `NeuroNet::save_model()` to export models (weights, architecture, parameters) to a human-readable JSON format.
     - Implemented `NeuroNet::load_model()` to import models from the JSON format.
@@ -32,12 +34,18 @@ All notable changes to this project will be documented in this file.
     - Parallelized matrix multiplication (`Matrix<T>::operator*`) using OpenMP for improved performance on multi-core systems.
 
 ### Changed
+- Refactored `NeuroNet::UpdateWeights()` into private helpers for per-layer weight and bias updates.
+- Refactored the A* pathfinding export example into clearer setup and execution helpers.
+- Replaced exception-driven `NeuralPathfinder` weight probing with explicit `NeuroNetLayer::has_weight()` bounds checks.
 - Replaced `jsoncpp` library with a custom internal JSON library (`src/utilities/json/`) for handling JSON data. This affects model saving/loading, test suites, and CMake configuration. The custom library (`json.hpp`, `json.cpp`) is now compiled directly into the main `neuronet` library.
 - `NeuroNetLayer::CalculateOutput()` now incorporates the selected activation function.
 - Default constructor `NeuroNetLayer()` initializes with `ActivationFunctionType::None`.
 - Updated Doxygen comments in `neuronet.h` and `neuronet.cpp` for new activation function features.
 - Updated `README.md` with a new section explaining activation functions and providing usage examples, and updated dependency information to reflect the custom JSON library.
 - Updated Doxygen comments in `src/utilities/json/json.hpp` to fully document the custom JSON library's API.
+
+### Security
+- Rejected path traversal and absolute-path inputs when loading NeuroNet models, Transformer models, and vocabularies.
 
 ## [Previous Version - e.g., 0.2.0] - YYYY-MM-DD (Date of previous changes if known, or adjust as needed)
 
@@ -54,5 +62,4 @@ All notable changes to this project will be documented in this file.
 - Updated `README.md` to reflect the new directory structure, file paths, and updated include paths in code examples.
 - Updated root `CMakeLists.txt` and includes in test files (`tests/test_neuronet.cpp`, `tests/test_genetic_algorithm.cpp`) to support the new modularized file structure.
 - Corrected namespace qualification for `NeuroNet` type within the Optimization module (`genetic_algorithm.h` and `genetic_algorithm.cpp`) to resolve compilation errors.
-
 
