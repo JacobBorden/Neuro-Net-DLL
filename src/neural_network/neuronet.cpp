@@ -116,96 +116,101 @@ void NeuroNet::NeuroNet::UpdateWeights(float learning_rate) {
         }
         int layer_output_size = layer.LayerSize();
 
-        // --- Handle Weights ---
-        LayerWeights current_lw_struct = layer.get_weights();
-        Matrix::Matrix<float> dLdW_matrix = layer.get_dLdW();
+        UpdateSingleLayerWeights(layer, layer_input_size, layer_output_size, learning_rate, i);
+        UpdateSingleLayerBiases(layer, layer_output_size, learning_rate, i);
+    }
+}
 
-        if (current_lw_struct.WeightCount > 0) {
-            if (dLdW_matrix.rows() == 0 && dLdW_matrix.cols() == 0 && layer_input_size == 0 && layer_output_size == 0) {
-                // Special case: layer has 0 input/output size, dLdW might be 0x0 legitimately. Skip update.
-            } else if (dLdW_matrix.rows() != static_cast<size_t>(layer_input_size) || dLdW_matrix.cols() != static_cast<size_t>(layer_output_size)) {
-                 throw std::runtime_error("Dimension mismatch for weight gradients in layer " + std::to_string(i) +
-                                          ". Expected (" + std::to_string(layer_input_size) + "," + std::to_string(layer_output_size) +
-                                          "), Got (" + std::to_string(dLdW_matrix.rows()) + "," + std::to_string(dLdW_matrix.cols()) + ")");
-            }
-            if (static_cast<int>(dLdW_matrix.rows() * dLdW_matrix.cols()) != current_lw_struct.WeightCount) {
-                 throw std::runtime_error("Mismatch between dLdW_matrix total elements (" + std::to_string(dLdW_matrix.rows() * dLdW_matrix.cols()) +
-                                          ") and layer's WeightCount (" + std::to_string(current_lw_struct.WeightCount) +") for layer " + std::to_string(i));
-            }
+void NeuroNet::NeuroNet::UpdateSingleLayerWeights(NeuroNetLayer& layer, int layer_input_size, int layer_output_size, float learning_rate, int layer_index) {
+    LayerWeights current_lw_struct = layer.get_weights();
+    Matrix::Matrix<float> dLdW_matrix = layer.get_dLdW();
 
-            Matrix::Matrix<float> current_weights_matrix(layer_input_size, layer_output_size);
-            if (layer_input_size > 0 && layer_output_size > 0) { // Only construct if dimensions are valid
-                int k_w = 0;
-                for (int r = 0; r < layer_input_size; ++r) {
-                    for (int c = 0; c < layer_output_size; ++c) {
-                        if (k_w < current_lw_struct.WeightCount) {
-                            current_weights_matrix[r][c] = current_lw_struct.WeightsVector[k_w++];
-                        } else {
-                            throw std::runtime_error("WeightCount mismatch during weight matrix reconstruction for layer " + std::to_string(i));
-                        }
+    if (current_lw_struct.WeightCount > 0) {
+        if (dLdW_matrix.rows() == 0 && dLdW_matrix.cols() == 0 && layer_input_size == 0 && layer_output_size == 0) {
+            // Special case: layer has 0 input/output size, dLdW might be 0x0 legitimately. Skip update.
+        } else if (dLdW_matrix.rows() != static_cast<size_t>(layer_input_size) || dLdW_matrix.cols() != static_cast<size_t>(layer_output_size)) {
+             throw std::runtime_error("Dimension mismatch for weight gradients in layer " + std::to_string(layer_index) +
+                                      ". Expected (" + std::to_string(layer_input_size) + "," + std::to_string(layer_output_size) +
+                                      "), Got (" + std::to_string(dLdW_matrix.rows()) + "," + std::to_string(dLdW_matrix.cols()) + ")");
+        }
+        if (static_cast<int>(dLdW_matrix.rows() * dLdW_matrix.cols()) != current_lw_struct.WeightCount) {
+             throw std::runtime_error("Mismatch between dLdW_matrix total elements (" + std::to_string(dLdW_matrix.rows() * dLdW_matrix.cols()) +
+                                      ") and layer's WeightCount (" + std::to_string(current_lw_struct.WeightCount) +") for layer " + std::to_string(layer_index));
+        }
+
+        Matrix::Matrix<float> current_weights_matrix(layer_input_size, layer_output_size);
+        if (layer_input_size > 0 && layer_output_size > 0) { // Only construct if dimensions are valid
+            int k_w = 0;
+            for (int r = 0; r < layer_input_size; ++r) {
+                for (int c = 0; c < layer_output_size; ++c) {
+                    if (k_w < current_lw_struct.WeightCount) {
+                        current_weights_matrix[r][c] = current_lw_struct.WeightsVector[k_w++];
+                    } else {
+                        throw std::runtime_error("WeightCount mismatch during weight matrix reconstruction for layer " + std::to_string(layer_index));
                     }
                 }
-            }
-
-            Matrix::Matrix<float> updated_weights_matrix = current_weights_matrix - (dLdW_matrix * learning_rate);
-
-            LayerWeights new_lw_struct;
-            new_lw_struct.WeightCount = current_lw_struct.WeightCount;
-            if (new_lw_struct.WeightCount > 0) { // Only fill vector if there are weights
-                new_lw_struct.WeightsVector.reserve(new_lw_struct.WeightCount);
-                for (size_t r = 0; r < updated_weights_matrix.rows(); ++r) {
-                    for (size_t c = 0; c < updated_weights_matrix.cols(); ++c) {
-                        new_lw_struct.WeightsVector.push_back(updated_weights_matrix[r][c]);
-                    }
-                }
-            }
-            if (!layer.SetWeights(new_lw_struct)) {
-                throw std::runtime_error("Failed to set updated weights for layer " + std::to_string(i));
             }
         }
 
-        // --- Handle Biases ---
-        LayerBiases current_lb_struct = layer.get_biases();
-        Matrix::Matrix<float> dLdB_matrix = layer.get_dLdB();
+        Matrix::Matrix<float> updated_weights_matrix = current_weights_matrix - (dLdW_matrix * learning_rate);
 
-        if (current_lb_struct.BiasCount > 0) {
-             if (dLdB_matrix.rows() == 0 && dLdB_matrix.cols() == 0 && layer_output_size == 0) {
-                // Special case: layer has 0 output size, dLdB might be 0x0 legitimately. Skip update.
-             } else if (dLdB_matrix.rows() != 1 || dLdB_matrix.cols() != static_cast<size_t>(layer_output_size)) {
-                 throw std::runtime_error("Dimension mismatch for bias gradients in layer " + std::to_string(i) +
-                                          ". Expected (1," + std::to_string(layer_output_size) +
-                                          "), Got (" + std::to_string(dLdB_matrix.rows()) + "," + std::to_string(dLdB_matrix.cols()) + ")");
-            }
-            if (static_cast<int>(dLdB_matrix.rows() * dLdB_matrix.cols()) != current_lb_struct.BiasCount) {
-                 throw std::runtime_error("Mismatch between dLdB_matrix total elements (" + std::to_string(dLdB_matrix.rows() * dLdB_matrix.cols()) +
-                                          ") and layer's BiasCount (" + std::to_string(current_lb_struct.BiasCount) + ") for layer " + std::to_string(i));
-            }
-
-            Matrix::Matrix<float> current_biases_matrix(1, layer_output_size);
-            if (layer_output_size > 0) { // Only construct if dimensions are valid
-                int k_b = 0;
-                for (int c = 0; c < layer_output_size; ++c) {
-                     if (k_b < current_lb_struct.BiasCount) {
-                        current_biases_matrix[0][c] = current_lb_struct.BiasVector[k_b++];
-                     } else {
-                        throw std::runtime_error("BiasCount mismatch during bias matrix reconstruction for layer " + std::to_string(i));
-                     }
+        LayerWeights new_lw_struct;
+        new_lw_struct.WeightCount = current_lw_struct.WeightCount;
+        if (new_lw_struct.WeightCount > 0) { // Only fill vector if there are weights
+            new_lw_struct.WeightsVector.reserve(new_lw_struct.WeightCount);
+            for (size_t r = 0; r < updated_weights_matrix.rows(); ++r) {
+                for (size_t c = 0; c < updated_weights_matrix.cols(); ++c) {
+                    new_lw_struct.WeightsVector.push_back(updated_weights_matrix[r][c]);
                 }
             }
+        }
+        if (!layer.SetWeights(new_lw_struct)) {
+            throw std::runtime_error("Failed to set updated weights for layer " + std::to_string(layer_index));
+        }
+    }
+}
 
-            Matrix::Matrix<float> updated_biases_matrix = current_biases_matrix - (dLdB_matrix * learning_rate);
+void NeuroNet::NeuroNet::UpdateSingleLayerBiases(NeuroNetLayer& layer, int layer_output_size, float learning_rate, int layer_index) {
+    LayerBiases current_lb_struct = layer.get_biases();
+    Matrix::Matrix<float> dLdB_matrix = layer.get_dLdB();
 
-            LayerBiases new_lb_struct;
-            new_lb_struct.BiasCount = current_lb_struct.BiasCount;
-            if (new_lb_struct.BiasCount > 0) { // Only fill vector if there are biases
-                new_lb_struct.BiasVector.reserve(new_lb_struct.BiasCount);
-                for (size_t c = 0; c < updated_biases_matrix.cols(); ++c) {
-                    new_lb_struct.BiasVector.push_back(updated_biases_matrix[0][c]);
-                }
+    if (current_lb_struct.BiasCount > 0) {
+         if (dLdB_matrix.rows() == 0 && dLdB_matrix.cols() == 0 && layer_output_size == 0) {
+            // Special case: layer has 0 output size, dLdB might be 0x0 legitimately. Skip update.
+         } else if (dLdB_matrix.rows() != 1 || dLdB_matrix.cols() != static_cast<size_t>(layer_output_size)) {
+             throw std::runtime_error("Dimension mismatch for bias gradients in layer " + std::to_string(layer_index) +
+                                      ". Expected (1," + std::to_string(layer_output_size) +
+                                      "), Got (" + std::to_string(dLdB_matrix.rows()) + "," + std::to_string(dLdB_matrix.cols()) + ")");
+        }
+        if (static_cast<int>(dLdB_matrix.rows() * dLdB_matrix.cols()) != current_lb_struct.BiasCount) {
+             throw std::runtime_error("Mismatch between dLdB_matrix total elements (" + std::to_string(dLdB_matrix.rows() * dLdB_matrix.cols()) +
+                                      ") and layer's BiasCount (" + std::to_string(current_lb_struct.BiasCount) + ") for layer " + std::to_string(layer_index));
+        }
+
+        Matrix::Matrix<float> current_biases_matrix(1, layer_output_size);
+        if (layer_output_size > 0) { // Only construct if dimensions are valid
+            int k_b = 0;
+            for (int c = 0; c < layer_output_size; ++c) {
+                 if (k_b < current_lb_struct.BiasCount) {
+                    current_biases_matrix[0][c] = current_lb_struct.BiasVector[k_b++];
+                 } else {
+                    throw std::runtime_error("BiasCount mismatch during bias matrix reconstruction for layer " + std::to_string(layer_index));
+                 }
             }
-            if (!layer.SetBiases(new_lb_struct)) {
-                throw std::runtime_error("Failed to set updated biases for layer " + std::to_string(i));
+        }
+
+        Matrix::Matrix<float> updated_biases_matrix = current_biases_matrix - (dLdB_matrix * learning_rate);
+
+        LayerBiases new_lb_struct;
+        new_lb_struct.BiasCount = current_lb_struct.BiasCount;
+        if (new_lb_struct.BiasCount > 0) { // Only fill vector if there are biases
+            new_lb_struct.BiasVector.reserve(new_lb_struct.BiasCount);
+            for (size_t c = 0; c < updated_biases_matrix.cols(); ++c) {
+                new_lb_struct.BiasVector.push_back(updated_biases_matrix[0][c]);
             }
+        }
+        if (!layer.SetBiases(new_lb_struct)) {
+            throw std::runtime_error("Failed to set updated biases for layer " + std::to_string(layer_index));
         }
     }
 }
