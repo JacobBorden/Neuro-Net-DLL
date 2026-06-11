@@ -32,6 +32,11 @@ std::vector<std::string> Vocabulary::split_by_space(const std::string& str) cons
 }
 
 bool Vocabulary::load_from_json(const std::string& filepath) {
+    if (filepath.find("..") != std::string::npos ||
+        (!filepath.empty() && (filepath[0] == '/' || filepath[0] == '\\' || (filepath.length() > 1 && filepath[1] == ':')))) {
+        return false;
+    }
+
     std::ifstream ifs(filepath);
     if (!ifs.is_open()) {
         // Consider logging an error here

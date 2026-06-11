@@ -283,6 +283,11 @@ bool TransformerModel::save_model(const std::string& filename) const { // Fixed 
 
 
 TransformerModel TransformerModel::load_model(const std::string& filename) { // Fixed std::string
+    if (filename.find("..") != std::string::npos ||
+        (!filename.empty() && (filename[0] == '/' || filename[0] == '\\' || (filename.length() > 1 && filename[1] == ':')))) {
+        throw std::runtime_error("Invalid filename: Path traversal and absolute paths are not allowed.");
+    }
+
     std::ifstream ifs(filename); // Fixed std::ifstream
     if (!ifs.is_open()) {
         throw std::runtime_error("Failed to open model file: " + filename); // Fixed std::runtime_error, std::string
