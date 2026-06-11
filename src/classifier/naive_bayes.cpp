@@ -15,7 +15,6 @@ std::vector<double> NaiveBayesClassifier::get_unique_sorted_labels(const Matrix:
         throw std::invalid_argument("Labels matrix must be a column vector.");
     }
     std::vector<double> unique_labels;
-    unique_labels.reserve(labels.rows());
     for (size_t i = 0; i < labels.rows(); ++i) {
         unique_labels.push_back(labels[i][0]);
     }

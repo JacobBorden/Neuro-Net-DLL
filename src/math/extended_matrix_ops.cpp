@@ -32,7 +32,7 @@ Matrix::Matrix<float> softmax(const Matrix::Matrix<float>& input, int axis) {
     size_t cols = input.cols();
 
     if (rows == 0 || cols == 0) {
-        throw std::invalid_argument("Input matrix is empty.");
+        return Matrix::Matrix<float>(rows, cols); // Return empty/original if input is empty
     }
 
     Matrix::Matrix<float> output(rows, cols);

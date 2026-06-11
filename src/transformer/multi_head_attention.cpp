@@ -69,7 +69,7 @@ Matrix::Matrix<float> MultiHeadAttention::forward(
 
     // 3. Apply attention for each head
     std::vector<Matrix::Matrix<float>> head_outputs;
-    head_outputs.reserve(num_heads_); // Prevent dynamic reallocations
+    head_outputs.reserve(num_heads_);
 
     for (int h = 0; h < num_heads_; ++h) {
         // The mask (if provided) applies to the attention scores within each head.
@@ -77,7 +77,7 @@ Matrix::Matrix<float> MultiHeadAttention::forward(
         AttentionOutput single_head_attention_output = attention_module_.forward(
             Q_heads[h], K_heads[h], V_heads[h], mask
         );
-        head_outputs.push_back(std::move(single_head_attention_output.output)); // Each is (seq_len_q, d_head)
+        head_outputs.push_back(single_head_attention_output.output); // Each is (seq_len_q, d_head)
     }
 
     // 4. Concatenate head outputs

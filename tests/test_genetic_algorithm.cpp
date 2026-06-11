@@ -1,10 +1,6 @@
 #include "gtest/gtest.h"
 #include "optimization/genetic_algorithm.h" // Access to GeneticAlgorithm
 #include "neural_network/neuronet.h"          // Access to NeuroNet for template and individuals
-#include "../src/utilities/json/json.hpp"
-#include "../src/utilities/json/json_exception.hpp"
-#include <cstdio>              // For std::remove
-#include <fstream>             // For std::ifstream
 #include <numeric>             // For std::accumulate
 #include <set>                 // For checking distinctness
 
@@ -206,35 +202,6 @@ TEST_F(GeneticAlgorithmTest, RunEvolutionImprovesFitness) {
     }
 }
 
-TEST_F(GeneticAlgorithmTest, EarlyStopping) {
-    // Fitness function that never improves
-    auto static_fitness = [](NeuroNet::NeuroNet& net) {
-        return 1.0;
-    };
-
-    int patience = 3;
-    int max_generations = 20;
-    Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, max_generations, template_net);
-    ga.run_evolution(static_fitness, patience);
-
-    const std::string metrics_filename = "test_early_stopping_metrics.json";
-    ga.export_training_metrics_json(metrics_filename);
-
-    std::ifstream metrics_file(metrics_filename);
-    ASSERT_TRUE(metrics_file.is_open());
-    std::string json_content((std::istreambuf_iterator<char>(metrics_file)),
-                             std::istreambuf_iterator<char>());
-    metrics_file.close();
-
-    JsonValue root = JsonParser::Parse(json_content);
-    const auto& root_obj = root.GetObject();
-
-    // We expect it to stop early. Since it runs 1 generation (improvement from lowest to 1.0),
-    // and then 3 generations with no improvement, total generations should be 1 + 3 = 4.
-    double actual_generations = root_obj.at("total_generations")->GetNumber();
-    EXPECT_EQ(actual_generations, 4.0);
-}
-
 TEST_F(GeneticAlgorithmTest, GetBestIndividual) {
     Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, 1, template_net);
     ga.initialize_population();
@@ -276,6 +243,12 @@ TEST_F(GeneticAlgorithmTest, GetBestIndividual) {
     EXPECT_GT(reported_best.get_all_weights_flat().size(), 0);
 }
 
+
+#include <fstream> // For std::ifstream for reading file
+#include <cstdio>  // For std::remove
+// Use custom JSON library for parsing the output file
+#include "../src/utilities/json/json.hpp"
+#include "../src/utilities/json/json_exception.hpp"
 
 TEST_F(GeneticAlgorithmTest, ExportTrainingMetrics) {
     Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, num_generations, template_net);

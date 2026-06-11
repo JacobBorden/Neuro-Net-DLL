@@ -138,7 +138,18 @@ std::vector<AStarPathNode> NeuralPathfinder::FindOptimalPathAStar() {
 
     while (!open_set.empty()) {
         AStarPathNode current_node = open_set.top().second;
+        // double current_node_f_score_in_pq = open_set.top().first; // For debugging
         open_set.pop();
+
+        // If this node was already processed with a better or equal path, skip.
+        // This check is particularly useful if we can update priorities in PQ,
+        // but with std::priority_queue, we add duplicates.
+        // Check against g_score which stores the best known path cost.
+        // double current_node_h_val = CalculateHeuristic(current_node, goal_layer_idx, min_single_edge_cost);
+        // if (current_node_f_score_in_pq > g_score.at(current_node) + current_node_h_val + EPSILON) { // Add EPSILON for float comparisons
+        //    continue; // Stale entry in PQ
+        // }
+        // A simpler check: if a node is popped, its g_score is final for standard A* with consistent heuristic.
 
         if (current_node.layer_idx == goal_layer_idx) {
             return ReconstructPath(came_from, current_node); // Goal reached
@@ -176,8 +187,7 @@ std::vector<AStarPathNode> NeuralPathfinder::FindOptimalPathAStar() {
             double tentative_g_score = g_score.at(current_node) + edge_cost;
 
             // Check if this path to neighbor is better or if neighbor hasn't been visited
-            auto it = g_score.find(neighbor_node);
-            if (it == g_score.end() || tentative_g_score < it->second) {
+            if (g_score.find(neighbor_node) == g_score.end() || tentative_g_score < g_score.at(neighbor_node)) {
                 came_from[neighbor_node] = current_node;
                 g_score[neighbor_node] = tentative_g_score;
                 double h_val_neighbor = CalculateHeuristic(neighbor_node, goal_layer_idx, min_single_edge_cost);
