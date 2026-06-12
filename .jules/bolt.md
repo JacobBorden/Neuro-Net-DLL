@@ -1,0 +1,3 @@
+## 2024-06-12 - [Cache-friendly Matrix Multiplication]
+**Learning:** The custom `Matrix` implementation uses a row-major array of pointers `std::unique_ptr<MatrixRow<T>[]> m_Data`. The current matrix multiplication `operator*` uses a loop order of `i -> k -> j`. In the innermost loop `j`, it accesses `b.m_Data[j][k]`, which reads down a column. This is not cache-friendly because row-major layout means contiguous memory is along rows, not columns, leading to frequent cache misses.
+**Action:** When working with custom row-major matrix implementations, always use loop interchange to `i -> j -> k` for matrix multiplication to ensure sequential memory access in the innermost loop.
