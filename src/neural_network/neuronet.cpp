@@ -312,49 +312,46 @@ NeuroNet::ActivationFunctionType NeuroNet::NeuroNetLayer::activation_type_from_s
     throw std::invalid_argument("Unknown activation function name: " + name);
 }
 
-Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyReLU(const Matrix::Matrix<float>& input) {
-    Matrix::Matrix<float> output = input; // Make a copy
-    #ifdef _OPENMP
+void NeuroNet::NeuroNetLayer::ApplyReLU(Matrix::Matrix<float>& input) {
+    // Memory optimization: Modifying input matrix in-place to avoid copies
+        #ifdef _OPENMP
     #pragma omp parallel for collapse(2)
     #endif
-    for (size_t i = 0; i < output.rows(); ++i) {
-        for (size_t j = 0; j < output.cols(); ++j) {
-            output[i][j] = std::max(0.0f, output[i][j]);
+    for (size_t i = 0; i < input.rows(); ++i) {
+        for (size_t j = 0; j < input.cols(); ++j) {
+            input[i][j] = std::max(0.0f, input[i][j]);
         }
     }
-    return output;
 }
 
-Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyLeakyReLU(const Matrix::Matrix<float>& input) {
-    Matrix::Matrix<float> output = input; // Make a copy
-    const float alpha = 0.01f;
+void NeuroNet::NeuroNetLayer::ApplyLeakyReLU(Matrix::Matrix<float>& input) {
+    // Memory optimization: Modifying input matrix in-place to avoid copies
+        const float alpha = 0.01f;
     #ifdef _OPENMP
     #pragma omp parallel for collapse(2)
     #endif
-    for (size_t i = 0; i < output.rows(); ++i) {
-        for (size_t j = 0; j < output.cols(); ++j) {
-            if (output[i][j] < 0) {
-                output[i][j] = alpha * output[i][j];
+    for (size_t i = 0; i < input.rows(); ++i) {
+        for (size_t j = 0; j < input.cols(); ++j) {
+            if (input[i][j] < 0) {
+                input[i][j] = alpha * input[i][j];
             }
         }
     }
-    return output;
 }
 
-Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyELU(const Matrix::Matrix<float>& input) {
-    Matrix::Matrix<float> output = input; // Make a copy
-    const float alpha = 1.0f;
+void NeuroNet::NeuroNetLayer::ApplyELU(Matrix::Matrix<float>& input) {
+    // Memory optimization: Modifying input matrix in-place to avoid copies
+        const float alpha = 1.0f;
     #ifdef _OPENMP
     #pragma omp parallel for collapse(2)
     #endif
-    for (size_t i = 0; i < output.rows(); ++i) {
-        for (size_t j = 0; j < output.cols(); ++j) {
-            if (output[i][j] < 0) {
-                output[i][j] = alpha * (std::exp(output[i][j]) - 1.0f);
+    for (size_t i = 0; i < input.rows(); ++i) {
+        for (size_t j = 0; j < input.cols(); ++j) {
+            if (input[i][j] < 0) {
+                input[i][j] = alpha * (std::exp(input[i][j]) - 1.0f);
             }
         }
     }
-    return output;
 }
 
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeReLU(const Matrix::Matrix<float>& activated_output) const {
@@ -552,43 +549,40 @@ int NeuroNet::NeuroNetLayer::get_input_size() const {
     return this->InputSize;
 }
 
-Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplySigmoid(const Matrix::Matrix<float>& input) {
-    Matrix::Matrix<float> output = input;
-    #ifdef _OPENMP
+void NeuroNet::NeuroNetLayer::ApplySigmoid(Matrix::Matrix<float>& input) {
+    // Memory optimization: Modifying input matrix in-place to avoid copies
+        #ifdef _OPENMP
     #pragma omp parallel for collapse(2)
     #endif
-    for (size_t i = 0; i < output.rows(); ++i) {
-        for (size_t j = 0; j < output.cols(); ++j) {
-            output[i][j] = 1.0f / (1.0f + std::exp(-output[i][j]));
+    for (size_t i = 0; i < input.rows(); ++i) {
+        for (size_t j = 0; j < input.cols(); ++j) {
+            input[i][j] = 1.0f / (1.0f + std::exp(-input[i][j]));
         }
     }
-    return output;
 }
 
-Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyTanh(const Matrix::Matrix<float>& input) {
-    Matrix::Matrix<float> output = input;
-    #ifdef _OPENMP
+void NeuroNet::NeuroNetLayer::ApplyTanh(Matrix::Matrix<float>& input) {
+    // Memory optimization: Modifying input matrix in-place to avoid copies
+        #ifdef _OPENMP
     #pragma omp parallel for collapse(2)
     #endif
-    for (size_t i = 0; i < output.rows(); ++i) {
-        for (size_t j = 0; j < output.cols(); ++j) {
-            output[i][j] = std::tanh(output[i][j]);
+    for (size_t i = 0; i < input.rows(); ++i) {
+        for (size_t j = 0; j < input.cols(); ++j) {
+            input[i][j] = std::tanh(input[i][j]);
         }
     }
-    return output;
 }
 
-Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplySwish(const Matrix::Matrix<float>& input) {
-    Matrix::Matrix<float> output = input;
-    #ifdef _OPENMP
+void NeuroNet::NeuroNetLayer::ApplySwish(Matrix::Matrix<float>& input) {
+    // Memory optimization: Modifying input matrix in-place to avoid copies
+        #ifdef _OPENMP
     #pragma omp parallel for collapse(2)
     #endif
-    for (size_t i = 0; i < output.rows(); ++i) {
-        for (size_t j = 0; j < output.cols(); ++j) {
-            output[i][j] = output[i][j] * (1.0f / (1.0f + std::exp(-output[i][j])));
+    for (size_t i = 0; i < input.rows(); ++i) {
+        for (size_t j = 0; j < input.cols(); ++j) {
+            input[i][j] = input[i][j] * (1.0f / (1.0f + std::exp(-input[i][j])));
         }
     }
-    return output;
 }
 
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeSigmoid(const Matrix::Matrix<float>& activated_output) const {
@@ -638,29 +632,28 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeSwish(const Matrix::Mat
     return derivative;
 }
 
-Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplySoftmax(const Matrix::Matrix<float>& input) {
-    Matrix::Matrix<float> output = input; // Make a copy
-    float sum_exp = 0.0f;
+void NeuroNet::NeuroNetLayer::ApplySoftmax(Matrix::Matrix<float>& input) {
+    // Memory optimization: Modifying input matrix in-place to avoid copies
+        float sum_exp = 0.0f;
     // Calculate sum of exponents for normalization.
     // This implementation assumes input is a 1xN matrix (a single row vector),
-    // which is typical for the output of a layer before activation.
-    if (output.rows() != 1) {
-        // For a more general Softmax that could operate column-wise on a batch of outputs,
-        // this logic would need to be adjusted. For now, it processes a single output vector.
+    // which is typical for the input of a layer before activation.
+    if (input.rows() != 1) {
+        // For a more general Softmax that could operate column-wise on a batch of inputs,
+        // this logic would need to be adjusted. For now, it processes a single input vector.
     }
 
-    for (size_t j = 0; j < output.cols(); ++j) {
-        output[0][j] = std::exp(output[0][j]);
-        sum_exp += output[0][j];
+    for (size_t j = 0; j < input.cols(); ++j) {
+        input[0][j] = std::exp(input[0][j]);
+        sum_exp += input[0][j];
     }
 
     // Normalize
     if (sum_exp != 0.0f) { // Avoid division by zero
-        for (size_t j = 0; j < output.cols(); ++j) {
-            output[0][j] /= sum_exp;
+        for (size_t j = 0; j < input.cols(); ++j) {
+            input[0][j] /= sum_exp;
         }
     }
-    return output;
 }
 
 
@@ -691,25 +684,25 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::CalculateOutput() {
     // Apply the selected activation function.
     switch (this->vActivationFunction) {
         case ActivationFunctionType::ReLU:
-            this->OutputMatrix = ApplyReLU(this->OutputMatrix);
+            ApplyReLU(this->OutputMatrix);
             break;
         case ActivationFunctionType::LeakyReLU:
-            this->OutputMatrix = ApplyLeakyReLU(this->OutputMatrix);
+            ApplyLeakyReLU(this->OutputMatrix);
             break;
         case ActivationFunctionType::ELU:
-            this->OutputMatrix = ApplyELU(this->OutputMatrix);
+            ApplyELU(this->OutputMatrix);
             break;
         case ActivationFunctionType::Softmax:
-            this->OutputMatrix = ApplySoftmax(this->OutputMatrix);
+            ApplySoftmax(this->OutputMatrix);
             break;
         case ActivationFunctionType::Sigmoid:
-            this->OutputMatrix = ApplySigmoid(this->OutputMatrix);
+            ApplySigmoid(this->OutputMatrix);
             break;
         case ActivationFunctionType::Tanh:
-            this->OutputMatrix = ApplyTanh(this->OutputMatrix);
+            ApplyTanh(this->OutputMatrix);
             break;
         case ActivationFunctionType::Swish:
-            this->OutputMatrix = ApplySwish(this->OutputMatrix);
+            ApplySwish(this->OutputMatrix);
             break;
         case ActivationFunctionType::None:
             // No activation function applied, do nothing.
