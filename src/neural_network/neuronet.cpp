@@ -138,29 +138,19 @@ void NeuroNet::NeuroNet::UpdateSingleLayerWeights(NeuroNetLayer& layer, int laye
                                       ") and layer's WeightCount (" + std::to_string(current_lw_struct.WeightCount) +") for layer " + std::to_string(layer_index));
         }
 
-        Matrix::Matrix<float> current_weights_matrix(layer_input_size, layer_output_size);
-        if (layer_input_size > 0 && layer_output_size > 0) { // Only construct if dimensions are valid
-            int k_w = 0;
-            for (int r = 0; r < layer_input_size; ++r) {
-                for (int c = 0; c < layer_output_size; ++c) {
-                    if (k_w < current_lw_struct.WeightCount) {
-                        current_weights_matrix[r][c] = current_lw_struct.WeightsVector[k_w++];
-                    } else {
-                        throw std::runtime_error("WeightCount mismatch during weight matrix reconstruction for layer " + std::to_string(layer_index));
-                    }
-                }
-            }
-        }
-
-        Matrix::Matrix<float> updated_weights_matrix = current_weights_matrix - (dLdW_matrix * learning_rate);
-
         LayerWeights new_lw_struct;
         new_lw_struct.WeightCount = current_lw_struct.WeightCount;
-        if (new_lw_struct.WeightCount > 0) { // Only fill vector if there are weights
+        if (new_lw_struct.WeightCount > 0) {
             new_lw_struct.WeightsVector.reserve(new_lw_struct.WeightCount);
-            for (size_t r = 0; r < updated_weights_matrix.rows(); ++r) {
-                for (size_t c = 0; c < updated_weights_matrix.cols(); ++c) {
-                    new_lw_struct.WeightsVector.push_back(updated_weights_matrix[r][c]);
+            int k_w = 0;
+            for (size_t r = 0; r < static_cast<size_t>(layer_input_size); ++r) {
+                for (size_t c = 0; c < static_cast<size_t>(layer_output_size); ++c) {
+                    if (k_w < current_lw_struct.WeightCount) {
+                        // Optimize memory allocation during Matrix operations (avoid copies)
+                        new_lw_struct.WeightsVector.push_back(current_lw_struct.WeightsVector[k_w++] - dLdW_matrix[r][c] * learning_rate);
+                    } else {
+                        throw std::runtime_error("WeightCount mismatch during weight update for layer " + std::to_string(layer_index));
+                    }
                 }
             }
         }
@@ -187,26 +177,18 @@ void NeuroNet::NeuroNet::UpdateSingleLayerBiases(NeuroNetLayer& layer, int layer
                                       ") and layer's BiasCount (" + std::to_string(current_lb_struct.BiasCount) + ") for layer " + std::to_string(layer_index));
         }
 
-        Matrix::Matrix<float> current_biases_matrix(1, layer_output_size);
-        if (layer_output_size > 0) { // Only construct if dimensions are valid
-            int k_b = 0;
-            for (int c = 0; c < layer_output_size; ++c) {
-                 if (k_b < current_lb_struct.BiasCount) {
-                    current_biases_matrix[0][c] = current_lb_struct.BiasVector[k_b++];
-                 } else {
-                    throw std::runtime_error("BiasCount mismatch during bias matrix reconstruction for layer " + std::to_string(layer_index));
-                 }
-            }
-        }
-
-        Matrix::Matrix<float> updated_biases_matrix = current_biases_matrix - (dLdB_matrix * learning_rate);
-
         LayerBiases new_lb_struct;
         new_lb_struct.BiasCount = current_lb_struct.BiasCount;
-        if (new_lb_struct.BiasCount > 0) { // Only fill vector if there are biases
+        if (new_lb_struct.BiasCount > 0) {
             new_lb_struct.BiasVector.reserve(new_lb_struct.BiasCount);
-            for (size_t c = 0; c < updated_biases_matrix.cols(); ++c) {
-                new_lb_struct.BiasVector.push_back(updated_biases_matrix[0][c]);
+            int k_b = 0;
+            for (size_t c = 0; c < static_cast<size_t>(layer_output_size); ++c) {
+                 if (k_b < current_lb_struct.BiasCount) {
+                    // Optimize memory allocation during Matrix operations (avoid copies)
+                    new_lb_struct.BiasVector.push_back(current_lb_struct.BiasVector[k_b++] - dLdB_matrix[0][c] * learning_rate);
+                 } else {
+                    throw std::runtime_error("BiasCount mismatch during bias update for layer " + std::to_string(layer_index));
+                 }
             }
         }
         if (!layer.SetBiases(new_lb_struct)) {
