@@ -1053,14 +1053,22 @@ namespace Matrix
         // `i` is the loop control variable for the parallel for.
         // `k`, `j`, and `sum` are declared inside the scope of the `i` loop,
         // making them private to each iteration of the outer loop, and thus to each thread handling an `i`.
+		// Performance optimization: Loop interchange (i-j-k)
+        // By changing the loop order from i-k-j to i-j-k, we access memory sequentially in the inner loop.
+        // Specifically, c.m_Data[i][k] and b.m_Data[j][k] are accessed sequentially, which is highly
+        // cache-friendly for row-major matrices. This significantly reduces cache misses and speeds up
+        // matrix multiplication without needing to transpose the matrix, saving O(N^2) memory.
 		#pragma omp parallel for
 		for (size_t i = 0; i < m_Rows; i++) {
-			for (size_t k = 0; k < b.m_Cols; k++) { // Iterate over columns of b (which is cols of c)
-                T sum = T(0); // Initialize sum for c[i][k]
-				for (size_t j = 0; j < m_Cols; j++) { // Iterate over columns of a / rows of b
-					sum += m_Data[i][j] * b.m_Data[j][k];
+            // Explicitly initialize the row elements to zero since we use +=
+            for (size_t k = 0; k < b.m_Cols; k++) {
+                c.m_Data[i][k] = T(0);
+            }
+			for (size_t j = 0; j < m_Cols; j++) {
+                T a_ij = m_Data[i][j];
+				for (size_t k = 0; k < b.m_Cols; k++) {
+					c.m_Data[i][k] += a_ij * b.m_Data[j][k];
 				}
-                c.m_Data[i][k] = sum; // Each thread writes to a different c.m_Data[i] row part
             }
         }
 
