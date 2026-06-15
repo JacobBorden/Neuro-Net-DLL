@@ -327,45 +327,38 @@ namespace NeuroNet
     // Private helper methods for activation functions
     /**
      * @brief Applies the ReLU activation function element-wise to the input matrix.
-     * @param input The matrix resulting from the linear transformation (Wx + b).
-     * @return Matrix::Matrix<float> The matrix after applying ReLU.
+     * @param input The matrix resulting from the linear transformation (Wx + b), modified in place.
      */
     void ApplyReLU(Matrix::Matrix<float>& input);
     /**
      * @brief Applies the LeakyReLU activation function element-wise to the input matrix.
-     * @param input The matrix resulting from the linear transformation (Wx + b).
-     * @return Matrix::Matrix<float> The matrix after applying LeakyReLU.
+     * @param input The matrix resulting from the linear transformation (Wx + b), modified in place.
      */
     void ApplyLeakyReLU(Matrix::Matrix<float>& input);
     /**
      * @brief Applies the ELU activation function element-wise to the input matrix.
-     * @param input The matrix resulting from the linear transformation (Wx + b).
-     * @return Matrix::Matrix<float> The matrix after applying ELU.
+     * @param input The matrix resulting from the linear transformation (Wx + b), modified in place.
      */
     void ApplyELU(Matrix::Matrix<float>& input);
     /**
      * @brief Applies the Softmax activation function to the input matrix.
      * Typically used for the output layer in classification tasks.
-     * @param input The matrix resulting from the linear transformation (Wx + b).
-     * @return Matrix::Matrix<float> The matrix after applying Softmax.
+     * @param input The matrix resulting from the linear transformation (Wx + b), modified in place.
      */
     void ApplySoftmax(Matrix::Matrix<float>& input);
     /**
      * @brief Applies the Sigmoid activation function element-wise to the input matrix.
-     * @param input The matrix resulting from the linear transformation (Wx + b).
-     * @return Matrix::Matrix<float> The matrix after applying Sigmoid.
+     * @param input The matrix resulting from the linear transformation (Wx + b), modified in place.
      */
     void ApplySigmoid(Matrix::Matrix<float>& input);
     /**
      * @brief Applies the Tanh activation function element-wise to the input matrix.
-     * @param input The matrix resulting from the linear transformation (Wx + b).
-     * @return Matrix::Matrix<float> The matrix after applying Tanh.
+     * @param input The matrix resulting from the linear transformation (Wx + b), modified in place.
      */
     void ApplyTanh(Matrix::Matrix<float>& input);
     /**
      * @brief Applies the Swish activation function element-wise to the input matrix.
-     * @param input The matrix resulting from the linear transformation (Wx + b).
-     * @return Matrix::Matrix<float> The matrix after applying Swish.
+     * @param input The matrix resulting from the linear transformation (Wx + b), modified in place.
      */
     void ApplySwish(Matrix::Matrix<float>& input);
 	};
