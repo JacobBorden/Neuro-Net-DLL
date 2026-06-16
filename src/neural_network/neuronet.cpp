@@ -622,6 +622,9 @@ void NeuroNet::NeuroNetLayer::ApplySoftmax(Matrix::Matrix<float>& output) {
         // this logic would need to be adjusted. For now, it processes a single output vector.
     }
 
+    #ifdef _OPENMP
+    #pragma omp parallel for reduction(+:sum_exp)
+    #endif
     for (size_t j = 0; j < output.cols(); ++j) {
         output[0][j] = std::exp(output[0][j]);
         sum_exp += output[0][j];
@@ -629,6 +632,9 @@ void NeuroNet::NeuroNetLayer::ApplySoftmax(Matrix::Matrix<float>& output) {
 
     // Normalize
     if (sum_exp != 0.0f) { // Avoid division by zero
+        #ifdef _OPENMP
+        #pragma omp parallel for
+        #endif
         for (size_t j = 0; j < output.cols(); ++j) {
             output[0][j] /= sum_exp;
         }
