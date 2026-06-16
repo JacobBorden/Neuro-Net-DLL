@@ -156,26 +156,18 @@ TEST_F(GeneticAlgorithmTest, Crossover) {
     std::vector<float> o1_weights = offspring[0].get_all_weights_flat();
     std::vector<float> o2_weights = offspring[1].get_all_weights_flat();
 
-    bool p1_material_in_o1 = false;
-    bool p2_material_in_o1 = false;
-    bool p1_material_in_o2 = false;
-    bool p2_material_in_o2 = false;
-
     if (!o1_weights.empty()) {
-        for(float w : o1_weights) {
-            if (w == 1.0f) p1_material_in_o1 = true;
-            if (w == 2.0f) p2_material_in_o1 = true;
+        ASSERT_EQ(o1_weights.size(), o2_weights.size());
+        bool swapped_material = false;
+        for (size_t i = 0; i < o1_weights.size(); ++i) {
+            const bool original_order = (o1_weights[i] == 1.0f && o2_weights[i] == 2.0f);
+            const bool swapped_order = (o1_weights[i] == 2.0f && o2_weights[i] == 1.0f);
+            EXPECT_TRUE(original_order || swapped_order);
+            swapped_material = swapped_material || swapped_order;
         }
-        for(float w : o2_weights) {
-            if (w == 1.0f) p1_material_in_o2 = true;
-            if (w == 2.0f) p2_material_in_o2 = true;
-        }
-        // Single point crossover means one offspring will have start of P1, end of P2
-        // and other will have start of P2, end of P1. So both should have material from both.
-        EXPECT_TRUE(p1_material_in_o1);
-        EXPECT_TRUE(p2_material_in_o1);
-        EXPECT_TRUE(p1_material_in_o2);
-        EXPECT_TRUE(p2_material_in_o2);
+        // A crossover point at 0 legitimately swaps the whole vector, so only require
+        // complementary parent material and at least one swapped position.
+        EXPECT_TRUE(swapped_material);
     } else {
         SUCCEED(); // No weights to crossover
     }
@@ -193,7 +185,11 @@ TEST_F(GeneticAlgorithmTest, RunEvolutionImprovesFitness) {
     NeuroNet::NeuroNet initial_best = ga.get_best_individual();
     double initial_best_fitness = simple_fitness_function(initial_best);
 
-    ga.run_evolution(simple_fitness_function);
+    // Evolve the already-evaluated population so the comparison is against the
+    // same initial population. run_evolution() intentionally reinitializes.
+    for (int generation = 1; generation <= num_generations; ++generation) {
+        ga.evolve_one_generation(simple_fitness_function, generation);
+    }
 
     NeuroNet::NeuroNet final_best = ga.get_best_individual();
     double final_best_fitness = simple_fitness_function(final_best);
