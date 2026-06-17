@@ -37,6 +37,8 @@ All notable changes to this project will be documented in this file.
 - Refactored `NeuroNet::UpdateWeights()` into private helpers for per-layer weight and bias updates.
 - Optimized activation functions to mutate layer output matrices in place, avoiding extra matrix copies during forward passes.
 - Optimized backpropagation weight and bias updates to avoid temporary matrix allocations.
+- Parallelized `NeuroNetLayer` Softmax exponentiation and normalization loops when OpenMP is enabled.
+- Stabilized flaky `GeneticAlgorithm` tests by asserting deterministic crossover and evolution invariants.
 - Refactored the A* pathfinding export example into clearer setup and execution helpers.
 - Replaced exception-driven `NeuralPathfinder` weight probing with explicit `NeuroNetLayer::has_weight()` bounds checks.
 - Replaced `jsoncpp` library with a custom internal JSON library (`src/utilities/json/`) for handling JSON data. This affects model saving/loading, test suites, and CMake configuration. The custom library (`json.hpp`, `json.cpp`) is now compiled directly into the main `neuronet` library.
