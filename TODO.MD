@@ -10,5 +10,5 @@
 - [ ] Expand the Transformer module to include Decoder layers and full Encoder-Decoder models.
 - [ ] Add more comprehensive logging and debug modes.
 - [x] Implement early stopping in the Genetic Algorithm based on validation performance (if validation sets are added).
-- [ ] Add standard dataset loaders (e.g. MNIST) for easier benchmarking and examples.
+- [x] Add standard dataset loaders (e.g. MNIST) for easier benchmarking and examples.
 - [ ] Provide pre-compiled binaries or packages (e.g. deb, rpm) in releases.
