@@ -23,6 +23,7 @@ add_library(neuronet STATIC
     src/utilities/json/json.cpp
     src/utilities/timer.cpp
     src/utilities/vocabulary.cpp
+    src/utilities/dataset_loader.cpp
     src/transformer/attention.cpp
     src/transformer/embedding.cpp
     src/transformer/multi_head_attention.cpp
