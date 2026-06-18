@@ -5,7 +5,6 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased] - YYYY-MM-DD
 
 ### Added
-- `MNISTLoader` for standard IDX image and label files, including regression coverage for truncated payloads.
 - `NeuralPathfinder` tests covering empty networks, single-layer networks, multi-layer path selection, and all-zero weights.
 - Unsafe-path regression tests for `Vocabulary` and `TransformerModel` loading.
 - **NeuroNet Model Serialization & Deserialization:**
