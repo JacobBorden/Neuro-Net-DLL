@@ -227,7 +227,7 @@ void NeuroNet::NeuroNet::Train(const std::vector<Matrix::Matrix<float>>& trainin
 
     // Step b: Loop for epochs
     for (int epoch = 0; epoch < epochs; ++epoch) {
-        LOG_INFO("Epoch " + std::to_string(epoch + 1) + "/" + std::to_string(epochs));
+        LOG_DEBUG("Epoch " + std::to_string(epoch + 1) + "/" + std::to_string(epochs));
 
         // Step c: Iterate through each training sample
         for (size_t i = 0; i < training_inputs.size(); ++i) {
