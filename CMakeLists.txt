@@ -21,6 +21,7 @@ add_library(neuronet STATIC
     src/optimization/genetic_algorithm.cpp
     src/optimization/neural_pathfinder.cpp
     src/utilities/json/json.cpp
+    src/utilities/logger.cpp
     src/utilities/timer.cpp
     src/utilities/vocabulary.cpp
     src/utilities/dataset_loader.cpp

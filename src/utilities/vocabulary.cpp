@@ -1,3 +1,4 @@
+#include "logger.h"
 #include "vocabulary.h"
 #include <fstream>      // For std::ifstream
 #include <sstream>      // For std::istringstream (used in split_by_space)
@@ -39,7 +40,7 @@ bool Vocabulary::load_from_json(const std::string& filepath) {
 
     std::ifstream ifs(filepath);
     if (!ifs.is_open()) {
-        // Consider logging an error here
+        LOG_ERROR("Failed to open file: " + filepath);
         return false;
     }
     std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
@@ -49,7 +50,7 @@ bool Vocabulary::load_from_json(const std::string& filepath) {
     try {
         root = JsonParser::Parse(content);
     } catch (const JsonParseException& e) {
-        // Log e.what()
+        LOG_ERROR(std::string("JSON Parse Exception: ") + e.what());
         return false;
     }
 
@@ -79,9 +80,9 @@ bool Vocabulary::load_from_json(const std::string& filepath) {
                     token_to_word_map[token_id] = pair.second->GetString();
                 }
             } catch (const std::invalid_argument& ia) {
-                // key is not a valid integer, log or handle
+                LOG_WARNING("Key is not a valid integer");
             } catch (const std::out_of_range& oor) {
-                // key is out of range for int, log or handle
+                LOG_WARNING("Key is out of range for int");
             }
         }
     } else return false; // token_to_word is mandatory

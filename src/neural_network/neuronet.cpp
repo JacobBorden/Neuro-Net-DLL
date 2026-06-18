@@ -1,3 +1,4 @@
+#include "../utilities/logger.h"
 /**
  * @file neuronet.cpp
  * @author Jacob Borden (amenra.beats@gmail.com)
@@ -226,7 +227,7 @@ void NeuroNet::NeuroNet::Train(const std::vector<Matrix::Matrix<float>>& trainin
 
     // Step b: Loop for epochs
     for (int epoch = 0; epoch < epochs; ++epoch) {
-        // Optional: Add logging for epoch number, e.g., std::cout << "Epoch " << epoch + 1 << "/" << epochs << std::endl;
+        LOG_INFO("Epoch " + std::to_string(epoch + 1) + "/" + std::to_string(epochs));
 
         // Step c: Iterate through each training sample
         for (size_t i = 0; i < training_inputs.size(); ++i) {
@@ -1155,7 +1156,7 @@ bool NeuroNet::NeuroNet::SetInputJSON(const std::string& json_input) {
     try {
         parsed_json_input = JsonParser::Parse(json_input);
     } catch (const JsonParseException& e) {
-        // Optionally log the error e.what()
+        LOG_ERROR(std::string("JSON Parse Exception: ") + e.what());
         throw; // Re-throw the JsonParseException
     }
 
@@ -1281,7 +1282,7 @@ bool NeuroNet::NeuroNet::SetStringsInput(const std::string& json_string_input, i
     try {
         parsed_json_input = JsonParser::Parse(json_string_input);
     } catch (const JsonParseException& e) {
-        // Consider logging e.what()
+        LOG_ERROR(std::string("JSON Parse Exception: ") + e.what());
         throw; // Re-throw
     }
 
