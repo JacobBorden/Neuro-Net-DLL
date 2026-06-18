@@ -1,0 +1,3 @@
+## 2024-05-18 - [Matrix Multiplication Loop Reordering]
+**Learning:** The default i-k-j loop order in Matrix multiplication causes poor cache utilization for large matrices because of the row-major memory layout. Inner loop access `b.m_Data[j][k]` is sequential in memory for `k` (columns), but original loop incremented `j` in the inner loop, jumping across rows. Reordering the loops to i-j-k makes the inner loop iterate over `k`, sequentially accessing `c.m_Data[i][k]` and `b.m_Data[j][k]`, significantly improving memory locality.
+**Action:** Always consider cache-friendly loop reordering (loop interchange) when iterating over multi-dimensional arrays, especially in high-performance inner loops like matrix operations.
