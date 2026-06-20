@@ -16,6 +16,7 @@ add_executable(runTests
     test_timer.cpp
     test_neural_pathfinder.cpp
     test_dataset_loader.cpp
+    test_logger.cpp
 )
 
 # Link libraries

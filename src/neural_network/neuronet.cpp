@@ -1,3 +1,4 @@
+#include "../utilities/logger.h"
 /**
  * @file neuronet.cpp
  * @author Jacob Borden (amenra.beats@gmail.com)
@@ -226,7 +227,7 @@ void NeuroNet::NeuroNet::Train(const std::vector<Matrix::Matrix<float>>& trainin
 
     // Step b: Loop for epochs
     for (int epoch = 0; epoch < epochs; ++epoch) {
-        // Optional: Add logging for epoch number, e.g., std::cout << "Epoch " << epoch + 1 << "/" << epochs << std::endl;
+        ::NeuroNet::Logger::Info("Epoch " + std::to_string(epoch + 1) + "/" + std::to_string(epochs));
 
         // Step c: Iterate through each training sample
         for (size_t i = 0; i < training_inputs.size(); ++i) {
@@ -694,7 +695,7 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::CalculateOutput() {
             // No activation function applied, do nothing.
             break;
         default:
-            // Optional: Handle unknown activation type, e.g., log a warning or do nothing.
+            ::NeuroNet::Logger::Warning("Unknown activation type encountered in CalculateOutput.");
             break;
     }
 
@@ -1155,7 +1156,7 @@ bool NeuroNet::NeuroNet::SetInputJSON(const std::string& json_input) {
     try {
         parsed_json_input = JsonParser::Parse(json_input);
     } catch (const JsonParseException& e) {
-        // Optionally log the error e.what()
+        ::NeuroNet::Logger::Error(std::string("Error in JSON serialization: ") + e.what());
         throw; // Re-throw the JsonParseException
     }
 
@@ -1281,7 +1282,7 @@ bool NeuroNet::NeuroNet::SetStringsInput(const std::string& json_string_input, i
     try {
         parsed_json_input = JsonParser::Parse(json_string_input);
     } catch (const JsonParseException& e) {
-        // Consider logging e.what()
+        ::NeuroNet::Logger::Error(std::string("Error during model saving: ") + e.what());
         throw; // Re-throw
     }
 
@@ -1520,8 +1521,7 @@ NeuroNet::LayerWeights NeuroNet::NeuroNetLayer::get_weights() const {
     // Use the WeightCount already stored in this->Weights, which ResizeLayer correctly sets.
     current_weights_struct.WeightCount = this->Weights.WeightCount; 
     if ((int)(this->WeightMatrix.rows() * this->WeightMatrix.cols()) != current_weights_struct.WeightCount) {
-        // Optional: Add error handling or log if counts mismatch,
-        // but this->Weights.WeightCount should be authoritative if ResizeLayer is always used.
+        ::NeuroNet::Logger::Warning("Weight count mismatch in get_weights().");
     }
 
     current_weights_struct.WeightsVector.clear(); // Ensure vector is empty before filling
@@ -1540,7 +1540,7 @@ NeuroNet::LayerBiases NeuroNet::NeuroNetLayer::get_biases() const {
     // Use the BiasCount already stored in this->Biases, which ResizeLayer correctly sets.
     current_biases_struct.BiasCount = this->Biases.BiasCount;
     if ((int)this->BiasMatrix.cols() != current_biases_struct.BiasCount && this->BiasMatrix.rows() == 1) {
-         // Optional: Add error handling or log if counts mismatch
+         ::NeuroNet::Logger::Warning("Bias count mismatch in get_biases().");
     }
 
     current_biases_struct.BiasVector.clear(); // Ensure vector is empty before filling
