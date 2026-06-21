@@ -16,7 +16,8 @@ FetchContent_MakeAvailable(googletest)
 
 include_directories(src)
 
-add_library(neuronet STATIC 
+add_library(neuronet STATIC
+    src/utilities/logger.cpp
     src/neural_network/neuronet.cpp
     src/optimization/genetic_algorithm.cpp
     src/optimization/neural_pathfinder.cpp

@@ -22,6 +22,8 @@
 #include "../utilities/timer.h" // For Timer class
 #include "../utilities/json/json.hpp" // For custom JsonValue, JsonParser (used for export_training_metrics_json)
 #include "../utilities/json/json_exception.hpp" // For JsonParseException (used by custom JsonValue)
+#include "../utilities/logger.h"
+
 
 
 // Define ENABLE_BENCHMARKING to enable timing of genetic algorithm operations.
@@ -142,7 +144,7 @@ void Optimization::GeneticAlgorithm::evaluate_fitness(const std::function<double
         // Or throw std::runtime_error("Population is empty, cannot evaluate fitness.");
 #ifdef ENABLE_BENCHMARKING
         eval_timer.stop();
-        std::cout << "GeneticAlgorithm::evaluate_fitness() (Population Empty) took: " << eval_timer.elapsed_milliseconds() << " ms" << std::endl;
+        ::NeuroNet::Logger::Info() << "GeneticAlgorithm::evaluate_fitness() (Population Empty) took: " << eval_timer.elapsed_milliseconds() << " ms" << std::endl;
 #endif
         return;
     }
@@ -162,7 +164,7 @@ void Optimization::GeneticAlgorithm::evaluate_fitness(const std::function<double
     // are updated in evolve_one_generation after new individuals might be created.
 #ifdef ENABLE_BENCHMARKING
     eval_timer.stop();
-    std::cout << "GeneticAlgorithm::evaluate_fitness() (Population Size: " << population_.size() 
+    ::NeuroNet::Logger::Info() << "GeneticAlgorithm::evaluate_fitness() (Population Size: " << population_.size()
               << ") took: " << eval_timer.elapsed_milliseconds() << " ms" << std::endl;
 #endif
 }
@@ -225,7 +227,7 @@ void Optimization::GeneticAlgorithm::selection() {
         // Or throw std::runtime_error("Population or fitness scores are not ready for selection.");
 #ifdef ENABLE_BENCHMARKING
         selection_timer.stop();
-        std::cout << "GeneticAlgorithm::selection() (Population/Fitness Scores Empty or Mismatched) took: " << selection_timer.elapsed_milliseconds() << " ms" << std::endl;
+        ::NeuroNet::Logger::Info() << "GeneticAlgorithm::selection() (Population/Fitness Scores Empty or Mismatched) took: " << selection_timer.elapsed_milliseconds() << " ms" << std::endl;
 #endif
         return;
     }
@@ -279,7 +281,7 @@ void Optimization::GeneticAlgorithm::selection() {
     population_ = new_population; // Replace old population with the new one.
 #ifdef ENABLE_BENCHMARKING
     selection_timer.stop();
-    std::cout << "GeneticAlgorithm::selection() took: " << selection_timer.elapsed_milliseconds() << " ms" << std::endl;
+    ::NeuroNet::Logger::Info() << "GeneticAlgorithm::selection() took: " << selection_timer.elapsed_milliseconds() << " ms" << std::endl;
 #endif
 }
 
@@ -347,7 +349,7 @@ std::vector<NeuroNet::NeuroNet> Optimization::GeneticAlgorithm::crossover(const 
 
 #ifdef ENABLE_BENCHMARKING
     crossover_timer.stop();
-    std::cout << "GeneticAlgorithm::crossover() took: " << crossover_timer.elapsed_microseconds() << " us" << std::endl;
+    ::NeuroNet::Logger::Info() << "GeneticAlgorithm::crossover() took: " << crossover_timer.elapsed_microseconds() << " us" << std::endl;
 #endif
     return {offspring1, offspring2};
 }
@@ -390,7 +392,7 @@ void Optimization::GeneticAlgorithm::mutate(NeuroNet::NeuroNet& individual) {
     individual.set_all_biases_flat(biases);
 #ifdef ENABLE_BENCHMARKING
     mutate_timer.stop();
-    std::cout << "GeneticAlgorithm::mutate() took: " << mutate_timer.elapsed_microseconds() << " us" << std::endl;
+    ::NeuroNet::Logger::Info() << "GeneticAlgorithm::mutate() took: " << mutate_timer.elapsed_microseconds() << " us" << std::endl;
 #endif
 }
 

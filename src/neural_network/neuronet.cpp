@@ -19,6 +19,8 @@
 #include "../utilities/timer.h" // For Timer class
 #include "../utilities/json/json.hpp"
 #include "../utilities/json/json_exception.hpp" // Added for JsonParseException
+#include "../utilities/logger.h"
+
 
 // Define ENABLE_BENCHMARKING to enable timing of neural network operations.
 // This can be defined in project settings or uncommented here for testing.
@@ -226,7 +228,7 @@ void NeuroNet::NeuroNet::Train(const std::vector<Matrix::Matrix<float>>& trainin
 
     // Step b: Loop for epochs
     for (int epoch = 0; epoch < epochs; ++epoch) {
-        // Optional: Add logging for epoch number, e.g., std::cout << "Epoch " << epoch + 1 << "/" << epochs << std::endl;
+        // Optional: Add logging for epoch number, e.g., ::NeuroNet::Logger::Info() << "Epoch " << epoch + 1 << "/" << epochs << std::endl;
 
         // Step c: Iterate through each training sample
         for (size_t i = 0; i < training_inputs.size(); ++i) {
@@ -659,7 +661,7 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::CalculateOutput() {
         // Layer index is not directly available here without modification to the function signature
         // or making NeuroNetLayer aware of its index.
         // For now, a generic message or one using LayerSize as a proxy identifier.
-        std::cout << "NeuroNetLayer::CalculateOutput() (Layer with output size " << this->vLayerSize 
+        ::NeuroNet::Logger::Info() << "NeuroNetLayer::CalculateOutput() (Layer with output size " << this->vLayerSize
                   << ", potentially uninitialized) took: " << layer_timer.elapsed_microseconds() << " us" << std::endl;
 #endif
 	}
@@ -701,7 +703,7 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::CalculateOutput() {
 #ifdef ENABLE_BENCHMARKING
     layer_timer.stop();
     // As above, layer index isn't directly available. Using LayerSize as a proxy.
-    std::cout << "NeuroNetLayer::CalculateOutput() (Layer with output size " << this->vLayerSize 
+    ::NeuroNet::Logger::Info() << "NeuroNetLayer::CalculateOutput() (Layer with output size " << this->vLayerSize
               << ") took: " << layer_timer.elapsed_microseconds() << " us" << std::endl;
 #endif
 	return this->OutputMatrix;
@@ -1472,7 +1474,7 @@ Matrix::Matrix<float> NeuroNet::NeuroNet::GetOutput() {
 	if (this->NeuroNetVector.empty()) {
 #ifdef ENABLE_BENCHMARKING
         total_forward_pass_timer.stop();
-        std::cout << "NeuroNet::GetOutput() (Total Forward Pass - No Layers) took: " 
+        ::NeuroNet::Logger::Info() << "NeuroNet::GetOutput() (Total Forward Pass - No Layers) took: "
                   << total_forward_pass_timer.elapsed_milliseconds() << " ms" << std::endl;
 #endif
 		return Matrix::Matrix<float>(); // Return an empty matrix if no layers.
@@ -1504,7 +1506,7 @@ Matrix::Matrix<float> NeuroNet::NeuroNet::GetOutput() {
 
 #ifdef ENABLE_BENCHMARKING
     total_forward_pass_timer.stop();
-    std::cout << "NeuroNet::GetOutput() (Total Forward Pass for " << this->NeuroNetVector.size() << " layers) took: " 
+    ::NeuroNet::Logger::Info() << "NeuroNet::GetOutput() (Total Forward Pass for " << this->NeuroNetVector.size() << " layers) took: "
               << total_forward_pass_timer.elapsed_milliseconds() << " ms" << std::endl;
 #endif
 	return final_output; // Output of the last layer
