@@ -1,12 +1,12 @@
 #include "logger.h"
 
 namespace NeuroNet {
-    Logger::Level Logger::currentLevel = Logger::Level::INFO;
+    std::atomic<Logger::Level> Logger::currentLevel{Logger::Level::INFO};
     std::ostream* Logger::outputStream = &std::cout;
     std::mutex Logger::logMutex;
 
     void Logger::SetLevel(Level level) {
-        currentLevel = level;
+        currentLevel.store(level, std::memory_order_relaxed);
     }
 
     void Logger::SetStream(std::ostream* os) {

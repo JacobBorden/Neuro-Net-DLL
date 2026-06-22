@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <iostream>
 #include <mutex>
 
@@ -20,34 +21,34 @@ namespace NeuroNet {
 
         template <typename... Args>
         static void Debug(Args... args) {
-            if (currentLevel <= Level::DEBUG) {
+            if (currentLevel.load(std::memory_order_relaxed) <= Level::DEBUG) {
                 Log("[DEBUG] ", args...);
             }
         }
 
         template <typename... Args>
         static void Info(Args... args) {
-            if (currentLevel <= Level::INFO) {
+            if (currentLevel.load(std::memory_order_relaxed) <= Level::INFO) {
                 Log("[INFO] ", args...);
             }
         }
 
         template <typename... Args>
         static void Warning(Args... args) {
-            if (currentLevel <= Level::WARNING) {
+            if (currentLevel.load(std::memory_order_relaxed) <= Level::WARNING) {
                 Log("[WARNING] ", args...);
             }
         }
 
         template <typename... Args>
         static void Error(Args... args) {
-            if (currentLevel <= Level::ERROR) {
+            if (currentLevel.load(std::memory_order_relaxed) <= Level::ERROR) {
                 Log("[ERROR] ", args...);
             }
         }
 
     private:
-        static Level currentLevel;
+        static std::atomic<Level> currentLevel;
         static std::ostream* outputStream;
         static std::mutex logMutex;
 
