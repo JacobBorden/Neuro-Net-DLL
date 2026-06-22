@@ -1,0 +1,3 @@
+## 2024-05-19 - Matrix Multiplication Loop Interchange Speedup
+**Learning:** For `Matrix::Matrix<T>`, the row-major memory layout causes severe cache thrashing when the inner loop of a matrix multiplication iterates over the left matrix's columns and the right matrix's rows (the standard i-k-j approach taught in textbooks).
+**Action:** Always verify loop structures interacting with multi-dimensional data structures. Specifically for row-major matrices, structure loops with i-j-k to ensure contiguous memory access (`m_Data[i][j]` is effectively cached, and `m_Data[i][k]` and `b.m_Data[j][k]` are accessed sequentially).
