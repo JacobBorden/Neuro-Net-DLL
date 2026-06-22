@@ -22,6 +22,7 @@
 #include <random>    // For std::mt19937, std::uniform_real_distribution (in Randomize)
 #include <chrono>    // For std::chrono::system_clock (seeding Randomize)
 #include <iostream>  // For std::cout (used in benchmarking)
+#include "../utilities/logger.h"
 #include <omp.h>     // For OpenMP
 #include "../utilities/timer.h" // For Timer class
 
@@ -1068,7 +1069,7 @@ namespace Matrix
 #ifdef ENABLE_BENCHMARKING
             timer.stop();
             // It's debatable whether to print for empty matrices, but for completeness:
-            std::cout << "Matrix multiplication (empty or zero dim) took: " << timer.elapsed_microseconds() << " us" << std::endl;
+            ::NeuroNet::Logger::Info("Matrix multiplication (empty or zero dim) took: ", timer.elapsed_microseconds(), " us");
 #endif
             return Matrix<T>(m_Rows, b.m_Cols); // Result is an empty matrix with appropriate dimensions
         }
@@ -1089,7 +1090,7 @@ namespace Matrix
 
 #ifdef ENABLE_BENCHMARKING
         timer.stop();
-        std::cout << "Matrix multiplication (" << m_Rows << "x" << m_Cols << " * " << b.m_Rows << "x" << b.m_Cols << ") took: " << timer.elapsed_microseconds() << " us" << std::endl;
+        ::NeuroNet::Logger::Info("Matrix multiplication (", m_Rows, "x", m_Cols, " * ", b.m_Rows, "x", b.m_Cols, ") took: ", timer.elapsed_microseconds(), " us");
 #endif
 		return c;
 	}
