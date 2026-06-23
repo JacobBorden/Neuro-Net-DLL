@@ -46,11 +46,15 @@ add_executable(BasicUsageExport examples/basic_usage_export.cpp)
 target_link_libraries(BasicUsageExport PRIVATE neuronet)
 # target_include_directories(BasicUsageExport PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src) # Already covered by global include_directories(src)
 
+set(CPACK_PROJECT_NAME ${PROJECT_NAME})
+set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
+include(CPack)
+
 # --- INSTALL & PACKAGING ---
 
 include(GNUInstallDirs)
 
-# Install library
+# 1. Install Library
 install(TARGETS neuronet
     EXPORT NeuroNetTargets
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -58,25 +62,29 @@ install(TARGETS neuronet
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
-# Install public headers
+# 2. Install Headers
 install(DIRECTORY src/
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/neuronet
     FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
 )
 
-# Packaging settings must be defined before including CPack.
-set(CPACK_PROJECT_NAME ${PROJECT_NAME})
-set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
+# 3. Packaging Settings (CPack)
 set(CPACK_PACKAGE_NAME "neuronet")
 set(CPACK_PACKAGE_VENDOR "NeuroNet Contributors")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "C++ Neural Network and Transformer Library")
 set(CPACK_PACKAGE_VERSION_MAJOR "${PROJECT_VERSION_MAJOR}")
 set(CPACK_PACKAGE_VERSION_MINOR "${PROJECT_VERSION_MINOR}")
 set(CPACK_PACKAGE_VERSION_PATCH "${PROJECT_VERSION_PATCH}")
-set(CPACK_PACKAGE_CONTACT "maintainer@example.com")
+set(CPACK_PACKAGE_CONTACT "maintainer@example.com") # Required for DEB
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+
+# Set the target packages to build
 set(CPACK_GENERATOR "DEB;RPM;TGZ")
+
+# Debian specifics
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "")
+
+# RPM specifics
 set(CPACK_RPM_PACKAGE_LICENSE "MIT")
 
 include(CPack)
