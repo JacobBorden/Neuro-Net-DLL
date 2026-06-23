@@ -293,28 +293,28 @@ namespace NeuroNet
     /**
      * @brief Applies the ReLU activation function element-wise to the input matrix.
      * @param input The matrix resulting from the linear transformation (Wx + b).
-     * @return Matrix::Matrix<float> The matrix after applying ReLU.
+     *
      */
-    Matrix::Matrix<float> ApplyReLU(const Matrix::Matrix<float>& input);
+    void ApplyReLU(Matrix::Matrix<float>& input);
     /**
      * @brief Applies the LeakyReLU activation function element-wise to the input matrix.
      * @param input The matrix resulting from the linear transformation (Wx + b).
-     * @return Matrix::Matrix<float> The matrix after applying LeakyReLU.
+     *
      */
-    Matrix::Matrix<float> ApplyLeakyReLU(const Matrix::Matrix<float>& input);
+    void ApplyLeakyReLU(Matrix::Matrix<float>& input);
     /**
      * @brief Applies the ELU activation function element-wise to the input matrix.
      * @param input The matrix resulting from the linear transformation (Wx + b).
-     * @return Matrix::Matrix<float> The matrix after applying ELU.
+     *
      */
-    Matrix::Matrix<float> ApplyELU(const Matrix::Matrix<float>& input);
+    void ApplyELU(Matrix::Matrix<float>& input);
     /**
      * @brief Applies the Softmax activation function to the input matrix.
      * Typically used for the output layer in classification tasks.
      * @param input The matrix resulting from the linear transformation (Wx + b).
-     * @return Matrix::Matrix<float> The matrix after applying Softmax.
+     *
      */
-    Matrix::Matrix<float> ApplySoftmax(const Matrix::Matrix<float>& input);
+    void ApplySoftmax(Matrix::Matrix<float>& input);
 	};
 
 	/**

@@ -301,40 +301,37 @@ NeuroNet::ActivationFunctionType NeuroNet::NeuroNetLayer::activation_type_from_s
     throw std::invalid_argument("Unknown activation function name: " + name);
 }
 
-Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyReLU(const Matrix::Matrix<float>& input) {
-    Matrix::Matrix<float> output = input; // Make a copy
-    for (int i = 0; i < output.rows(); ++i) {
-        for (int j = 0; j < output.cols(); ++j) {
-            output[i][j] = std::max(0.0f, output[i][j]);
+// Optimization: Modify matrix in-place to avoid unnecessary memory allocations during forward pass
+void NeuroNet::NeuroNetLayer::ApplyReLU(Matrix::Matrix<float>& input) {
+    for (int i = 0; i < input.rows(); ++i) {
+        for (int j = 0; j < input.cols(); ++j) {
+            input[i][j] = std::max(0.0f, input[i][j]);
         }
     }
-    return output;
 }
 
-Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyLeakyReLU(const Matrix::Matrix<float>& input) {
-    Matrix::Matrix<float> output = input; // Make a copy
+// Optimization: Modify matrix in-place to avoid unnecessary memory allocations during forward pass
+void NeuroNet::NeuroNetLayer::ApplyLeakyReLU(Matrix::Matrix<float>& input) {
     const float alpha = 0.01f;
-    for (int i = 0; i < output.rows(); ++i) {
-        for (int j = 0; j < output.cols(); ++j) {
-            if (output[i][j] < 0) {
-                output[i][j] = alpha * output[i][j];
+    for (int i = 0; i < input.rows(); ++i) {
+        for (int j = 0; j < input.cols(); ++j) {
+            if (input[i][j] < 0) {
+                input[i][j] = alpha * input[i][j];
             }
         }
     }
-    return output;
 }
 
-Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyELU(const Matrix::Matrix<float>& input) {
-    Matrix::Matrix<float> output = input; // Make a copy
+// Optimization: Modify matrix in-place to avoid unnecessary memory allocations during forward pass
+void NeuroNet::NeuroNetLayer::ApplyELU(Matrix::Matrix<float>& input) {
     const float alpha = 1.0f;
-    for (int i = 0; i < output.rows(); ++i) {
-        for (int j = 0; j < output.cols(); ++j) {
-            if (output[i][j] < 0) {
-                output[i][j] = alpha * (std::exp(output[i][j]) - 1.0f);
+    for (int i = 0; i < input.rows(); ++i) {
+        for (int j = 0; j < input.cols(); ++j) {
+            if (input[i][j] < 0) {
+                input[i][j] = alpha * (std::exp(input[i][j]) - 1.0f);
             }
         }
     }
-    return output;
 }
 
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeReLU(const Matrix::Matrix<float>& activated_output) const {
@@ -505,29 +502,28 @@ int NeuroNet::NeuroNetLayer::get_input_size() const {
     return this->InputSize;
 }
 
-Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplySoftmax(const Matrix::Matrix<float>& input) {
-    Matrix::Matrix<float> output = input; // Make a copy
+// Optimization: Modify matrix in-place to avoid unnecessary memory allocations during forward pass
+void NeuroNet::NeuroNetLayer::ApplySoftmax(Matrix::Matrix<float>& input) {
     float sum_exp = 0.0f;
     // Calculate sum of exponents for normalization.
     // This implementation assumes input is a 1xN matrix (a single row vector),
     // which is typical for the output of a layer before activation.
-    if (output.rows() != 1) {
+    if (input.rows() != 1) {
         // For a more general Softmax that could operate column-wise on a batch of outputs,
         // this logic would need to be adjusted. For now, it processes a single output vector.
     }
 
-    for (int j = 0; j < output.cols(); ++j) {
-        output[0][j] = std::exp(output[0][j]);
-        sum_exp += output[0][j];
+    for (int j = 0; j < input.cols(); ++j) {
+        input[0][j] = std::exp(input[0][j]);
+        sum_exp += input[0][j];
     }
 
     // Normalize
     if (sum_exp != 0.0f) { // Avoid division by zero
-        for (int j = 0; j < output.cols(); ++j) {
-            output[0][j] /= sum_exp;
+        for (int j = 0; j < input.cols(); ++j) {
+            input[0][j] /= sum_exp;
         }
     }
-    return output;
 }
 
 
@@ -558,16 +554,16 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::CalculateOutput() {
     // Apply the selected activation function.
     switch (this->vActivationFunction) {
         case ActivationFunctionType::ReLU:
-            this->OutputMatrix = ApplyReLU(this->OutputMatrix);
+            ApplyReLU(this->OutputMatrix);
             break;
         case ActivationFunctionType::LeakyReLU:
-            this->OutputMatrix = ApplyLeakyReLU(this->OutputMatrix);
+            ApplyLeakyReLU(this->OutputMatrix);
             break;
         case ActivationFunctionType::ELU:
-            this->OutputMatrix = ApplyELU(this->OutputMatrix);
+            ApplyELU(this->OutputMatrix);
             break;
         case ActivationFunctionType::Softmax:
-            this->OutputMatrix = ApplySoftmax(this->OutputMatrix);
+            ApplySoftmax(this->OutputMatrix);
             break;
         case ActivationFunctionType::None:
             // No activation function applied, do nothing.
