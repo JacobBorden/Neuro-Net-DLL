@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased] - YYYY-MM-DD
 
 ### Added
+- Thread-safe `Logger` utility with configurable debug/info/warning/error levels, output redirection, and unit coverage.
 - `MNISTLoader` for standard IDX image and label files, including regression coverage for truncated payloads.
 - `NeuralPathfinder` tests covering empty networks, single-layer networks, multi-layer path selection, and all-zero weights.
 - Unsafe-path regression tests for `Vocabulary` and `TransformerModel` loading.
@@ -35,6 +36,7 @@ All notable changes to this project will be documented in this file.
     - Parallelized matrix multiplication (`Matrix<T>::operator*`) using OpenMP for improved performance on multi-core systems.
 
 ### Changed
+- Routed benchmark and JSON export diagnostics in matrix, neural-network, and genetic-algorithm code through the shared logger, and wired the logger sources into the legacy Visual Studio project files.
 - Refactored `NeuroNet::UpdateWeights()` into private helpers for per-layer weight and bias updates.
 - Optimized activation functions to mutate layer output matrices in place, avoiding extra matrix copies during forward passes.
 - Optimized backpropagation weight and bias updates to avoid temporary matrix allocations.
