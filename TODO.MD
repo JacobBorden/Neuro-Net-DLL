@@ -11,4 +11,4 @@
 - [x] Add more comprehensive logging and debug modes.
 - [x] Implement early stopping in the Genetic Algorithm based on validation performance (if validation sets are added).
 - [x] Add standard dataset loaders (e.g. MNIST) for easier benchmarking and examples.
-- [ ] Provide pre-compiled binaries or packages (e.g. deb, rpm) in releases.
+- [x] Provide pre-compiled binaries or packages (e.g. deb, rpm) in releases.
