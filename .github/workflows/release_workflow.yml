@@ -2,15 +2,18 @@ name: Release Packages
 
 on:
   release:
-    types: [created]
+    types: [published]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
 
     - name: Install dependencies
       run: sudo apt-get update && sudo apt-get install -y rpm
@@ -18,11 +21,14 @@ jobs:
     - name: Configure CMake
       run: cmake -B build -DCMAKE_BUILD_TYPE=Release
 
-    - name: Build and Package
-      run: cd build && make package
+    - name: Build
+      run: cmake --build build --config Release
+
+    - name: Package
+      run: cmake --build build --config Release --target package
 
     - name: Upload Release Assets
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         files: |
           build/*.deb
