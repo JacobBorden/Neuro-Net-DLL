@@ -46,6 +46,37 @@ add_executable(BasicUsageExport examples/basic_usage_export.cpp)
 target_link_libraries(BasicUsageExport PRIVATE neuronet)
 # target_include_directories(BasicUsageExport PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src) # Already covered by global include_directories(src)
 
+# --- INSTALL & PACKAGING ---
+
+include(GNUInstallDirs)
+
+# Install library
+install(TARGETS neuronet
+    EXPORT NeuroNetTargets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+# Install public headers
+install(DIRECTORY src/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/neuronet
+    FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
+)
+
+# Packaging settings must be defined before including CPack.
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
+set(CPACK_PACKAGE_NAME "neuronet")
+set(CPACK_PACKAGE_VENDOR "NeuroNet Contributors")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "C++ Neural Network and Transformer Library")
+set(CPACK_PACKAGE_VERSION_MAJOR "${PROJECT_VERSION_MAJOR}")
+set(CPACK_PACKAGE_VERSION_MINOR "${PROJECT_VERSION_MINOR}")
+set(CPACK_PACKAGE_VERSION_PATCH "${PROJECT_VERSION_PATCH}")
+set(CPACK_PACKAGE_CONTACT "maintainer@example.com")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+set(CPACK_GENERATOR "DEB;RPM;TGZ")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "")
+set(CPACK_RPM_PACKAGE_LICENSE "MIT")
+
 include(CPack)
