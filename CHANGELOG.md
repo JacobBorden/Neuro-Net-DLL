@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased] - YYYY-MM-DD
 
 ### Added
+- Release packaging support for DEB, RPM, and TGZ artifacts through CPack and a published-release GitHub Actions workflow.
 - Thread-safe `Logger` utility with configurable debug/info/warning/error levels, output redirection, and unit coverage.
 - `MNISTLoader` for standard IDX image and label files, including regression coverage for truncated payloads.
 - `NeuralPathfinder` tests covering empty networks, single-layer networks, multi-layer path selection, and all-zero weights.
