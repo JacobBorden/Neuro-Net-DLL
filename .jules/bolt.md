@@ -1,0 +1,3 @@
+## 2024-05-24 - Activation Functions Modified In-Place
+**Learning:** By rewriting the activation functions (`ApplyReLU`, `ApplySoftmax`, etc. and their derivatives) in `NeuroNetLayer` to modify the input matrix in-place instead of creating copies, we save memory allocations per activation calculation. This is particularly beneficial for the performance of the neural network during the forward pass.
+**Action:** The functions in `neuronet.h` and `neuronet.cpp` have been updated to accept `Matrix::Matrix<float>&` and perform the calculations without returning a new object. Memory allocations are minimized.

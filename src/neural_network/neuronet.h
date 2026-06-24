@@ -188,7 +188,7 @@ namespace NeuroNet
      * @param activated_output The matrix of outputs after ReLU activation was applied.
      * @return Matrix::Matrix<float> A matrix containing the derivatives (1s and 0s).
      */
-    Matrix::Matrix<float> DerivativeReLU(const Matrix::Matrix<float>& activated_output) const;
+    void DerivativeReLU(Matrix::Matrix<float>& activated_output) const;
 
     /**
      * @brief Computes the element-wise derivative of the Leaky ReLU activation function.
@@ -197,7 +197,7 @@ namespace NeuroNet
      * @param activated_output The matrix of outputs after Leaky ReLU activation was applied.
      * @return Matrix::Matrix<float> A matrix containing the derivatives (1s and alpha values).
      */
-    Matrix::Matrix<float> DerivativeLeakyReLU(const Matrix::Matrix<float>& activated_output) const;
+    void DerivativeLeakyReLU(Matrix::Matrix<float>& activated_output) const;
 
     /**
      * @brief Computes the element-wise derivative of the ELU activation function.
@@ -207,7 +207,7 @@ namespace NeuroNet
      * @param activated_output The matrix of outputs after ELU activation was applied.
      * @return Matrix::Matrix<float> A matrix containing the derivatives.
      */
-    Matrix::Matrix<float> DerivativeELU(const Matrix::Matrix<float>& activated_output) const;
+    void DerivativeELU(Matrix::Matrix<float>& activated_output) const;
 
     /**
      * @brief Computes the element-wise derivative of the Softmax activation function.
@@ -217,7 +217,7 @@ namespace NeuroNet
      * @param activated_output The matrix of outputs after Softmax activation was applied (i.e., the S matrix).
      * @return Matrix::Matrix<float> A matrix where each element is S_ij * (1 - S_ij).
      */
-    Matrix::Matrix<float> DerivativeSoftmax(const Matrix::Matrix<float>& activated_output) const;
+    void DerivativeSoftmax(Matrix::Matrix<float>& activated_output) const;
 
     /**
      * @brief Performs the backward pass for this layer.
@@ -295,26 +295,26 @@ namespace NeuroNet
      * @param input The matrix resulting from the linear transformation (Wx + b).
      * @return Matrix::Matrix<float> The matrix after applying ReLU.
      */
-    Matrix::Matrix<float> ApplyReLU(const Matrix::Matrix<float>& input);
+    void ApplyReLU(Matrix::Matrix<float>& input);
     /**
      * @brief Applies the LeakyReLU activation function element-wise to the input matrix.
      * @param input The matrix resulting from the linear transformation (Wx + b).
      * @return Matrix::Matrix<float> The matrix after applying LeakyReLU.
      */
-    Matrix::Matrix<float> ApplyLeakyReLU(const Matrix::Matrix<float>& input);
+    void ApplyLeakyReLU(Matrix::Matrix<float>& input);
     /**
      * @brief Applies the ELU activation function element-wise to the input matrix.
      * @param input The matrix resulting from the linear transformation (Wx + b).
      * @return Matrix::Matrix<float> The matrix after applying ELU.
      */
-    Matrix::Matrix<float> ApplyELU(const Matrix::Matrix<float>& input);
+    void ApplyELU(Matrix::Matrix<float>& input);
     /**
      * @brief Applies the Softmax activation function to the input matrix.
      * Typically used for the output layer in classification tasks.
      * @param input The matrix resulting from the linear transformation (Wx + b).
      * @return Matrix::Matrix<float> The matrix after applying Softmax.
      */
-    Matrix::Matrix<float> ApplySoftmax(const Matrix::Matrix<float>& input);
+    void ApplySoftmax(Matrix::Matrix<float>& input);
 	};
 
 	/**

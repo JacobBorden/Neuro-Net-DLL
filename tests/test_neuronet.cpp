@@ -100,7 +100,7 @@ TEST(NeuroNetLayerDerivativesTest, ReLU) {
     activated_output[0][2] = 1.5f;
     activated_output[0][3] = 10.0f;
 
-    Matrix::Matrix<float> derivative = layer.DerivativeReLU(activated_output);
+    Matrix::Matrix<float> derivative = activated_output; layer.DerivativeReLU(derivative);
 
     ASSERT_EQ(derivative.rows(), 1);
     ASSERT_EQ(derivative.cols(), 4);
@@ -119,7 +119,7 @@ TEST(NeuroNetLayerDerivativesTest, LeakyReLU) {
     activated_output[0][3] = -0.5f;  // d = alpha (0.01)
     const float alpha = 0.01f;
 
-    Matrix::Matrix<float> derivative = layer.DerivativeLeakyReLU(activated_output);
+    Matrix::Matrix<float> derivative = activated_output; layer.DerivativeLeakyReLU(derivative);
 
     ASSERT_EQ(derivative.rows(), 1);
     ASSERT_EQ(derivative.cols(), 4);
@@ -142,7 +142,7 @@ TEST(NeuroNetLayerDerivativesTest, ELU) {
     const float alpha = 1.0f;
 
 
-    Matrix::Matrix<float> derivative = layer.DerivativeELU(activated_output);
+    Matrix::Matrix<float> derivative = activated_output; layer.DerivativeELU(derivative);
 
     ASSERT_EQ(derivative.rows(), 1);
     ASSERT_EQ(derivative.cols(), 4);
@@ -161,7 +161,7 @@ TEST(NeuroNetLayerDerivativesTest, Softmax) {
     activated_output[0][1] = 0.6f; // d = 0.6 * 0.4 = 0.24
     activated_output[0][2] = 0.3f; // d = 0.3 * 0.7 = 0.21
 
-    Matrix::Matrix<float> derivative = layer.DerivativeSoftmax(activated_output);
+    Matrix::Matrix<float> derivative = activated_output; layer.DerivativeSoftmax(derivative);
 
     ASSERT_EQ(derivative.rows(), 1);
     ASSERT_EQ(derivative.cols(), 3);
