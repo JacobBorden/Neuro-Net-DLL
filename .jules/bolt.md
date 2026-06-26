@@ -1,0 +1,3 @@
+## 2024-05-18 - Loop Interchange for Matrix Multiplication
+**Learning:** In C++ row-major matrices, iterating over the right-hand matrix columns in the inner-most loop (i-k-j order) causes massive cache misses due to strided memory access.
+**Action:** Always prefer the i-j-k loop order for dense matrix multiplication. This ensures the innermost loops iterate sequentially through the memory of both the right-hand operand and the destination matrix, dramatically improving cache locality and allowing for automatic vectorization, yielding huge speedups (e.g., >2x) without any architectural complexity.
