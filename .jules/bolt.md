@@ -1,0 +1,3 @@
+## 2024-06-27 - Matrix Multiplication Memory Locality
+**Learning:** The custom `Matrix` implementation uses a row-major memory layout. The previous matrix multiplication used an `i-k-j` loop order, leading to highly inefficient, strided column-wise memory access on the right-hand operand matrix. This causes massive cache thrashing in O(N^3) operations.
+**Action:** Always use loop interchange (the `i-j-k` loop order) for row-major matrices to guarantee sequential, cache-friendly memory access on inner loops. This avoids the need and O(N^2) memory overhead of transposing the right-hand matrix beforehand.
