@@ -3,7 +3,10 @@ import unittest
 import os
 
 # Add build directory to path to find pyneuronet
-build_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'build'))
+build_dir = os.environ.get(
+    'PYNEURONET_BUILD_DIR',
+    os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'build')),
+)
 sys.path.append(build_dir)
 
 import pyneuronet

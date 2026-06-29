@@ -24,3 +24,21 @@ target_link_libraries(runTests PRIVATE neuronet GTest::gtest_main)
 
 # Discover and add tests
 gtest_discover_tests(runTests)
+
+set(NEURONET_PYTHON_TEST_EXECUTABLE "")
+foreach(PYTHON_EXECUTABLE_CANDIDATE Python3_EXECUTABLE Python_EXECUTABLE PYTHON_EXECUTABLE)
+    if(DEFINED ${PYTHON_EXECUTABLE_CANDIDATE} AND NOT NEURONET_PYTHON_TEST_EXECUTABLE)
+        set(NEURONET_PYTHON_TEST_EXECUTABLE "${${PYTHON_EXECUTABLE_CANDIDATE}}")
+    endif()
+endforeach()
+
+if(NEURONET_PYTHON_TEST_EXECUTABLE)
+    add_test(
+        NAME pyneuronet_python
+        COMMAND ${NEURONET_PYTHON_TEST_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_pyneuronet.py
+    )
+    set_tests_properties(
+        pyneuronet_python
+        PROPERTIES ENVIRONMENT "PYNEURONET_BUILD_DIR=${CMAKE_BINARY_DIR}"
+    )
+endif()
