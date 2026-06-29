@@ -16,6 +16,9 @@ FetchContent_MakeAvailable(googletest)
 
 include_directories(src)
 
+# Enable PIC for pybind11 shared library
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 add_library(neuronet STATIC 
     src/neural_network/neuronet.cpp
     src/optimization/genetic_algorithm.cpp
@@ -40,6 +43,18 @@ add_library(neuronet STATIC
 
 # Testing subdirectory
 add_subdirectory(tests)
+
+# Pybind11 for Python bindings
+include(FetchContent)
+FetchContent_Declare(
+  pybind11
+  GIT_REPOSITORY https://github.com/pybind/pybind11.git
+  GIT_TAG        v2.11.1
+)
+FetchContent_MakeAvailable(pybind11)
+
+pybind11_add_module(pyneuronet src/python_bindings/pyneuronet.cpp)
+target_link_libraries(pyneuronet PRIVATE neuronet)
 
 # Example executable
 add_executable(BasicUsageExport examples/basic_usage_export.cpp)
