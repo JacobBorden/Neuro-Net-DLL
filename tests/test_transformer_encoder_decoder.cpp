@@ -59,6 +59,36 @@ TEST_F(TransformerEncoderDecoderTest, ForwardPassBasic) {
     EXPECT_EQ(output.cols(), static_cast<size_t>(d_model));
 }
 
+TEST_F(TransformerEncoderDecoderTest, DefaultDecoderMaskPreventsFutureTokenLeakage) {
+    TransformerEncoderDecoderModel model(
+        100, 100, 10, 16,
+        1, 1, 4, 32
+    );
+
+    Matrix::Matrix<float> src_input_ids(1, 4);
+    for (int i = 0; i < 4; ++i) {
+        src_input_ids[0][i] = i + 1;
+    }
+
+    Matrix::Matrix<float> tgt_input_ids_a(1, 3);
+    Matrix::Matrix<float> tgt_input_ids_b(1, 3);
+    tgt_input_ids_a[0][0] = 10;
+    tgt_input_ids_a[0][1] = 11;
+    tgt_input_ids_a[0][2] = 12;
+    tgt_input_ids_b[0][0] = 10;
+    tgt_input_ids_b[0][1] = 11;
+    tgt_input_ids_b[0][2] = 35;
+
+    Matrix::Matrix<float> output_a = model.forward(src_input_ids, tgt_input_ids_a);
+    Matrix::Matrix<float> output_b = model.forward(src_input_ids, tgt_input_ids_b);
+
+    for (size_t row = 0; row < 2; ++row) {
+        for (size_t col = 0; col < output_a.cols(); ++col) {
+            EXPECT_NEAR(output_a[row][col], output_b[row][col], 1e-5f);
+        }
+    }
+}
+
 TEST_F(TransformerEncoderDecoderTest, InvalidInputHandling) {
     int src_vocab_size = 100;
     int tgt_vocab_size = 150;
