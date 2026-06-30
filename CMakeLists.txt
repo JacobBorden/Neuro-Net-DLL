@@ -33,6 +33,8 @@ add_library(neuronet STATIC
     src/transformer/multi_head_attention.cpp
     src/transformer/positional_encoding.cpp
     src/transformer/transformer_encoder_layer.cpp
+    src/transformer/transformer_decoder_layer.cpp
+    src/transformer/transformer_encoder_decoder_model.cpp
     src/transformer/transformer_ffn.cpp
     src/transformer/transformer_model.cpp
     src/math/extended_matrix_ops.cpp
