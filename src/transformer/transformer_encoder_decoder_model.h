@@ -6,7 +6,6 @@
 #include "transformer_decoder_layer.h"
 #include "../math/matrix.h"
 #include "../math/extended_matrix_ops.h"
-#include <cstddef>
 #include <vector>
 #include <stdexcept>
 
@@ -46,7 +45,7 @@ public:
      * @param src_input_token_ids Matrix of source token IDs, shape (1, src_seq_len).
      * @param tgt_input_token_ids Matrix of target token IDs, shape (1, tgt_seq_len).
      * @param src_attention_mask Optional mask for encoder self-attention.
-     * @param tgt_self_attention_mask Optional mask for decoder self-attention. If omitted, a causal mask is generated.
+     * @param tgt_self_attention_mask Optional mask for decoder self-attention.
      * @param tgt_cross_attention_mask Optional mask for decoder cross-attention.
      * @return Matrix::Matrix<float> Output matrix from the final decoder layer,
      *                               after final layer normalization. Shape (tgt_seq_len, d_model).
@@ -89,13 +88,6 @@ private:
     PositionalEncoding positional_encoding_;
     std::vector<TransformerEncoderLayer> encoder_layers_;
     std::vector<TransformerDecoderLayer> decoder_layers_;
-
-    /**
-     * @brief Creates an additive causal mask for decoder self-attention.
-     * @param sequence_length Target sequence length.
-     * @return Matrix with 0.0f for visible positions and a large negative value for future positions.
-     */
-    Matrix::Matrix<float> create_causal_mask(size_t sequence_length) const;
 };
 
 } // namespace Transformer

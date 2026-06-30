@@ -71,33 +71,15 @@ Matrix::Matrix<float> TransformerEncoderDecoderModel::forward(
     Matrix::Matrix<float> tgt_embeddings = tgt_embedding_layer_.forward(tgt_input_token_ids);
     Matrix::Matrix<float> tgt_pos_embeddings = positional_encoding_.forward(tgt_embeddings);
     Matrix::Matrix<float> decoder_output = tgt_pos_embeddings;
-    Matrix::Matrix<float> effective_tgt_self_attention_mask = tgt_self_attention_mask;
-    if (effective_tgt_self_attention_mask.rows() == 0 || effective_tgt_self_attention_mask.cols() == 0) {
-        effective_tgt_self_attention_mask = create_causal_mask(tgt_pos_embeddings.rows());
-    }
 
     for (int i = 0; i < num_decoder_layers_; ++i) {
         decoder_output = decoder_layers_[i].forward(
-            decoder_output, encoder_output, effective_tgt_self_attention_mask, tgt_cross_attention_mask
+            decoder_output, encoder_output, tgt_self_attention_mask, tgt_cross_attention_mask
         );
     }
 
     Matrix::Matrix<float> final_norm_output = MathUtils::layer_norm(decoder_output, layer_norm_epsilon_);
     return final_norm_output;
-}
-
-Matrix::Matrix<float> TransformerEncoderDecoderModel::create_causal_mask(size_t sequence_length) const {
-    Matrix::Matrix<float> mask(sequence_length, sequence_length);
-    mask.assign(0.0f);
-
-    constexpr float masked_attention_score = -1.0e9f;
-    for (size_t row = 0; row < sequence_length; ++row) {
-        for (size_t col = row + 1; col < sequence_length; ++col) {
-            mask[row][col] = masked_attention_score;
-        }
-    }
-
-    return mask;
 }
 
 } // namespace Transformer
