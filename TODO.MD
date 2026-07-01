@@ -3,7 +3,8 @@
 - [x] Add more activation functions (e.g., Sigmoid, Tanh, Swish).
 - [ ] Implement Backpropagation algorithm as an alternative to Genetic Algorithm for training.
 - [ ] Add support for Convolutional Neural Networks (CNNs).
-- [x] Add support for Recurrent Neural Networks (RNNs) / LSTMs.
+- [x] Add basic Recurrent Neural Network (RNN) layer support.
+- [ ] Add support for Long Short-Term Memory (LSTM) recurrent layers.
 - [x] Optimize memory allocation during Matrix operations (e.g. avoid copies).
 - [x] Implement better OpenMP parallelization in Neural Network forward pass, not just Matrix multiplication.
 - [x] Create a Python binding / API for the library (e.g., using pybind11).

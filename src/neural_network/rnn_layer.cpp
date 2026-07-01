@@ -1,11 +1,14 @@
 #include "rnn_layer.h"
 #include <cmath> // For std::tanh
-#include <random>
+#include <stdexcept>
 
 namespace NeuroNet {
 
 RNNLayer::RNNLayer(int input_size, int hidden_size)
     : input_size_(input_size), hidden_size_(hidden_size) {
+    if (input_size_ <= 0 || hidden_size_ <= 0) {
+        throw std::invalid_argument("RNNLayer dimensions must be positive.");
+    }
 
     // Initialize weights and biases
     W_xh.resize(input_size_, hidden_size_);
@@ -23,7 +26,7 @@ RNNLayer::RNNLayer(int input_size, int hidden_size)
 }
 
 Matrix::Matrix<float> RNNLayer::Forward(const Matrix::Matrix<float>& input) {
-    if (input.cols() != input_size_) {
+    if (input.rows() != 1 || input.cols() != static_cast<size_t>(input_size_)) {
         throw std::invalid_argument("Input size mismatch in RNNLayer.");
     }
 
