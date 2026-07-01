@@ -1,0 +1,3 @@
+## 2024-05-24 - Matrix Multiplication Loop Interchange Optimization
+**Learning:** The custom `Matrix<T>` class in `src/math/matrix.h` implements naive `O(n^3)` matrix multiplication using a row-major memory layout. The original inner loop traversed `k` (columns of `b`), then `j` (rows of `b`), causing non-sequential memory access (`b.m_Data[j][k]`) which leads to frequent CPU cache misses.
+**Action:** Always verify the loop iteration order for multi-dimensional array operations. For row-major matrices, apply loop interchange to use the `i-j-k` order. This ensures sequential memory access in the innermost loops (`c.m_Data[i][k]` and `b.m_Data[j][k]`), heavily improving cache utilization without algorithmic changes.
