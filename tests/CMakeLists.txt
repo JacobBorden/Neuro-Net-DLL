@@ -6,6 +6,7 @@ include(GoogleTest)
 add_executable(runTests
     test_neuronet.cpp
     test_rnn_layer.cpp
+    test_lstm_layer.cpp
     test_genetic_algorithm.cpp
     test_json.cpp
     test_vocabulary.cpp
