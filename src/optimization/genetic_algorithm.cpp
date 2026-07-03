@@ -54,10 +54,9 @@ Optimization::GeneticAlgorithm::GeneticAlgorithm(
     
     current_run_metrics_ = {}; // Initialize training metrics
 
-    // Seed the random number generator for reproducibility during a run,
-    // but different seeds across different program executions.
-    std::random_device rd;
-    random_engine_.seed(rd());
+    // Seed the random number generator for reproducibility during a run.
+    // For deterministic testing, we use a fixed seed. Ideally this would be configurable.
+    random_engine_.seed(42);
     
     // It's crucial that the template_network is properly configured (input size, layer sizes set)
     // before being passed to this constructor, as create_random_individual relies on this structure.
