@@ -16,11 +16,19 @@ Conv2DLayer::Conv2DLayer(int input_channels, int output_channels, int kernel_siz
 }
 
 int Conv2DLayer::GetOutputHeight(int input_height) const {
-    return (input_height + 2 * padding_ - kernel_size_) / stride_ + 1;
+    const int effective_height = input_height + 2 * padding_;
+    if (input_height <= 0 || effective_height < kernel_size_) {
+        return 0;
+    }
+    return (effective_height - kernel_size_) / stride_ + 1;
 }
 
 int Conv2DLayer::GetOutputWidth(int input_width) const {
-    return (input_width + 2 * padding_ - kernel_size_) / stride_ + 1;
+    const int effective_width = input_width + 2 * padding_;
+    if (input_width <= 0 || effective_width < kernel_size_) {
+        return 0;
+    }
+    return (effective_width - kernel_size_) / stride_ + 1;
 }
 
 Matrix::Matrix<float> Conv2DLayer::Forward(const Matrix::Matrix<float>& input, int input_height, int input_width) {
@@ -29,7 +37,8 @@ Matrix::Matrix<float> Conv2DLayer::Forward(const Matrix::Matrix<float>& input, i
     if (out_h <= 0 || out_w <= 0) {
         throw std::invalid_argument("Invalid output dimensions in Conv2DLayer");
     }
-    if (static_cast<int>(input.cols()) != input_channels_ * input_height * input_width) {
+    if (input.rows() != 1 ||
+        static_cast<int>(input.cols()) != input_channels_ * input_height * input_width) {
         throw std::invalid_argument("Invalid input dimensions in Conv2DLayer");
     }
 
