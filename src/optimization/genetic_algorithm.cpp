@@ -305,7 +305,7 @@ std::vector<NeuroNet::NeuroNet> Optimization::GeneticAlgorithm::crossover(const 
     std::vector<float> p2_weights = parent2.get_all_weights_flat();
     
     if (p1_weights.size() == p2_weights.size() && !p1_weights.empty()) {
-        std::uniform_int_distribution<int> dist(0, p1_weights.size() - 1); // Crossover point index
+        std::uniform_int_distribution<int> dist(1, p1_weights.size() - 1); // Crossover point index
         int crossover_point = dist(random_engine_);
 
         std::vector<float> o1_weights = p1_weights; // Start with parent1's weights
