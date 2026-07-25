@@ -1,0 +1,3 @@
+## $(date +%Y-%m-%d) - Matrix Multiplication Loop Interchange
+**Learning:** Matrix multiplication cache efficiency is highly sensitive to loop order. The previous O(n^3) `i-k-j` loop nest caused non-sequential memory access when iterating through rows of the second matrix during the accumulation step, leading to significant cache misses and slower execution.
+**Action:** Always verify loop nesting order when performing matrix operations, favoring `i-j-k` iteration for accumulation over contiguous memory arrays (row-major). This maintains sequential access for both the resulting matrix and the right-hand operand, significantly improving performance.
