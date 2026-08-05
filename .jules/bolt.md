@@ -1,0 +1,3 @@
+## 2026-08-05 - Loop Interchange Optimization in Matrix Multiplication
+**Learning:** Found a critical performance bottleneck in `src/math/matrix.h` where the matrix multiplication algorithm used an `i-k-j` loop order. Because C++ stores matrices in row-major order, iterating column-wise in the innermost loop over `k` caused severe CPU cache thrashing (strided memory access). Reorganizing to an `i-j-k` order solved this.
+**Action:** Always check the memory access pattern of innermost loops when working with multi-dimensional arrays or matrices in C/C++. Ensure access is sequential (row-by-row for row-major layouts) to maximize cache spatial locality.
