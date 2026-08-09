@@ -1,0 +1,3 @@
+## $(date +%Y-%m-%d) - Optimize Matrix Multiplication Cache Locality
+**Learning:** The O(N^3) matrix multiplication `operator*` in `src/math/matrix.h` was written with an `i-k-j` loop nest. This resulted in traversing the `b` matrix non-sequentially, causing significant cache thrashing. Reordering the loops to `i-j-k` exploits spatial locality, significantly boosting performance.
+**Action:** When implementing mathematical operations on multi-dimensional data structures (like row-major matrices), always prioritize the innermost loop's memory access pattern. Ensure memory is accessed sequentially to minimize CPU cache misses.
