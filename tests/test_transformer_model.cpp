@@ -21,6 +21,12 @@ protected:
 //     // ASSERT_NE(&model, nullptr);
 // }
 
+TEST_F(TransformerModelTest, LoadModelRejectsUnsafePaths) {
+    EXPECT_THROW(NeuroNet::Transformer::TransformerModel::load_model("../transformer_model.json"), std::runtime_error);
+    EXPECT_THROW(NeuroNet::Transformer::TransformerModel::load_model("/tmp/transformer_model.json"), std::runtime_error);
+    EXPECT_THROW(NeuroNet::Transformer::TransformerModel::load_model("C:\\temp\\transformer_model.json"), std::runtime_error);
+}
+
 // Test case for initialization with parameters
 TEST_F(TransformerModelTest, Initialization) {
     const int vocab_size = 1000;
@@ -141,7 +147,7 @@ TEST_F(TransformerModelTest, ForwardPassInputTooLong) {
 
     const int current_seq_len = max_seq_len_test + 1; // Sequence length 6
     Matrix::Matrix<float> long_input_sequence(1, current_seq_len);
-    for (int j = 0; j < long_input_sequence.cols(); ++j) {
+    for (size_t j = 0; j < long_input_sequence.cols(); ++j) {
         long_input_sequence[0][j] = static_cast<float>(j + 1);
     }
     Matrix::Matrix<float> mask(1, current_seq_len);

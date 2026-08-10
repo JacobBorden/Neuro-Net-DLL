@@ -16,6 +16,7 @@
 #include <fstream> // For std::ofstream
 #include <vector>  // For std::vector, though often included via neuronet.h indirectly
 #include <iostream>  // For std::cout (used in benchmarking)
+#include "../utilities/logger.h"
 #include "../utilities/timer.h" // For Timer class
 #include "../utilities/json/json.hpp"
 #include "../utilities/json/json_exception.hpp" // Added for JsonParseException
@@ -82,6 +83,9 @@ std::string NeuroNet::NeuroNetLayer::get_activation_function_name() const {
         case ActivationFunctionType::LeakyReLU: return "LeakyReLU";
         case ActivationFunctionType::ELU: return "ELU";
         case ActivationFunctionType::Softmax: return "Softmax";
+        case ActivationFunctionType::Sigmoid: return "Sigmoid";
+        case ActivationFunctionType::Tanh: return "Tanh";
+        case ActivationFunctionType::Swish: return "Swish";
         default: return "Unknown";
     }
 }
@@ -113,96 +117,81 @@ void NeuroNet::NeuroNet::UpdateWeights(float learning_rate) {
         }
         int layer_output_size = layer.LayerSize();
 
-        // --- Handle Weights ---
-        LayerWeights current_lw_struct = layer.get_weights();
-        Matrix::Matrix<float> dLdW_matrix = layer.get_dLdW();
+        UpdateSingleLayerWeights(layer, layer_input_size, layer_output_size, learning_rate, i);
+        UpdateSingleLayerBiases(layer, layer_output_size, learning_rate, i);
+    }
+}
 
-        if (current_lw_struct.WeightCount > 0) {
-            if (dLdW_matrix.rows() == 0 && dLdW_matrix.cols() == 0 && layer_input_size == 0 && layer_output_size == 0) {
-                // Special case: layer has 0 input/output size, dLdW might be 0x0 legitimately. Skip update.
-            } else if (dLdW_matrix.rows() != static_cast<size_t>(layer_input_size) || dLdW_matrix.cols() != static_cast<size_t>(layer_output_size)) {
-                 throw std::runtime_error("Dimension mismatch for weight gradients in layer " + std::to_string(i) +
-                                          ". Expected (" + std::to_string(layer_input_size) + "," + std::to_string(layer_output_size) +
-                                          "), Got (" + std::to_string(dLdW_matrix.rows()) + "," + std::to_string(dLdW_matrix.cols()) + ")");
-            }
-            if (static_cast<int>(dLdW_matrix.rows() * dLdW_matrix.cols()) != current_lw_struct.WeightCount) {
-                 throw std::runtime_error("Mismatch between dLdW_matrix total elements (" + std::to_string(dLdW_matrix.rows() * dLdW_matrix.cols()) +
-                                          ") and layer's WeightCount (" + std::to_string(current_lw_struct.WeightCount) +") for layer " + std::to_string(i));
-            }
+void NeuroNet::NeuroNet::UpdateSingleLayerWeights(NeuroNetLayer& layer, int layer_input_size, int layer_output_size, float learning_rate, int layer_index) {
+    LayerWeights current_lw_struct = layer.get_weights();
+    Matrix::Matrix<float> dLdW_matrix = layer.get_dLdW();
 
-            Matrix::Matrix<float> current_weights_matrix(layer_input_size, layer_output_size);
-            if (layer_input_size > 0 && layer_output_size > 0) { // Only construct if dimensions are valid
-                int k_w = 0;
-                for (int r = 0; r < layer_input_size; ++r) {
-                    for (int c = 0; c < layer_output_size; ++c) {
-                        if (k_w < current_lw_struct.WeightCount) {
-                            current_weights_matrix[r][c] = current_lw_struct.WeightsVector[k_w++];
-                        } else {
-                            throw std::runtime_error("WeightCount mismatch during weight matrix reconstruction for layer " + std::to_string(i));
-                        }
-                    }
-                }
-            }
-
-            Matrix::Matrix<float> updated_weights_matrix = current_weights_matrix - (dLdW_matrix * learning_rate);
-
-            LayerWeights new_lw_struct;
-            new_lw_struct.WeightCount = current_lw_struct.WeightCount;
-            if (new_lw_struct.WeightCount > 0) { // Only fill vector if there are weights
-                new_lw_struct.WeightsVector.reserve(new_lw_struct.WeightCount);
-                for (size_t r = 0; r < updated_weights_matrix.rows(); ++r) {
-                    for (size_t c = 0; c < updated_weights_matrix.cols(); ++c) {
-                        new_lw_struct.WeightsVector.push_back(updated_weights_matrix[r][c]);
-                    }
-                }
-            }
-            if (!layer.SetWeights(new_lw_struct)) {
-                throw std::runtime_error("Failed to set updated weights for layer " + std::to_string(i));
-            }
+    if (current_lw_struct.WeightCount > 0) {
+        if (dLdW_matrix.rows() == 0 && dLdW_matrix.cols() == 0 && layer_input_size == 0 && layer_output_size == 0) {
+            // Special case: layer has 0 input/output size, dLdW might be 0x0 legitimately. Skip update.
+        } else if (dLdW_matrix.rows() != static_cast<size_t>(layer_input_size) || dLdW_matrix.cols() != static_cast<size_t>(layer_output_size)) {
+             throw std::runtime_error("Dimension mismatch for weight gradients in layer " + std::to_string(layer_index) +
+                                      ". Expected (" + std::to_string(layer_input_size) + "," + std::to_string(layer_output_size) +
+                                      "), Got (" + std::to_string(dLdW_matrix.rows()) + "," + std::to_string(dLdW_matrix.cols()) + ")");
+        }
+        if (static_cast<int>(dLdW_matrix.rows() * dLdW_matrix.cols()) != current_lw_struct.WeightCount) {
+             throw std::runtime_error("Mismatch between dLdW_matrix total elements (" + std::to_string(dLdW_matrix.rows() * dLdW_matrix.cols()) +
+                                      ") and layer's WeightCount (" + std::to_string(current_lw_struct.WeightCount) +") for layer " + std::to_string(layer_index));
         }
 
-        // --- Handle Biases ---
-        LayerBiases current_lb_struct = layer.get_biases();
-        Matrix::Matrix<float> dLdB_matrix = layer.get_dLdB();
-
-        if (current_lb_struct.BiasCount > 0) {
-             if (dLdB_matrix.rows() == 0 && dLdB_matrix.cols() == 0 && layer_output_size == 0) {
-                // Special case: layer has 0 output size, dLdB might be 0x0 legitimately. Skip update.
-             } else if (dLdB_matrix.rows() != 1 || dLdB_matrix.cols() != static_cast<size_t>(layer_output_size)) {
-                 throw std::runtime_error("Dimension mismatch for bias gradients in layer " + std::to_string(i) +
-                                          ". Expected (1," + std::to_string(layer_output_size) +
-                                          "), Got (" + std::to_string(dLdB_matrix.rows()) + "," + std::to_string(dLdB_matrix.cols()) + ")");
-            }
-            if (static_cast<int>(dLdB_matrix.rows() * dLdB_matrix.cols()) != current_lb_struct.BiasCount) {
-                 throw std::runtime_error("Mismatch between dLdB_matrix total elements (" + std::to_string(dLdB_matrix.rows() * dLdB_matrix.cols()) +
-                                          ") and layer's BiasCount (" + std::to_string(current_lb_struct.BiasCount) + ") for layer " + std::to_string(i));
-            }
-
-            Matrix::Matrix<float> current_biases_matrix(1, layer_output_size);
-            if (layer_output_size > 0) { // Only construct if dimensions are valid
-                int k_b = 0;
+        LayerWeights new_lw_struct;
+        new_lw_struct.WeightCount = current_lw_struct.WeightCount;
+        if (new_lw_struct.WeightCount > 0) {
+            new_lw_struct.WeightsVector.reserve(new_lw_struct.WeightCount);
+            int k_w = 0;
+            for (int r = 0; r < layer_input_size; ++r) {
                 for (int c = 0; c < layer_output_size; ++c) {
-                     if (k_b < current_lb_struct.BiasCount) {
-                        current_biases_matrix[0][c] = current_lb_struct.BiasVector[k_b++];
-                     } else {
-                        throw std::runtime_error("BiasCount mismatch during bias matrix reconstruction for layer " + std::to_string(i));
-                     }
+                    if (k_w < current_lw_struct.WeightCount) {
+                        new_lw_struct.WeightsVector.push_back(current_lw_struct.WeightsVector[k_w++] - dLdW_matrix[r][c] * learning_rate);
+                    } else {
+                        throw std::runtime_error("WeightCount mismatch during weight update for layer " + std::to_string(layer_index));
+                    }
                 }
             }
+        }
+        if (!layer.SetWeights(new_lw_struct)) {
+            throw std::runtime_error("Failed to set updated weights for layer " + std::to_string(layer_index));
+        }
+    }
+}
 
-            Matrix::Matrix<float> updated_biases_matrix = current_biases_matrix - (dLdB_matrix * learning_rate);
+void NeuroNet::NeuroNet::UpdateSingleLayerBiases(NeuroNetLayer& layer, int layer_output_size, float learning_rate, int layer_index) {
+    LayerBiases current_lb_struct = layer.get_biases();
+    Matrix::Matrix<float> dLdB_matrix = layer.get_dLdB();
 
-            LayerBiases new_lb_struct;
-            new_lb_struct.BiasCount = current_lb_struct.BiasCount;
-            if (new_lb_struct.BiasCount > 0) { // Only fill vector if there are biases
-                new_lb_struct.BiasVector.reserve(new_lb_struct.BiasCount);
-                for (size_t c = 0; c < updated_biases_matrix.cols(); ++c) {
-                    new_lb_struct.BiasVector.push_back(updated_biases_matrix[0][c]);
-                }
+    if (current_lb_struct.BiasCount > 0) {
+         if (dLdB_matrix.rows() == 0 && dLdB_matrix.cols() == 0 && layer_output_size == 0) {
+            // Special case: layer has 0 output size, dLdB might be 0x0 legitimately. Skip update.
+         } else if (dLdB_matrix.rows() != 1 || dLdB_matrix.cols() != static_cast<size_t>(layer_output_size)) {
+             throw std::runtime_error("Dimension mismatch for bias gradients in layer " + std::to_string(layer_index) +
+                                      ". Expected (1," + std::to_string(layer_output_size) +
+                                      "), Got (" + std::to_string(dLdB_matrix.rows()) + "," + std::to_string(dLdB_matrix.cols()) + ")");
+        }
+        if (static_cast<int>(dLdB_matrix.rows() * dLdB_matrix.cols()) != current_lb_struct.BiasCount) {
+             throw std::runtime_error("Mismatch between dLdB_matrix total elements (" + std::to_string(dLdB_matrix.rows() * dLdB_matrix.cols()) +
+                                      ") and layer's BiasCount (" + std::to_string(current_lb_struct.BiasCount) + ") for layer " + std::to_string(layer_index));
+        }
+
+        LayerBiases new_lb_struct;
+        new_lb_struct.BiasCount = current_lb_struct.BiasCount;
+        if (new_lb_struct.BiasCount > 0) {
+            new_lb_struct.BiasVector.reserve(new_lb_struct.BiasCount);
+            int k_b = 0;
+            for (int c = 0; c < layer_output_size; ++c) {
+                 if (k_b < current_lb_struct.BiasCount) {
+                    new_lb_struct.BiasVector.push_back(current_lb_struct.BiasVector[k_b++] - dLdB_matrix[0][c] * learning_rate);
+                 } else {
+                    throw std::runtime_error("BiasCount mismatch during bias update for layer " + std::to_string(layer_index));
+                 }
             }
-            if (!layer.SetBiases(new_lb_struct)) {
-                throw std::runtime_error("Failed to set updated biases for layer " + std::to_string(i));
-            }
+        }
+        if (!layer.SetBiases(new_lb_struct)) {
+            throw std::runtime_error("Failed to set updated biases for layer " + std::to_string(layer_index));
         }
     }
 }
@@ -298,49 +287,61 @@ NeuroNet::ActivationFunctionType NeuroNet::NeuroNetLayer::activation_type_from_s
     if (name == "LeakyReLU") return ActivationFunctionType::LeakyReLU;
     if (name == "ELU") return ActivationFunctionType::ELU;
     if (name == "Softmax") return ActivationFunctionType::Softmax;
+    if (name == "Sigmoid") return ActivationFunctionType::Sigmoid;
+    if (name == "Tanh") return ActivationFunctionType::Tanh;
+    if (name == "Swish") return ActivationFunctionType::Swish;
     throw std::invalid_argument("Unknown activation function name: " + name);
 }
 
-Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyReLU(const Matrix::Matrix<float>& input) {
-    Matrix::Matrix<float> output = input; // Make a copy
-    for (int i = 0; i < output.rows(); ++i) {
-        for (int j = 0; j < output.cols(); ++j) {
+void NeuroNet::NeuroNetLayer::ApplyReLU(Matrix::Matrix<float>& output) {
+    #ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+    #endif
+    for (size_t i = 0; i < output.rows(); ++i) {
+        for (size_t j = 0; j < output.cols(); ++j) {
             output[i][j] = std::max(0.0f, output[i][j]);
         }
     }
-    return output;
+
 }
 
-Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyLeakyReLU(const Matrix::Matrix<float>& input) {
-    Matrix::Matrix<float> output = input; // Make a copy
+void NeuroNet::NeuroNetLayer::ApplyLeakyReLU(Matrix::Matrix<float>& output) {
     const float alpha = 0.01f;
-    for (int i = 0; i < output.rows(); ++i) {
-        for (int j = 0; j < output.cols(); ++j) {
+    #ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+    #endif
+    for (size_t i = 0; i < output.rows(); ++i) {
+        for (size_t j = 0; j < output.cols(); ++j) {
             if (output[i][j] < 0) {
                 output[i][j] = alpha * output[i][j];
             }
         }
     }
-    return output;
+
 }
 
-Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplyELU(const Matrix::Matrix<float>& input) {
-    Matrix::Matrix<float> output = input; // Make a copy
+void NeuroNet::NeuroNetLayer::ApplyELU(Matrix::Matrix<float>& output) {
     const float alpha = 1.0f;
-    for (int i = 0; i < output.rows(); ++i) {
-        for (int j = 0; j < output.cols(); ++j) {
+    #ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+    #endif
+    for (size_t i = 0; i < output.rows(); ++i) {
+        for (size_t j = 0; j < output.cols(); ++j) {
             if (output[i][j] < 0) {
                 output[i][j] = alpha * (std::exp(output[i][j]) - 1.0f);
             }
         }
     }
-    return output;
+
 }
 
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeReLU(const Matrix::Matrix<float>& activated_output) const {
     Matrix::Matrix<float> derivative = activated_output; // Copy dimensions and initial values
-    for (int i = 0; i < derivative.rows(); ++i) {
-        for (int j = 0; j < derivative.cols(); ++j) {
+    #ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+    #endif
+    for (size_t i = 0; i < derivative.rows(); ++i) {
+        for (size_t j = 0; j < derivative.cols(); ++j) {
             derivative[i][j] = (activated_output[i][j] > 0.0f) ? 1.0f : 0.0f;
         }
     }
@@ -350,8 +351,11 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeReLU(const Matrix::Matr
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeLeakyReLU(const Matrix::Matrix<float>& activated_output) const {
     Matrix::Matrix<float> derivative = activated_output; // Copy dimensions and initial values
     const float alpha = 0.01f; // Ensure this matches the alpha in ApplyLeakyReLU
-    for (int i = 0; i < derivative.rows(); ++i) {
-        for (int j = 0; j < derivative.cols(); ++j) {
+    #ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+    #endif
+    for (size_t i = 0; i < derivative.rows(); ++i) {
+        for (size_t j = 0; j < derivative.cols(); ++j) {
             derivative[i][j] = (activated_output[i][j] > 0.0f) ? 1.0f : alpha;
         }
     }
@@ -361,8 +365,11 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeLeakyReLU(const Matrix:
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeELU(const Matrix::Matrix<float>& activated_output) const {
     Matrix::Matrix<float> derivative = activated_output; // Copy dimensions and initial values
     const float alpha = 1.0f; // Ensure this matches the alpha in ApplyELU
-    for (int i = 0; i < derivative.rows(); ++i) {
-        for (int j = 0; j < derivative.cols(); ++j) {
+    #ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+    #endif
+    for (size_t i = 0; i < derivative.rows(); ++i) {
+        for (size_t j = 0; j < derivative.cols(); ++j) {
             if (activated_output[i][j] > 0.0f) {
                 derivative[i][j] = 1.0f;
             } else {
@@ -378,8 +385,11 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeELU(const Matrix::Matri
 // This is the diagonal of the Jacobian dS/dZ, commonly used with Cross-Entropy loss.
 Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeSoftmax(const Matrix::Matrix<float>& activated_output) const {
     Matrix::Matrix<float> derivative = activated_output; // Copy dimensions and initial values
-    for (int i = 0; i < derivative.rows(); ++i) {
-        for (int j = 0; j < derivative.cols(); ++j) {
+    #ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+    #endif
+    for (size_t i = 0; i < derivative.rows(); ++i) {
+        for (size_t j = 0; j < derivative.cols(); ++j) {
             float s_ij = activated_output[i][j];
             derivative[i][j] = s_ij * (1.0f - s_ij);
         }
@@ -416,6 +426,15 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::BackwardPass(const Matrix::Matrix
         case ActivationFunctionType::ELU:
             dAdZ = DerivativeELU(this->OutputMatrix);
             break;
+        case ActivationFunctionType::Sigmoid:
+            dAdZ = DerivativeSigmoid(this->OutputMatrix);
+            break;
+        case ActivationFunctionType::Tanh:
+            dAdZ = DerivativeTanh(this->OutputMatrix);
+            break;
+        case ActivationFunctionType::Swish:
+            dAdZ = DerivativeSwish(this->OutputMatrix);
+            break;
         case ActivationFunctionType::Softmax:
             if (is_last_layer) {
                 // For Softmax with Cross-Entropy loss on the last layer, dL/dZ = A - Y (output - target).
@@ -447,12 +466,15 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::BackwardPass(const Matrix::Matrix
     if (this->vActivationFunction == ActivationFunctionType::Softmax && !is_last_layer) {
         // Compute dLdZ directly using the Softmax Jacobian:
         // dL/dZ_i = S_i * (dL/dA_i - sum_j (dL/dA_j * S_j))
-        for (int i = 0; i < dLdZ.rows(); ++i) {
+        #ifdef _OPENMP
+        #pragma omp parallel for
+        #endif
+        for (size_t i = 0; i < dLdZ.rows(); ++i) {
             float sum_da_s = 0.0f;
-            for (int j = 0; j < dLdZ.cols(); ++j) {
+            for (size_t j = 0; j < dLdZ.cols(); ++j) {
                 sum_da_s += dLdOutput[i][j] * this->OutputMatrix[i][j];
             }
-            for (int j = 0; j < dLdZ.cols(); ++j) {
+            for (size_t j = 0; j < dLdZ.cols(); ++j) {
                 dLdZ[i][j] = this->OutputMatrix[i][j] * (dLdOutput[i][j] - sum_da_s);
             }
         }
@@ -464,8 +486,11 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::BackwardPass(const Matrix::Matrix
                                      "dLdOutput: (" + std::to_string(dLdOutput.rows()) + "," + std::to_string(dLdOutput.cols()) + ") "
                                      "dAdZ: (" + std::to_string(dAdZ.rows()) + "," + std::to_string(dAdZ.cols()) + ")");
         }
-        for (int i = 0; i < dLdZ.rows(); ++i) {
-            for (int j = 0; j < dLdZ.cols(); ++j) {
+        #ifdef _OPENMP
+        #pragma omp parallel for collapse(2)
+        #endif
+        for (size_t i = 0; i < dLdZ.rows(); ++i) {
+            for (size_t j = 0; j < dLdZ.cols(); ++j) {
                 dLdZ[i][j] = dLdOutput[i][j] * dAdZ[i][j];
             }
         }
@@ -505,8 +530,90 @@ int NeuroNet::NeuroNetLayer::get_input_size() const {
     return this->InputSize;
 }
 
-Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplySoftmax(const Matrix::Matrix<float>& input) {
-    Matrix::Matrix<float> output = input; // Make a copy
+void NeuroNet::NeuroNetLayer::ApplySigmoid(Matrix::Matrix<float>& output) {
+    #ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+    #endif
+    for (size_t i = 0; i < output.rows(); ++i) {
+        for (size_t j = 0; j < output.cols(); ++j) {
+            output[i][j] = 1.0f / (1.0f + std::exp(-output[i][j]));
+        }
+    }
+
+}
+
+void NeuroNet::NeuroNetLayer::ApplyTanh(Matrix::Matrix<float>& output) {
+    #ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+    #endif
+    for (size_t i = 0; i < output.rows(); ++i) {
+        for (size_t j = 0; j < output.cols(); ++j) {
+            output[i][j] = std::tanh(output[i][j]);
+        }
+    }
+
+}
+
+void NeuroNet::NeuroNetLayer::ApplySwish(Matrix::Matrix<float>& output) {
+    #ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+    #endif
+    for (size_t i = 0; i < output.rows(); ++i) {
+        for (size_t j = 0; j < output.cols(); ++j) {
+            output[i][j] = output[i][j] * (1.0f / (1.0f + std::exp(-output[i][j])));
+        }
+    }
+
+}
+
+Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeSigmoid(const Matrix::Matrix<float>& activated_output) const {
+    Matrix::Matrix<float> derivative = activated_output;
+    #ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+    #endif
+    for (size_t i = 0; i < derivative.rows(); ++i) {
+        for (size_t j = 0; j < derivative.cols(); ++j) {
+            float sigmoid_val = activated_output[i][j];
+            derivative[i][j] = sigmoid_val * (1.0f - sigmoid_val);
+        }
+    }
+    return derivative;
+}
+
+Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeTanh(const Matrix::Matrix<float>& activated_output) const {
+    Matrix::Matrix<float> derivative = activated_output;
+    #ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+    #endif
+    for (size_t i = 0; i < derivative.rows(); ++i) {
+        for (size_t j = 0; j < derivative.cols(); ++j) {
+            float tanh_val = activated_output[i][j];
+            derivative[i][j] = 1.0f - (tanh_val * tanh_val);
+        }
+    }
+    return derivative;
+}
+
+Matrix::Matrix<float> NeuroNet::NeuroNetLayer::DerivativeSwish(const Matrix::Matrix<float>& activated_output) const {
+    // For Swish, f'(x) = f(x) + sigmoid(x) * (1 - f(x))
+    // To compute sigmoid(x), we'd ideally need pre-activation x.
+    // However, we can reconstruct the pre-activation Z matrix here since we have InputMatrix, WeightMatrix, BiasMatrix.
+    Matrix::Matrix<float> Z = (this->InputMatrix * this->WeightMatrix) + this->BiasMatrix;
+    Matrix::Matrix<float> derivative = activated_output;
+    #ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+    #endif
+    for (size_t i = 0; i < derivative.rows(); ++i) {
+        for (size_t j = 0; j < derivative.cols(); ++j) {
+            float f_x = activated_output[i][j];
+            float sig_x = 1.0f / (1.0f + std::exp(-Z[i][j]));
+            derivative[i][j] = f_x + sig_x * (1.0f - f_x);
+        }
+    }
+    return derivative;
+}
+
+void NeuroNet::NeuroNetLayer::ApplySoftmax(Matrix::Matrix<float>& output) {
     float sum_exp = 0.0f;
     // Calculate sum of exponents for normalization.
     // This implementation assumes input is a 1xN matrix (a single row vector),
@@ -516,18 +623,24 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::ApplySoftmax(const Matrix::Matrix
         // this logic would need to be adjusted. For now, it processes a single output vector.
     }
 
-    for (int j = 0; j < output.cols(); ++j) {
+    #ifdef _OPENMP
+    #pragma omp parallel for reduction(+:sum_exp)
+    #endif
+    for (size_t j = 0; j < output.cols(); ++j) {
         output[0][j] = std::exp(output[0][j]);
         sum_exp += output[0][j];
     }
 
     // Normalize
     if (sum_exp != 0.0f) { // Avoid division by zero
-        for (int j = 0; j < output.cols(); ++j) {
+        #ifdef _OPENMP
+        #pragma omp parallel for
+        #endif
+        for (size_t j = 0; j < output.cols(); ++j) {
             output[0][j] /= sum_exp;
         }
     }
-    return output;
+
 }
 
 
@@ -547,8 +660,7 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::CalculateOutput() {
         // Layer index is not directly available here without modification to the function signature
         // or making NeuroNetLayer aware of its index.
         // For now, a generic message or one using LayerSize as a proxy identifier.
-        std::cout << "NeuroNetLayer::CalculateOutput() (Layer with output size " << this->vLayerSize 
-                  << ", potentially uninitialized) took: " << layer_timer.elapsed_microseconds() << " us" << std::endl;
+        ::NeuroNet::Logger::Info("NeuroNetLayer::CalculateOutput() (Layer with output size ", this->vLayerSize, ", potentially uninitialized) took: ", layer_timer.elapsed_microseconds(), " us");
 #endif
 	}
 	// Calculate the linear transformation part: (InputMatrix * WeightMatrix) + BiasMatrix
@@ -558,16 +670,25 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::CalculateOutput() {
     // Apply the selected activation function.
     switch (this->vActivationFunction) {
         case ActivationFunctionType::ReLU:
-            this->OutputMatrix = ApplyReLU(this->OutputMatrix);
+            ApplyReLU(this->OutputMatrix);
             break;
         case ActivationFunctionType::LeakyReLU:
-            this->OutputMatrix = ApplyLeakyReLU(this->OutputMatrix);
+            ApplyLeakyReLU(this->OutputMatrix);
             break;
         case ActivationFunctionType::ELU:
-            this->OutputMatrix = ApplyELU(this->OutputMatrix);
+            ApplyELU(this->OutputMatrix);
             break;
         case ActivationFunctionType::Softmax:
-            this->OutputMatrix = ApplySoftmax(this->OutputMatrix);
+            ApplySoftmax(this->OutputMatrix);
+            break;
+        case ActivationFunctionType::Sigmoid:
+            ApplySigmoid(this->OutputMatrix);
+            break;
+        case ActivationFunctionType::Tanh:
+            ApplyTanh(this->OutputMatrix);
+            break;
+        case ActivationFunctionType::Swish:
+            ApplySwish(this->OutputMatrix);
             break;
         case ActivationFunctionType::None:
             // No activation function applied, do nothing.
@@ -580,8 +701,7 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::CalculateOutput() {
 #ifdef ENABLE_BENCHMARKING
     layer_timer.stop();
     // As above, layer index isn't directly available. Using LayerSize as a proxy.
-    std::cout << "NeuroNetLayer::CalculateOutput() (Layer with output size " << this->vLayerSize 
-              << ") took: " << layer_timer.elapsed_microseconds() << " us" << std::endl;
+    ::NeuroNet::Logger::Info("NeuroNetLayer::CalculateOutput() (Layer with output size ", this->vLayerSize, ") took: ", layer_timer.elapsed_microseconds(), " us");
 #endif
 	return this->OutputMatrix;
 }
@@ -651,6 +771,12 @@ std::string NeuroNet::NeuroNet::to_custom_json_string() const {
     SetJsonNumber(root, "input_size", static_cast<double>(this->InputSize));
     SetJsonNumber(root, "layer_count", static_cast<double>(this->LayerCount));
 
+    // Add Vocabulary Configuration
+    if (this->vocabulary.get_max_sequence_length() > 0) { // Only save if it's meaningfully set
+        JsonValue* vocab_config_obj_ptr = CreateJsonObjectInObject(root, "vocabulary_config");
+        SetJsonNumber(*vocab_config_obj_ptr, "max_sequence_length", static_cast<double>(this->vocabulary.get_max_sequence_length()));
+    }
+
     // 2. Serialize Layers
     JsonValue* layers_array_json_val_ptr = CreateJsonArrayInObject(root, "layers");
 
@@ -709,6 +835,11 @@ std::string NeuroNet::NeuroNet::to_custom_json_string() const {
                     delete layer_prop_pair.second; 
                 }
             }
+        } else if (pair.first == "vocabulary_config") {
+            JsonValue* vocab_config_object = pair.second;
+            for (auto& vocab_prop_pair : vocab_config_object->GetObject()) {
+                delete vocab_prop_pair.second;
+            }
         }
         delete pair.second; 
     }
@@ -721,8 +852,97 @@ std::string NeuroNet::NeuroNet::to_custom_json_string() const {
     return result_string;
 }
 
+
+static NeuroNet::LayerWeights deserialize_layer_weights(const JsonValue& layer_obj, int layer_idx) {
+    const JsonValue& weights_json_val = *layer_obj.GetObject().at("weights");
+    if (weights_json_val.type != JsonValueType::Object) {
+        throw std::runtime_error("Weights is not an object for layer " + std::to_string(layer_idx));
+    }
+    const auto& weights_obj = weights_json_val.GetObject();
+
+    if (weights_obj.count("rows") == 0 || weights_obj.at("rows")->type != JsonValueType::Number ||
+        weights_obj.count("cols") == 0 || weights_obj.at("cols")->type != JsonValueType::Number ||
+        weights_obj.count("data") == 0 || weights_obj.at("data")->type != JsonValueType::Array) {
+        throw std::runtime_error("Invalid weights format for layer " + std::to_string(layer_idx));
+    }
+    const std::vector<JsonValue>& weights_data_array = weights_obj.at("data")->GetArray();
+
+    NeuroNet::LayerWeights layer_weights;
+    layer_weights.WeightCount = weights_data_array.size();
+    for (const auto& w_val_json : weights_data_array) {
+        if (w_val_json.type != JsonValueType::Number) {
+            throw std::runtime_error("Non-numeric weight value in layer " + std::to_string(layer_idx));
+        }
+        layer_weights.WeightsVector.push_back(static_cast<float>(w_val_json.GetNumber()));
+    }
+    return layer_weights;
+}
+
+static NeuroNet::LayerBiases deserialize_layer_biases(const JsonValue& layer_obj, int layer_idx) {
+    const JsonValue& biases_json_val = *layer_obj.GetObject().at("biases");
+    if (biases_json_val.type != JsonValueType::Object) {
+        throw std::runtime_error("Biases is not an object for layer " + std::to_string(layer_idx));
+    }
+    const auto& biases_obj = biases_json_val.GetObject();
+
+    if (biases_obj.count("rows") == 0 || biases_obj.at("rows")->type != JsonValueType::Number ||
+        biases_obj.count("cols") == 0 || biases_obj.at("cols")->type != JsonValueType::Number ||
+        biases_obj.count("data") == 0 || biases_obj.at("data")->type != JsonValueType::Array) {
+        throw std::runtime_error("Invalid biases format for layer " + std::to_string(layer_idx));
+    }
+    const std::vector<JsonValue>& biases_data_array = biases_obj.at("data")->GetArray();
+
+    NeuroNet::LayerBiases layer_biases;
+    layer_biases.BiasCount = biases_data_array.size();
+    for (const auto& b_val_json : biases_data_array) {
+         if (b_val_json.type != JsonValueType::Number) {
+             throw std::runtime_error("Non-numeric bias value in layer " + std::to_string(layer_idx));
+         }
+        layer_biases.BiasVector.push_back(static_cast<float>(b_val_json.GetNumber()));
+    }
+    return layer_biases;
+}
+
+static void deserialize_layer(NeuroNet::NeuroNet& model, const JsonValue& layer_json, int layer_idx) {
+    if (layer_json.type != JsonValueType::Object) {
+        throw std::runtime_error("Invalid layer format (not an object) in JSON for layer " + std::to_string(layer_idx));
+    }
+
+    const auto& layer_obj = layer_json.GetObject();
+    if (layer_obj.count("layer_size") == 0 || layer_obj.at("layer_size")->type != JsonValueType::Number ||
+        layer_obj.count("input_size") == 0 || layer_obj.at("input_size")->type != JsonValueType::Number ||
+        layer_obj.count("activation_function") == 0 || layer_obj.at("activation_function")->type != JsonValueType::String ||
+        layer_obj.count("weights") == 0 || layer_obj.at("weights")->type != JsonValueType::Object ||
+        layer_obj.count("biases") == 0 || layer_obj.at("biases")->type != JsonValueType::Object) {
+        throw std::runtime_error("Invalid layer format in JSON for layer " + std::to_string(layer_idx) + ": missing or invalid type for key members (activation_function should be string).");
+    }
+
+    int layer_output_size = static_cast<int>(layer_obj.at("layer_size")->GetNumber());
+    model.ResizeLayer(layer_idx, layer_output_size);
+
+    NeuroNet::NeuroNetLayer& current_layer = model.getLayer(layer_idx);
+
+    std::string activation_str = layer_obj.at("activation_function")->GetString();
+    current_layer.SetActivationFunction(NeuroNet::NeuroNetLayer::activation_type_from_string(activation_str));
+
+    auto layer_weights = deserialize_layer_weights(layer_json, layer_idx);
+    if (!current_layer.SetWeights(layer_weights)) {
+         throw std::runtime_error("Failed to set weights for layer " + std::to_string(layer_idx) + ". Count mismatch or other error.");
+    }
+
+    auto layer_biases = deserialize_layer_biases(layer_json, layer_idx);
+    if (!current_layer.SetBiases(layer_biases)) {
+         throw std::runtime_error("Failed to set biases for layer " + std::to_string(layer_idx) + ". Count mismatch or other error.");
+    }
+}
+
 NeuroNet::NeuroNet NeuroNet::NeuroNet::load_model(const std::string& filename)
 {
+	if (filename.find("..") != std::string::npos ||
+	    (!filename.empty() && (filename[0] == '/' || filename[0] == '\\' || (filename.length() > 1 && filename[1] == ':')))) {
+		throw std::runtime_error("Invalid filename: Path traversal and absolute paths are not allowed.");
+	}
+
 	std::ifstream ifs(filename);
 	if (!ifs.is_open()) {
 		throw std::runtime_error("Failed to open model file: " + filename);
@@ -774,73 +994,7 @@ NeuroNet::NeuroNet NeuroNet::NeuroNet::load_model(const std::string& filename)
 
 	for (int i = 0; i < layer_count; ++i)
 	{
-		const JsonValue& layer_json = layers_array[i];
-		if (layer_json.type != JsonValueType::Object) {
-			throw std::runtime_error("Invalid layer format (not an object) in JSON for layer " + std::to_string(i));
-		}
-		
-		const auto& layer_obj = layer_json.GetObject(); // Use a reference for convenience
-		if (layer_obj.count("layer_size") == 0 || layer_obj.at("layer_size")->type != JsonValueType::Number ||
-			layer_obj.count("input_size") == 0 || layer_obj.at("input_size")->type != JsonValueType::Number ||
-			layer_obj.count("activation_function") == 0 || layer_obj.at("activation_function")->type != JsonValueType::String || // Expect String now
-			layer_obj.count("weights") == 0 || layer_obj.at("weights")->type != JsonValueType::Object ||
-			layer_obj.count("biases") == 0 || layer_obj.at("biases")->type != JsonValueType::Object) {
-			throw std::runtime_error("Invalid layer format in JSON for layer " + std::to_string(i) + ": missing or invalid type for key members (activation_function should be string).");
-		}
-
-		int layer_output_size = static_cast<int>(layer_obj.at("layer_size")->GetNumber());
-		model.ResizeLayer(i, layer_output_size); 
-		
-		NeuroNetLayer& current_layer = model.getLayer(i);
-
-		//int activation_int = static_cast<int>(layer_obj.at("activation_function")->GetNumber()); // Old way
-		//current_layer.SetActivationFunction(static_cast<ActivationFunctionType>(activation_int)); // Old way
-        std::string activation_str = layer_obj.at("activation_function")->GetString(); // New: get as string
-        current_layer.SetActivationFunction(NeuroNetLayer::activation_type_from_string(activation_str)); // New: convert string to enum
-
-		// --- Weights ---
-		const JsonValue& weights_json_val = *layer_obj.at("weights"); // Dereference pointer
-		if (weights_json_val.type != JsonValueType::Object) throw std::runtime_error("Weights is not an object for layer " + std::to_string(i));
-		const auto& weights_obj = weights_json_val.GetObject();
-
-		if (weights_obj.count("rows") == 0 || weights_obj.at("rows")->type != JsonValueType::Number ||
-			weights_obj.count("cols") == 0 || weights_obj.at("cols")->type != JsonValueType::Number ||
-			weights_obj.count("data") == 0 || weights_obj.at("data")->type != JsonValueType::Array) {
-			throw std::runtime_error("Invalid weights format for layer " + std::to_string(i));
-		}
-		const std::vector<JsonValue>& weights_data_array = weights_obj.at("data")->GetArray();
-		
-		LayerWeights layer_weights;
-		layer_weights.WeightCount = weights_data_array.size();
-		for (const auto& w_val_json : weights_data_array) { // Iterate over JsonValue
-			if (w_val_json.type != JsonValueType::Number) throw std::runtime_error("Non-numeric weight value in layer " + std::to_string(i));
-			layer_weights.WeightsVector.push_back(static_cast<float>(w_val_json.GetNumber()));
-		}
-		if (!current_layer.SetWeights(layer_weights)) {
-			 throw std::runtime_error("Failed to set weights for layer " + std::to_string(i) + ". Count mismatch or other error.");
-		}
-
-		// --- Biases ---
-		const JsonValue& biases_json_val = *layer_obj.at("biases"); // Dereference pointer
-		if (biases_json_val.type != JsonValueType::Object) throw std::runtime_error("Biases is not an object for layer " + std::to_string(i));
-		const auto& biases_obj = biases_json_val.GetObject();
-
-		if (biases_obj.count("rows") == 0 || biases_obj.at("rows")->type != JsonValueType::Number ||
-			biases_obj.count("cols") == 0 || biases_obj.at("cols")->type != JsonValueType::Number ||
-			biases_obj.count("data") == 0 || biases_obj.at("data")->type != JsonValueType::Array) {
-			throw std::runtime_error("Invalid biases format for layer " + std::to_string(i));
-		}
-		const std::vector<JsonValue>& biases_data_array = biases_obj.at("data")->GetArray();
-
-		LayerBiases layer_biases;
-		layer_biases.BiasCount = biases_data_array.size();
-		for (const auto& b_val_json : biases_data_array) { // Iterate over JsonValue
-			 if (b_val_json.type != JsonValueType::Number) throw std::runtime_error("Non-numeric bias value in layer " + std::to_string(i));
-			layer_biases.BiasVector.push_back(static_cast<float>(b_val_json.GetNumber()));
-		}
-		if (!current_layer.SetBiases(layer_biases)) {
-			 throw std::runtime_error("Failed to set biases for layer " + std::to_string(i) + ". Count mismatch or other error.");
-		}
+		deserialize_layer(model, layers_array[i], i);
 	}
 	return model;
 }
@@ -851,112 +1005,17 @@ NeuroNet::NeuroNet NeuroNet::NeuroNet::load_model(const std::string& filename)
 
 bool NeuroNet::NeuroNet::save_model(const std::string& filename) const
 {
-	JsonValue root; 
-    root.SetObject();
+    std::string json_string = this->to_custom_json_string();
 
-	// 1. Serialize NeuroNet global parameters
-    SetJsonNumber(root, "input_size", static_cast<double>(this->InputSize));
-    SetJsonNumber(root, "layer_count", static_cast<double>(this->LayerCount));
-
-    // Add Vocabulary Configuration
-    if (this->vocabulary.get_max_sequence_length() > 0) { // Only save if it's meaningfully set
-        JsonValue* vocab_config_obj_ptr = CreateJsonObjectInObject(root, "vocabulary_config");
-        SetJsonNumber(*vocab_config_obj_ptr, "max_sequence_length", static_cast<double>(this->vocabulary.get_max_sequence_length()));
+    std::ofstream ofs(filename);
+    if (!ofs.is_open()) {
+        return false;
     }
 
-	// 2. Serialize Layers
-    // Create the main 'layers' array within the root object
-    JsonValue* layers_array_json_val_ptr = CreateJsonArrayInObject(root, "layers");
+    ofs << json_string;
 
-	for (int i = 0; i < this->LayerCount; ++i)
-	{
-		const NeuroNetLayer& layer = this->NeuroNetVector[i];
-		JsonValue layer_json_val; // This will be an element of layers_array_json_val_ptr
-        layer_json_val.SetObject(); // This layer_json_val itself is an object
-
-		int current_layer_input_size = (i == 0) ? this->InputSize : this->NeuroNetVector[i-1].LayerSize();
-        SetJsonNumber(layer_json_val, "input_size", static_cast<double>(current_layer_input_size));
-        SetJsonNumber(layer_json_val, "layer_size", static_cast<double>(layer.LayerSize()));
-		//SetJsonNumber(layer_json_val, "activation_function", static_cast<double>(layer.get_activation_type())); // Old way
-        JsonValue* act_str_val = new JsonValue(); 
-        act_str_val->SetString(layer.get_activation_function_name()); // New: store as string
-        layer_json_val.InsertIntoObject("activation_function", act_str_val);
-
-		// --- Weights ---
-        // Create 'weights' object within layer_json_val
-		JsonValue* weights_obj_ptr = CreateJsonObjectInObject(layer_json_val, "weights");
-		const auto& weights_data = layer.get_weights(); 
-        SetJsonNumber(*weights_obj_ptr, "rows", static_cast<double>(current_layer_input_size));
-        SetJsonNumber(*weights_obj_ptr, "cols", static_cast<double>(layer.LayerSize()));
-        
-        // Create 'data' array within 'weights' object
-        JsonValue* weights_data_arr_ptr = CreateJsonArrayInObject(*weights_obj_ptr, "data");
-		for (float w : weights_data.WeightsVector) {
-            JsonValue w_val; w_val.SetNumber(w); // w_val is temporary, its value copied
-			weights_data_arr_ptr->GetArray().push_back(w_val); // push_back copies w_val
-		}
-        
-		// --- Biases ---
-        // Create 'biases' object within layer_json_val
-		JsonValue* biases_obj_ptr = CreateJsonObjectInObject(layer_json_val, "biases");
-		const auto& biases_data = layer.get_biases(); 
-        SetJsonNumber(*biases_obj_ptr, "rows", 1.0); // Biases typically have 1 row
-        SetJsonNumber(*biases_obj_ptr, "cols", static_cast<double>(layer.LayerSize()));
-        
-        // Create 'data' array within 'biases' object
-        JsonValue* biases_data_arr_ptr = CreateJsonArrayInObject(*biases_obj_ptr, "data");
-		for (float b : biases_data.BiasVector) {
-            JsonValue b_val; b_val.SetNumber(b);
-			biases_data_arr_ptr->GetArray().push_back(b_val);
-		}
-		
-        // Add the fully constructed layer_json_val to the main 'layers' array
-		layers_array_json_val_ptr->GetArray().push_back(layer_json_val);
-	}
-
-	// 3. Write to file
-	std::ofstream ofs(filename);
-	if (!ofs.is_open()) {
-        // NOTE: Potential memory leak here if we return early, as dynamically allocated
-        // JsonValue objects (via new in SetJsonNumber, CreateJsonObjectInObject, etc.)
-        // are not cleaned up by this function. A robust solution would require
-        // a RAII wrapper or a recursive deletion function for the JsonValue structure
-        // if an error occurs after allocations have begun.
-		return false; 
-	}
-	
-    ofs << root.ToString(); // Use the ToString method from custom JsonValue
-	
-	ofs.close();
-
-    // IMPORTANT: Clean up dynamically allocated JsonValue objects.
-    // The custom JsonValue::object_value stores JsonValue*. These were allocated with 'new'.
-    // This is a simplified cleanup; a real scenario needs a recursive destructor in JsonValue
-    // or a dedicated cleanup utility.
-    for (auto& pair : root.GetObject()) { // For "input_size", "layer_count", "layers", "vocabulary_config"
-        if (pair.first == "layers") {
-            JsonValue* layers_array = pair.second;
-            for (JsonValue& layer_val : layers_array->GetArray()) { // Each layer_val is an object
-                for (auto& layer_prop_pair : layer_val.GetObject()) {
-                    if (layer_prop_pair.first == "weights" || layer_prop_pair.first == "biases") {
-                        JsonValue* wb_object = layer_prop_pair.second; // This is the object for weights/biases
-                        for (auto& wb_prop_pair : wb_object->GetObject()) { // rows, cols, data
-                             delete wb_prop_pair.second; // Delete JsonValue* for rows, cols, data array
-                        }
-                    }
-                    delete layer_prop_pair.second; // Delete JsonValue* for input_size, layer_size, activation_function, weights obj, biases obj
-                }
-            }
-        } else if (pair.first == "vocabulary_config") {
-            JsonValue* vocab_config_object = pair.second;
-            for (auto& vocab_prop_pair : vocab_config_object->GetObject()) { // e.g., "max_sequence_length"
-                delete vocab_prop_pair.second; // Delete the JsonValue* for "max_sequence_length" value
-            }
-        }
-        delete pair.second; // Delete JsonValue* for top-level keys like "input_size", "layer_count", "layers" array itself, "vocabulary_config" object itself
-    }
-    root.GetObject().clear(); // Clear the map in root to remove dangling pointers
-	return true;
+    ofs.close();
+    return true;
 }
 
 int NeuroNet::NeuroNetLayer::WeightCount() {
@@ -989,8 +1048,8 @@ bool NeuroNet::NeuroNetLayer::SetWeights(LayerWeights pWeights) {
 	// Or, more directly, the Matrix class might handle this if it can be constructed from a flat vector.
 	// Here, we map it assuming WeightMatrix is InputSize x vLayerSize.
 	int k = 0; // Index for the flat WeightsVector.
-	for (int i = 0; i < this->WeightMatrix.rows(); i++) { // Iterating through rows (inputs)
-		for (int j = 0; j < this->WeightMatrix.cols(); j++) { // Iterating through columns (neurons)
+	for (size_t i = 0; i < this->WeightMatrix.rows(); i++) { // Iterating through rows (inputs)
+		for (size_t j = 0; j < this->WeightMatrix.cols(); j++) { // Iterating through columns (neurons)
 			if (k < this->Weights.WeightCount) {
 				this->WeightMatrix[i][j] = this->Weights.WeightsVector[k];
 				k++;
@@ -1001,6 +1060,17 @@ bool NeuroNet::NeuroNetLayer::SetWeights(LayerWeights pWeights) {
 		}
 	}
 	return true;
+}
+
+// Implementation for NeuroNetLayer::has_weight
+bool NeuroNet::NeuroNetLayer::has_weight(int prev_neuron_idx, int current_neuron_idx_in_layer) const {
+    if (prev_neuron_idx < 0 || static_cast<size_t>(prev_neuron_idx) >= this->WeightMatrix.rows()) {
+        return false;
+    }
+    if (current_neuron_idx_in_layer < 0 || static_cast<size_t>(current_neuron_idx_in_layer) >= this->WeightMatrix.cols()) {
+        return false;
+    }
+    return true;
 }
 
 // Implementation for NeuroNetLayer::get_weight
@@ -1305,8 +1375,8 @@ bool NeuroNet::NeuroNetLayer::SetBiases(LayerBiases pBiases) {
 	// Populate the internal BiasMatrix from the BiasVector.
 	// BiasMatrix is 1 x vLayerSize.
 	int k = 0; // Index for the flat BiasVector.
-	for (int i = 0; i < this->BiasMatrix.rows(); i++) { // Should only be 1 row.
-		for (int j = 0; j < this->BiasMatrix.cols(); j++) { // Iterating through columns (neurons)
+	for (size_t i = 0; i < this->BiasMatrix.rows(); i++) { // Should only be 1 row.
+		for (size_t j = 0; j < this->BiasMatrix.cols(); j++) { // Iterating through columns (neurons)
 			if (k < this->Biases.BiasCount) {
 				this->BiasMatrix[i][j] = this->Biases.BiasVector[k];
 				k++;
@@ -1401,8 +1471,7 @@ Matrix::Matrix<float> NeuroNet::NeuroNet::GetOutput() {
 	if (this->NeuroNetVector.empty()) {
 #ifdef ENABLE_BENCHMARKING
         total_forward_pass_timer.stop();
-        std::cout << "NeuroNet::GetOutput() (Total Forward Pass - No Layers) took: " 
-                  << total_forward_pass_timer.elapsed_milliseconds() << " ms" << std::endl;
+        ::NeuroNet::Logger::Info("NeuroNet::GetOutput() (Total Forward Pass - No Layers) took: ", total_forward_pass_timer.elapsed_milliseconds(), " ms");
 #endif
 		return Matrix::Matrix<float>(); // Return an empty matrix if no layers.
 	}
@@ -1433,8 +1502,7 @@ Matrix::Matrix<float> NeuroNet::NeuroNet::GetOutput() {
 
 #ifdef ENABLE_BENCHMARKING
     total_forward_pass_timer.stop();
-    std::cout << "NeuroNet::GetOutput() (Total Forward Pass for " << this->NeuroNetVector.size() << " layers) took: " 
-              << total_forward_pass_timer.elapsed_milliseconds() << " ms" << std::endl;
+    ::NeuroNet::Logger::Info("NeuroNet::GetOutput() (Total Forward Pass for ", this->NeuroNetVector.size(), " layers) took: ", total_forward_pass_timer.elapsed_milliseconds(), " ms");
 #endif
 	return final_output; // Output of the last layer
 }
@@ -1448,7 +1516,7 @@ NeuroNet::LayerWeights NeuroNet::NeuroNetLayer::get_weights() const {
     LayerWeights current_weights_struct;
     // Use the WeightCount already stored in this->Weights, which ResizeLayer correctly sets.
     current_weights_struct.WeightCount = this->Weights.WeightCount; 
-    if (this->WeightMatrix.rows() * this->WeightMatrix.cols() != current_weights_struct.WeightCount) {
+    if ((int)(this->WeightMatrix.rows() * this->WeightMatrix.cols()) != current_weights_struct.WeightCount) {
         // Optional: Add error handling or log if counts mismatch,
         // but this->Weights.WeightCount should be authoritative if ResizeLayer is always used.
     }
@@ -1456,8 +1524,8 @@ NeuroNet::LayerWeights NeuroNet::NeuroNetLayer::get_weights() const {
     current_weights_struct.WeightsVector.clear(); // Ensure vector is empty before filling
     current_weights_struct.WeightsVector.reserve(current_weights_struct.WeightCount);
 
-    for (int i = 0; i < this->WeightMatrix.rows(); ++i) {
-        for (int j = 0; j < this->WeightMatrix.cols(); ++j) {
+    for (size_t i = 0; i < this->WeightMatrix.rows(); ++i) {
+        for (size_t j = 0; j < this->WeightMatrix.cols(); ++j) {
             current_weights_struct.WeightsVector.push_back(this->WeightMatrix[i][j]);
         }
     }
@@ -1468,7 +1536,7 @@ NeuroNet::LayerBiases NeuroNet::NeuroNetLayer::get_biases() const {
     LayerBiases current_biases_struct;
     // Use the BiasCount already stored in this->Biases, which ResizeLayer correctly sets.
     current_biases_struct.BiasCount = this->Biases.BiasCount;
-    if (this->BiasMatrix.cols() != current_biases_struct.BiasCount && this->BiasMatrix.rows() == 1) {
+    if ((int)this->BiasMatrix.cols() != current_biases_struct.BiasCount && this->BiasMatrix.rows() == 1) {
          // Optional: Add error handling or log if counts mismatch
     }
 
@@ -1476,7 +1544,7 @@ NeuroNet::LayerBiases NeuroNet::NeuroNetLayer::get_biases() const {
     current_biases_struct.BiasVector.reserve(current_biases_struct.BiasCount);
 
     // BiasMatrix is 1xN (1 row, N columns where N is number of neurons/biases)
-    for (int j = 0; j < this->BiasMatrix.cols(); ++j) {
+    for (size_t j = 0; j < this->BiasMatrix.cols(); ++j) {
         current_biases_struct.BiasVector.push_back(this->BiasMatrix[0][j]);
     }
     return current_biases_struct;

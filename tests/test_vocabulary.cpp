@@ -70,6 +70,12 @@ TEST_F(VocabularyTest, LoadFromJson_SpecialTokenNotInWordMap) {
     EXPECT_FALSE(vocab.load_from_json(test_vocab_path)); // <UNK> not in word_to_token
 }
 
+TEST_F(VocabularyTest, LoadFromJson_RejectsUnsafePaths) {
+    EXPECT_FALSE(vocab.load_from_json("../temp_test_vocab.json"));
+    EXPECT_FALSE(vocab.load_from_json("/tmp/temp_test_vocab.json"));
+    EXPECT_FALSE(vocab.load_from_json("C:\\temp\\temp_test_vocab.json"));
+}
+
 
 TEST_F(VocabularyTest, GetTokenId) {
     CreateTempVocabFile(test_vocab_path, R"({

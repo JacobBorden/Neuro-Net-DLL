@@ -953,3 +953,12 @@ The previous mention of Catch2 has been removed as the tests primarily use Googl
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## File Loading Path Policy
+
+For security reasons, functions that load files—such as `NeuroNet::load_model`, `TransformerModel::load_model`, and `Vocabulary::load_from_json`—enforce a strict path policy:
+
+*   **No Absolute Paths:** Paths starting with a root directory separator (`/` or `\`) or a Windows drive letter (e.g., `C:`) are explicitly rejected.
+*   **No Directory Traversal:** Paths containing the sequence `..` are explicitly rejected.
+
+All files must be loaded using **relative paths** that point to locations within the intended working directory structure of the executing application. This policy prevents potential Local File Inclusion (LFI) vulnerabilities where an attacker might attempt to read arbitrary system files.

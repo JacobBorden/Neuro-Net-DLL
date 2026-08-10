@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased] - YYYY-MM-DD
 
 ### Added
+- Release packaging support for DEB, RPM, and TGZ artifacts through CPack and a published-release GitHub Actions workflow.
+- `pyneuronet` Python bindings for core matrix and neural-network APIs, including CTest-covered binding smoke tests and install packaging for the extension module.
+- Transformer decoder layers and a full encoder-decoder model, including default causal decoder self-attention masking and regression coverage for future-token leakage.
+- Basic `RNNLayer` support with dimension validation, Doxygen comments, CMake wiring, and deterministic unit coverage.
+- `LSTMLayer` support with gate-state implementation, CMake wiring, TODO update, and unit coverage for initialization, input validation, forward pass, and state reset.
+- `Conv2DLayer` support with flattened single-image forward passes, CMake wiring, TODO update, Doxygen comments, and unit coverage for dimensions and input validation.
+- Thread-safe `Logger` utility with configurable debug/info/warning/error levels, output redirection, and unit coverage.
+- `MNISTLoader` for standard IDX image and label files, including regression coverage for truncated payloads.
+- `NeuralPathfinder` tests covering empty networks, single-layer networks, multi-layer path selection, and all-zero weights.
+- Unsafe-path regression tests for `Vocabulary` and `TransformerModel` loading.
 - **NeuroNet Model Serialization & Deserialization:**
     - Implemented `NeuroNet::save_model()` to export models (weights, architecture, parameters) to a human-readable JSON format.
     - Implemented `NeuroNet::load_model()` to import models from the JSON format.
@@ -32,12 +42,23 @@ All notable changes to this project will be documented in this file.
     - Parallelized matrix multiplication (`Matrix<T>::operator*`) using OpenMP for improved performance on multi-core systems.
 
 ### Changed
+- Routed benchmark and JSON export diagnostics in matrix, neural-network, and genetic-algorithm code through the shared logger, and wired the logger sources into the legacy Visual Studio project files.
+- Refactored `NeuroNet::UpdateWeights()` into private helpers for per-layer weight and bias updates.
+- Optimized activation functions to mutate layer output matrices in place, avoiding extra matrix copies during forward passes.
+- Optimized backpropagation weight and bias updates to avoid temporary matrix allocations.
+- Parallelized `NeuroNetLayer` Softmax exponentiation and normalization loops when OpenMP is enabled.
+- Stabilized flaky `GeneticAlgorithm` tests by asserting deterministic crossover and evolution invariants.
+- Refactored the A* pathfinding export example into clearer setup and execution helpers.
+- Replaced exception-driven `NeuralPathfinder` weight probing with explicit `NeuroNetLayer::has_weight()` bounds checks.
 - Replaced `jsoncpp` library with a custom internal JSON library (`src/utilities/json/`) for handling JSON data. This affects model saving/loading, test suites, and CMake configuration. The custom library (`json.hpp`, `json.cpp`) is now compiled directly into the main `neuronet` library.
 - `NeuroNetLayer::CalculateOutput()` now incorporates the selected activation function.
 - Default constructor `NeuroNetLayer()` initializes with `ActivationFunctionType::None`.
 - Updated Doxygen comments in `neuronet.h` and `neuronet.cpp` for new activation function features.
 - Updated `README.md` with a new section explaining activation functions and providing usage examples, and updated dependency information to reflect the custom JSON library.
 - Updated Doxygen comments in `src/utilities/json/json.hpp` to fully document the custom JSON library's API.
+
+### Security
+- Rejected path traversal and absolute-path inputs when loading NeuroNet models, Transformer models, and vocabularies.
 
 ## [Previous Version - e.g., 0.2.0] - YYYY-MM-DD (Date of previous changes if known, or adjust as needed)
 
@@ -54,5 +75,3 @@ All notable changes to this project will be documented in this file.
 - Updated `README.md` to reflect the new directory structure, file paths, and updated include paths in code examples.
 - Updated root `CMakeLists.txt` and includes in test files (`tests/test_neuronet.cpp`, `tests/test_genetic_algorithm.cpp`) to support the new modularized file structure.
 - Corrected namespace qualification for `NeuroNet` type within the Optimization module (`genetic_algorithm.h` and `genetic_algorithm.cpp`) to resolve compilation errors.
-
-

@@ -35,7 +35,10 @@ namespace NeuroNet
 		ReLU,      ///< Rectified Linear Unit. Output is max(0, x).
 		LeakyReLU, ///< Leaky Rectified Linear Unit. Output is x if x > 0, otherwise alpha*x.
 		ELU,       ///< Exponential Linear Unit. Output is x if x > 0, otherwise alpha*(exp(x)-1).
-		Softmax    ///< Softmax function. Normalizes outputs to a probability distribution.
+		Softmax,   ///< Softmax function. Normalizes outputs to a probability distribution.
+		Sigmoid,   ///< Sigmoid function. Output is 1 / (1 + exp(-x)).
+		Tanh,      ///< Hyperbolic Tangent. Output is tanh(x).
+		Swish      ///< Swish function. Output is x * sigmoid(x).
 	};
 
 	/**
@@ -220,6 +223,27 @@ namespace NeuroNet
     Matrix::Matrix<float> DerivativeSoftmax(const Matrix::Matrix<float>& activated_output) const;
 
     /**
+     * @brief Computes the element-wise derivative of the Sigmoid activation function.
+     * @param activated_output The matrix of outputs after Sigmoid activation was applied.
+     * @return Matrix::Matrix<float> A matrix containing the derivatives.
+     */
+    Matrix::Matrix<float> DerivativeSigmoid(const Matrix::Matrix<float>& activated_output) const;
+
+    /**
+     * @brief Computes the element-wise derivative of the Tanh activation function.
+     * @param activated_output The matrix of outputs after Tanh activation was applied.
+     * @return Matrix::Matrix<float> A matrix containing the derivatives.
+     */
+    Matrix::Matrix<float> DerivativeTanh(const Matrix::Matrix<float>& activated_output) const;
+
+    /**
+     * @brief Computes the element-wise derivative of the Swish activation function.
+     * @param activated_output The matrix of outputs after Swish activation was applied.
+     * @return Matrix::Matrix<float> A matrix containing the derivatives.
+     */
+    Matrix::Matrix<float> DerivativeSwish(const Matrix::Matrix<float>& activated_output) const;
+
+    /**
      * @brief Performs the backward pass for this layer.
      *
      * Calculates the gradients of the loss with respect to the layer's weights (dLdW),
@@ -276,6 +300,17 @@ namespace NeuroNet
      */
     float get_weight(int prev_neuron_idx, int current_neuron_idx_in_layer) const;
 
+    /**
+     * @brief Checks if a weight exists connecting a neuron from the previous layer (or input)
+     *        to a neuron in this layer.
+     * @param prev_neuron_idx The index of the neuron in the previous layer (or input feature index).
+     *                        This corresponds to the row in this layer's WeightMatrix.
+     * @param current_neuron_idx_in_layer The index of the neuron in this current layer.
+     *                                   This corresponds to the column in this layer's WeightMatrix.
+     * @return bool True if the weight exists (indices are within bounds), false otherwise.
+     */
+    bool has_weight(int prev_neuron_idx, int current_neuron_idx_in_layer) const;
+
 	private:
 		int vLayerSize = 0; ///< Number of neurons in this layer.
 		int InputSize = 0; ///< Number of inputs expected by this layer.
@@ -292,29 +327,40 @@ namespace NeuroNet
     // Private helper methods for activation functions
     /**
      * @brief Applies the ReLU activation function element-wise to the input matrix.
-     * @param input The matrix resulting from the linear transformation (Wx + b).
-     * @return Matrix::Matrix<float> The matrix after applying ReLU.
+     * @param input The matrix resulting from the linear transformation (Wx + b), modified in place.
      */
-    Matrix::Matrix<float> ApplyReLU(const Matrix::Matrix<float>& input);
+    void ApplyReLU(Matrix::Matrix<float>& input);
     /**
      * @brief Applies the LeakyReLU activation function element-wise to the input matrix.
-     * @param input The matrix resulting from the linear transformation (Wx + b).
-     * @return Matrix::Matrix<float> The matrix after applying LeakyReLU.
+     * @param input The matrix resulting from the linear transformation (Wx + b), modified in place.
      */
-    Matrix::Matrix<float> ApplyLeakyReLU(const Matrix::Matrix<float>& input);
+    void ApplyLeakyReLU(Matrix::Matrix<float>& input);
     /**
      * @brief Applies the ELU activation function element-wise to the input matrix.
-     * @param input The matrix resulting from the linear transformation (Wx + b).
-     * @return Matrix::Matrix<float> The matrix after applying ELU.
+     * @param input The matrix resulting from the linear transformation (Wx + b), modified in place.
      */
-    Matrix::Matrix<float> ApplyELU(const Matrix::Matrix<float>& input);
+    void ApplyELU(Matrix::Matrix<float>& input);
     /**
      * @brief Applies the Softmax activation function to the input matrix.
      * Typically used for the output layer in classification tasks.
-     * @param input The matrix resulting from the linear transformation (Wx + b).
-     * @return Matrix::Matrix<float> The matrix after applying Softmax.
+     * @param input The matrix resulting from the linear transformation (Wx + b), modified in place.
      */
-    Matrix::Matrix<float> ApplySoftmax(const Matrix::Matrix<float>& input);
+    void ApplySoftmax(Matrix::Matrix<float>& input);
+    /**
+     * @brief Applies the Sigmoid activation function element-wise to the input matrix.
+     * @param input The matrix resulting from the linear transformation (Wx + b), modified in place.
+     */
+    void ApplySigmoid(Matrix::Matrix<float>& input);
+    /**
+     * @brief Applies the Tanh activation function element-wise to the input matrix.
+     * @param input The matrix resulting from the linear transformation (Wx + b), modified in place.
+     */
+    void ApplyTanh(Matrix::Matrix<float>& input);
+    /**
+     * @brief Applies the Swish activation function element-wise to the input matrix.
+     * @param input The matrix resulting from the linear transformation (Wx + b), modified in place.
+     */
+    void ApplySwish(Matrix::Matrix<float>& input);
 	};
 
 	/**
@@ -600,6 +646,9 @@ namespace NeuroNet
 		int LayerCount = 0; ///< Total number of layers in the network.
 		std::vector<NeuroNetLayer> NeuroNetVector; ///< Vector storing all layers of the network.
 		Vocabulary vocabulary; // Vocabulary for string processing
+
+			void UpdateSingleLayerWeights(NeuroNetLayer& layer, int layer_input_size, int layer_output_size, float learning_rate, int layer_index);
+			void UpdateSingleLayerBiases(NeuroNetLayer& layer, int layer_output_size, float learning_rate, int layer_index);
 	};
 
 // Inline definition for getVocabulary (outside the class body but in the header for inlining)

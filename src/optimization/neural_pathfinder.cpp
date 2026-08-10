@@ -62,16 +62,14 @@ double NeuralPathfinder::GetMaxAbsoluteWeight() const {
 
         for (int prev_n_idx = 0; prev_n_idx < current_layer_input_size; ++prev_n_idx) {
             for (int curr_n_idx = 0; curr_n_idx < current_layer_neuron_count; ++curr_n_idx) {
-                try {
-                    float weight = layer.get_weight(prev_n_idx, curr_n_idx);
-                    max_abs_weight = std::max(max_abs_weight, std::abs(static_cast<double>(weight)));
-                    weight_found = true;
-                } catch (const std::out_of_range& e) {
+                if (!layer.has_weight(prev_n_idx, curr_n_idx)) {
                     // This might happen if layer configuration is unusual or if there's a bug.
                     // For robustness, could log this error. For now, skip this weight.
-                    // std::cerr << "Warning: Out of range accessing weight in GetMaxAbsoluteWeight: " << e.what() << std::endl;
                     continue;
                 }
+                float weight = layer.get_weight(prev_n_idx, curr_n_idx);
+                max_abs_weight = std::max(max_abs_weight, std::abs(static_cast<double>(weight)));
+                weight_found = true;
             }
         }
     }
@@ -138,18 +136,7 @@ std::vector<AStarPathNode> NeuralPathfinder::FindOptimalPathAStar() {
 
     while (!open_set.empty()) {
         AStarPathNode current_node = open_set.top().second;
-        // double current_node_f_score_in_pq = open_set.top().first; // For debugging
         open_set.pop();
-
-        // If this node was already processed with a better or equal path, skip.
-        // This check is particularly useful if we can update priorities in PQ,
-        // but with std::priority_queue, we add duplicates.
-        // Check against g_score which stores the best known path cost.
-        // double current_node_h_val = CalculateHeuristic(current_node, goal_layer_idx, min_single_edge_cost);
-        // if (current_node_f_score_in_pq > g_score.at(current_node) + current_node_h_val + EPSILON) { // Add EPSILON for float comparisons
-        //    continue; // Stale entry in PQ
-        // }
-        // A simpler check: if a node is popped, its g_score is final for standard A* with consistent heuristic.
 
         if (current_node.layer_idx == goal_layer_idx) {
             return ReconstructPath(came_from, current_node); // Goal reached
@@ -172,22 +159,22 @@ std::vector<AStarPathNode> NeuralPathfinder::FindOptimalPathAStar() {
         // The 'prev_neuron_idx' for next_layer_ref.get_weight is current_node.neuron_idx.
         for (int neighbor_neuron_idx_in_layer = 0; neighbor_neuron_idx_in_layer < num_neurons_in_next_layer; ++neighbor_neuron_idx_in_layer) {
             AStarPathNode neighbor_node(next_layer_idx, neighbor_neuron_idx_in_layer);
-            double weight_val;
-            try {
-                weight_val = static_cast<double>(
-                    next_layer_ref.get_weight(current_node.neuron_idx, neighbor_neuron_idx_in_layer)
-                );
-            } catch (const std::out_of_range& e) {
+
+            if (!next_layer_ref.has_weight(current_node.neuron_idx, neighbor_neuron_idx_in_layer)) {
                 // Should not happen if layer sizes and indices are correct.
-                // std::cerr << "Error accessing weight: " << e.what() << std::endl;
                 continue; // Skip this potential connection
             }
+
+            double weight_val = static_cast<double>(
+                next_layer_ref.get_weight(current_node.neuron_idx, neighbor_neuron_idx_in_layer)
+            );
 
             double edge_cost = -std::log(std::abs(weight_val) + EPSILON);
             double tentative_g_score = g_score.at(current_node) + edge_cost;
 
             // Check if this path to neighbor is better or if neighbor hasn't been visited
-            if (g_score.find(neighbor_node) == g_score.end() || tentative_g_score < g_score.at(neighbor_node)) {
+            auto it = g_score.find(neighbor_node);
+            if (it == g_score.end() || tentative_g_score < it->second) {
                 came_from[neighbor_node] = current_node;
                 g_score[neighbor_node] = tentative_g_score;
                 double h_val_neighbor = CalculateHeuristic(neighbor_node, goal_layer_idx, min_single_edge_cost);
