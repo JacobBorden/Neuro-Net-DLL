@@ -1,0 +1,3 @@
+## $(date +%Y-%m-%d) - [Optimize Matrix Multiplication Loop Order]
+**Learning:** Found an i-k-j loop order in the OpenMP parallelized matrix multiplication `operator*` in `src/math/matrix.h`. Because the matrix data is stored in row-major order, accessing `b.m_Data[j][k]` in the innermost loop over `j` causes severe cache thrashing.
+**Action:** Reordered the loops to i-j-k. This ensures that the innermost loop iterates over `k` for both `c.m_Data[i][k]` and `b.m_Data[j][k]`, achieving contiguous memory access and better cache locality. The result initialization `c.m_Data[i][k] = T(0)` was moved to a separate loop inside `i` to accommodate this. Tested to show improved speeds on larger matrices.
