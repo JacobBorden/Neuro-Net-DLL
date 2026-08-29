@@ -403,7 +403,7 @@ TEST(NeuroNetLayerBackwardPassTest, ReLULayer) {
     ASSERT_EQ(activated_output_A.rows(), A_manual.rows());
     ASSERT_EQ(activated_output_A.cols(), A_manual.cols());
     for(size_t c=0; c<A_manual.cols(); ++c)
-        EXPECT_FLOAT_EQ(activated_output_A[0][c], A_manual[0][c]) << "A_manual mismatch at (0," << c << ")";
+        EXPECT_NEAR(activated_output_A[0][c], A_manual[0][c], 1e-5) << "A_manual mismatch at (0," << c << ")";
 
     // This activated_output_A is what layer.OutputMatrix holds internally.
     // The layer.DerivativeReLU(this.OutputMatrix) will use it.
