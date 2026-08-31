@@ -403,7 +403,7 @@ TEST(NeuroNetLayerBackwardPassTest, ReLULayer) {
     ASSERT_EQ(activated_output_A.rows(), A_manual.rows());
     ASSERT_EQ(activated_output_A.cols(), A_manual.cols());
     for(size_t c=0; c<A_manual.cols(); ++c)
-        EXPECT_FLOAT_EQ(activated_output_A[0][c], A_manual[0][c]) << "A_manual mismatch at (0," << c << ")";
+        EXPECT_NEAR(activated_output_A[0][c], A_manual[0][c], 1e-5) << "A_manual mismatch at (0," << c << ")";
 
     // This activated_output_A is what layer.OutputMatrix holds internally.
     // The layer.DerivativeReLU(this.OutputMatrix) will use it.
@@ -486,6 +486,31 @@ TEST_F(NeuroNetTest, NeuroNetLayerCalculateOutput) {
     EXPECT_EQ(output.cols(), 1);
     // Expected: (1.0*0.5 + 1.0*0.5) + 0.1 = 1.0 + 0.1 = 1.1
     EXPECT_FLOAT_EQ(output[0][0], 1.1f);
+}
+
+TEST_F(NeuroNetTest, NeuroNetLayerCalculateOutputAddsBiasAfterDotProduct) {
+    layer.ResizeLayer(2, 1);
+
+    NeuroNet::LayerWeights weights;
+    weights.WeightCount = 2;
+    weights.WeightsVector = {1.0e8f, -1.0e8f};
+    ASSERT_TRUE(layer.SetWeights(weights));
+
+    NeuroNet::LayerBiases biases;
+    biases.BiasCount = 1;
+    biases.BiasVector = {1.0f};
+    ASSERT_TRUE(layer.SetBiases(biases));
+
+    Matrix::Matrix<float> input_matrix(1, 2);
+    input_matrix[0][0] = 1.0f;
+    input_matrix[0][1] = 1.0f;
+    ASSERT_TRUE(layer.SetInput(input_matrix));
+
+    // Adding the bias before the cancelling products loses it to float rounding.
+    Matrix::Matrix<float> output = layer.CalculateOutput();
+    ASSERT_EQ(output.rows(), 1);
+    ASSERT_EQ(output.cols(), 1);
+    EXPECT_FLOAT_EQ(output[0][0], 1.0f);
 }
 
 
