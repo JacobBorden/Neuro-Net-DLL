@@ -672,11 +672,11 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::CalculateOutput() {
     #endif
     for (size_t i = 0; i < this->InputMatrix.rows(); ++i) {
         for (size_t j = 0; j < this->WeightMatrix.cols(); ++j) {
-            float val = 0.0f;
+            float dot_product = 0.0f;
             for (size_t k = 0; k < this->InputMatrix.cols(); ++k) {
-                val += this->InputMatrix[i][k] * this->WeightMatrix[k][j];
+                dot_product += this->InputMatrix[i][k] * this->WeightMatrix[k][j];
             }
-            this->OutputMatrix[i][j] = val + this->BiasMatrix[0][j];
+            this->OutputMatrix[i][j] = dot_product + this->BiasMatrix[0][j];
         }
     }
 
