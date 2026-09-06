@@ -1,8 +1,16 @@
 # NeuroNet Design Document
 
+## Direction and maturity
+
+The current direction and delivery gates are in [VISION.md](VISION.md) and
+[ROADMAP.md](ROADMAP.md). The core uses an internal matrix implementation; builds
+also use GoogleTest and pybind11. Dense networks support backpropagation and GA
+training. Standalone CNN/RNN/LSTM layers and encoder-decoder transformer forward
+components exist, but do not yet form a general trainable graph.
+
 ## Architecture Overview
 
-NeuroNet is a C++ library designed for building and training neural networks and related machine learning models. The core philosophy is to provide a clean, customizable, and dependency-free (other than standard library) framework from the ground up, avoiding external math libraries like BLAS or Eigen where possible in favor of an internal implementation.
+NeuroNet is a C++ library designed for building and training neural networks and related machine learning models. The core philosophy is to provide a clean, customizable framework with an inspectable numerical core from the ground up, avoiding external math libraries like BLAS or Eigen where possible in favor of an internal implementation.
 
 The primary modules of the library are:
 
@@ -29,7 +37,7 @@ Since the library doesn't strictly depend on backpropagation by default, it incl
 *   **`GeneticAlgorithm`:** Trains a `NeuroNet` by evolving a population of network configurations. It uses fitness functions, tournament selection, crossover, and mutation operators to search the parameter space (weights and biases).
 
 ### 4. Transformer Module
-A more recent addition to support modern NLP architectures, specifically an Encoder-only Transformer model.
+A more recent addition to support modern NLP architectures, including encoder-only and encoder-decoder forward models.
 *   **Components:** `EmbeddingLayer`, `PositionalEncoding`, `ScaledDotProductAttention`, `MultiHeadAttention`, and `TransformerFFN` represent the core building blocks.
 *   **`TransformerEncoderLayer`:** Combines Multi-Head Attention and the FFN with residual connections and layer normalization.
 *   **`TransformerModel`:** The top-level class that aggregates embedding, positional encoding, and multiple encoder layers into a complete runnable model.

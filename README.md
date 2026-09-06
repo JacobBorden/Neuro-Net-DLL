@@ -1,4 +1,14 @@
-# NeuroNet with Genetic Algorithm
+# NeuroNet
+
+NeuroNet is an inspectable C++17 library for small CPU machine-learning experiments
+and embedding models in C++ or Python applications. The next milestone focuses on
+correctness, reproducible dense training, and dependable installation.
+
+Start with [the project vision](VISION.md), [roadmap](ROADMAP.md), and
+[prioritized work queue](TODO.MD). `master` is the integration baseline;
+`development` is historical. Advanced CNN/RNN/LSTM and transformer components
+include forward primitives and should be treated as experimental until their
+training and numerical validation gates are met.
 
 This project provides a C++ library with tools for creating and training neural networks.
 The core components of the library are:
