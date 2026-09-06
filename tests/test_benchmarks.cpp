@@ -1,5 +1,3 @@
-#define ENABLE_BENCHMARKING
-
 #include "../src/math/matrix.h"
 #include "../src/neural_network/neuronet.h"
 #include "../src/optimization/genetic_algorithm.h"
@@ -58,6 +56,20 @@ int main() {
         std::cout << "--- Finished Matrix Multiplication " << size << "x" << size << " ---" << std::endl;
     }
     std::cout << "------- Finished Benchmark 1: Matrix Multiplication -------" << std::endl << std::endl;
+
+    // Benchmark 1b: Matrix-vector multiplication exercises the narrow-RHS path.
+    constexpr int vector_rows = 512;
+    constexpr int vector_width = 4096;
+    std::cout << "------- Benchmark 1b: Matrix-Vector Multiplication -------" << std::endl;
+    Matrix::Matrix<float> vector_a(vector_rows, vector_width);
+    Matrix::Matrix<float> vector_b(vector_width, 1);
+    fill_matrix_random(vector_a);
+    fill_matrix_random(vector_b);
+    Matrix::Matrix<float> vector_c = vector_a * vector_b;
+    std::cout << "Matrix-vector result has rows: " << vector_c.rows()
+              << ", cols: " << vector_c.cols() << std::endl;
+    std::cout << "------- Finished Benchmark 1b: Matrix-Vector Multiplication -------"
+              << std::endl << std::endl;
 
     // Benchmark 2: Neural Network Forward Pass
     std::cout << "------- Benchmark 2: Neural Network Forward Pass -------" << std::endl;

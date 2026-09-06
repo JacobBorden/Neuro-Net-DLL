@@ -17,6 +17,7 @@ add_executable(runTests
     test_least_squares.cpp
     test_naive_bayes.cpp
     test_extended_matrix_ops.cpp
+    test_matrix_multiplication.cpp
     test_timer.cpp
     test_neural_pathfinder.cpp
     test_dataset_loader.cpp
@@ -25,6 +26,10 @@ add_executable(runTests
 
 # Link libraries
 target_link_libraries(runTests PRIVATE neuronet GTest::gtest_main)
+
+add_executable(matrix_benchmarks test_benchmarks.cpp)
+target_link_libraries(matrix_benchmarks PRIVATE neuronet)
+target_compile_definitions(matrix_benchmarks PRIVATE ENABLE_BENCHMARKING)
 
 # Discover and add tests
 gtest_discover_tests(runTests)
