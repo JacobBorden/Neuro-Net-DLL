@@ -6,6 +6,7 @@
 #include <cstdio>              // For std::remove
 #include <fstream>             // For std::ifstream
 #include <numeric>             // For std::accumulate
+#include <stdexcept>           // For std::invalid_argument
 #include <set>                 // For checking distinctness
 
 // Simple fitness function for testing: sum of all weights and biases
@@ -32,6 +33,25 @@ protected:
     double mutation_rate = 0.1;
     double crossover_rate = 0.7;
     int num_generations = 5; // Small number for testing
+
+    /** Verifies that exported metrics describe only the most recent run. */
+    void ExpectGenerationMetrics(const Optimization::GeneticAlgorithm& ga, int generations) {
+        const std::string filename = std::string(::testing::UnitTest::GetInstance()->current_test_info()->name()) + "_metrics.json";
+        ga.export_training_metrics_json(filename);
+        std::ifstream file(filename);
+        ASSERT_TRUE(file.is_open());
+        std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        file.close();
+        std::remove(filename.c_str());
+        JsonValue root = JsonParser::Parse(content);
+        const auto& metrics = root.GetObject();
+        EXPECT_EQ(metrics.at("total_generations")->GetNumber(), generations);
+        const auto& data = metrics.at("generation_data")->GetArray();
+        ASSERT_EQ(data.size(), static_cast<size_t>(generations));
+        for (int i = 0; i < generations; ++i) {
+            EXPECT_EQ(data[i].GetObject().at("generation_number")->GetNumber(), i + 1);
+        }
+    }
 
     void SetUp() override {
         // Configure a simple template network: 2 inputs, 1 hidden layer of 3 neurons, 1 output neuron
@@ -231,6 +251,67 @@ TEST_F(GeneticAlgorithmTest, EarlyStopping) {
     EXPECT_EQ(actual_generations, 4.0);
 }
 
+TEST_F(GeneticAlgorithmTest, LegacyGenerationLimitRemainsTheDefault) {
+    Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, num_generations, template_net);
+    int evaluations = 0;
+    auto fitness = [&](NeuroNet::NeuroNet&) { ++evaluations; return 1.0; };
+
+    ga.run_evolution(2, fitness);
+    EXPECT_EQ(evaluations, population_size * 2);
+    ExpectGenerationMetrics(ga, 2);
+
+    evaluations = 0;
+    ga.run_evolution(fitness);
+    EXPECT_EQ(evaluations, population_size * num_generations);
+    ExpectGenerationMetrics(ga, num_generations);
+}
+
+TEST_F(GeneticAlgorithmTest, PerCallGenerationLimitsResetMetrics) {
+    Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, template_net);
+    int evaluations = 0;
+    auto fitness = [&](NeuroNet::NeuroNet&) { ++evaluations; return 1.0; };
+
+    for (int generations : {2, 4, 0}) {
+        evaluations = 0;
+        ga.run_evolution(generations, fitness);
+        EXPECT_EQ(evaluations, population_size * generations);
+        ExpectGenerationMetrics(ga, generations);
+    }
+
+    // The convenience constructor documents zero as the default limit.
+    ga.run_evolution(fitness);
+    EXPECT_EQ(evaluations, 0);
+    ExpectGenerationMetrics(ga, 0);
+}
+
+TEST_F(GeneticAlgorithmTest, PerCallGenerationLimitSupportsEarlyStopping) {
+    Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, template_net);
+    int evaluations = 0;
+    auto fitness = [&](NeuroNet::NeuroNet&) { ++evaluations; return 1.0; };
+
+    ga.run_evolution(20, fitness, 3);
+    EXPECT_EQ(evaluations, population_size * 4);
+    ExpectGenerationMetrics(ga, 4);
+
+    evaluations = 0;
+    ga.run_evolution(2, fitness, 3);
+    EXPECT_EQ(evaluations, population_size * 2);
+    ExpectGenerationMetrics(ga, 2);
+}
+
+TEST_F(GeneticAlgorithmTest, NegativeGenerationLimitPreservesPreviousRun) {
+    Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, template_net);
+    int evaluations = 0;
+    auto fitness = [&](NeuroNet::NeuroNet&) { ++evaluations; return 1.0; };
+    ga.run_evolution(2, fitness);
+    const auto best_weights = ga.get_best_individual().get_all_weights_flat();
+
+    EXPECT_THROW(ga.run_evolution(-1, fitness), std::invalid_argument);
+    EXPECT_EQ(evaluations, population_size * 2);
+    EXPECT_EQ(ga.get_best_individual().get_all_weights_flat(), best_weights);
+    ExpectGenerationMetrics(ga, 2);
+}
+
 TEST_F(GeneticAlgorithmTest, GetBestIndividual) {
     Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, 1, template_net);
     ga.initialize_population();
@@ -277,18 +358,10 @@ TEST_F(GeneticAlgorithmTest, ExportTrainingMetrics) {
     Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, num_generations, template_net);
     
     const int generations_to_run = 2; // Keep it small for test speed
-    // Directly modify num_generations_ of the instance for this test
-    // This is a bit of a hack; ideally, GA would take generations as a run_evolution param or similar
-    // For now, we assume ga.num_generations_ can be set, or we rely on the fixture's num_generations
-    // For this test, let's assume the GA object itself is reconfigured or this test is specific to fixture's num_generations
-    // To make it explicit for the test:
-    Optimization::GeneticAlgorithm ga_test_instance(population_size, mutation_rate, crossover_rate, generations_to_run, template_net);
-
-
-    ga_test_instance.run_evolution(simple_fitness_function);
+    ga.run_evolution(generations_to_run, simple_fitness_function);
 
     const std::string metrics_filename = "test_training_metrics_custom.json";
-    ASSERT_NO_THROW(ga_test_instance.export_training_metrics_json(metrics_filename));
+    ASSERT_NO_THROW(ga.export_training_metrics_json(metrics_filename));
 
     std::ifstream metrics_file(metrics_filename);
     ASSERT_TRUE(metrics_file.is_open()) << "Failed to open metrics file: " << metrics_filename;
@@ -329,7 +402,7 @@ TEST_F(GeneticAlgorithmTest, ExportTrainingMetrics) {
     JsonValue parsed_model_json;
     ASSERT_NO_THROW(parsed_model_json = JsonParser::Parse(model_str));
     ASSERT_EQ(parsed_model_json.type, JsonValueType::Object);
-    if (ga_test_instance.get_best_individual().getLayerCount() > 0) {
+    if (ga.get_best_individual().getLayerCount() > 0) {
         EXPECT_TRUE(parsed_model_json.GetObject().count("input_size"));
         EXPECT_TRUE(parsed_model_json.GetObject().count("layer_count"));
         EXPECT_TRUE(parsed_model_json.GetObject().count("layers"));
