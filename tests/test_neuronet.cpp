@@ -1086,7 +1086,14 @@ TEST(NeuroNetStringInputTest, SetStringsInput_Fail_MatrixColsMismatchNetworkInpu
     const std::string json_input = R"({ "input_batch": ["a b a"] })";
     // prepare_batch_matrix with max_len_override = 3 will create matrix with 3 cols.
     // This will mismatch net.InputSize = 5.
-    ASSERT_THROW(net.SetStringsInput(json_input, 3), std::runtime_error);
+    try {
+        net.SetStringsInput(json_input, 3);
+        FAIL() << "Expected std::runtime_error but no exception was thrown.";
+    } catch (const std::runtime_error& e) {
+        EXPECT_STREQ(e.what(), "Prepared matrix column count (3) does not match network InputSize (5). Ensure vocabulary's max_sequence_length or override matches network's expected sequence length for tokenized input.");
+    } catch (...) {
+        FAIL() << "Expected std::runtime_error but a different exception was thrown.";
+    }
     std::remove(nn_test_vocab_path.c_str());
 }
 
