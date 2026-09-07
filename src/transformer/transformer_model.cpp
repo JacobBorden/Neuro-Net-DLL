@@ -131,15 +131,20 @@ static Matrix::Matrix<float> deserialize_matrix_from_json(const JsonValue* matri
     }
     const auto& matrix_obj = matrix_json_val_ptr->GetObject();
 
-    if (matrix_obj.find("rows") == matrix_obj.end() || matrix_obj.at("rows")->type != JsonValueType::Number ||
-        matrix_obj.find("cols") == matrix_obj.end() || matrix_obj.at("cols")->type != JsonValueType::Number ||
-        matrix_obj.find("data") == matrix_obj.end() || matrix_obj.at("data")->type != JsonValueType::Array) {
+    // Performance Optimization: Save iterators from find to avoid double lookup with at()
+    auto it_rows = matrix_obj.find("rows");
+    auto it_cols = matrix_obj.find("cols");
+    auto it_data = matrix_obj.find("data");
+
+    if (it_rows == matrix_obj.end() || it_rows->second->type != JsonValueType::Number ||
+        it_cols == matrix_obj.end() || it_cols->second->type != JsonValueType::Number ||
+        it_data == matrix_obj.end() || it_data->second->type != JsonValueType::Array) {
         throw std::runtime_error("Invalid JSON format for matrix: missing rows, cols, or data array.");
     }
 
-    int rows = static_cast<int>(matrix_obj.at("rows")->GetNumber());
-    int cols = static_cast<int>(matrix_obj.at("cols")->GetNumber());
-    const std::vector<JsonValue>& data_array = matrix_obj.at("data")->GetArray();
+    int rows = static_cast<int>(it_rows->second->GetNumber());
+    int cols = static_cast<int>(it_cols->second->GetNumber());
+    const std::vector<JsonValue>& data_array = it_data->second->GetArray();
 
     if (rows < 0 || cols < 0) {
          throw std::runtime_error("Matrix dimensions (rows, cols) cannot be negative.");
