@@ -877,6 +877,8 @@ TEST_F(JsonLibTest, ParseErrorInvalidString) {
 }
 
 TEST_F(JsonLibTest, ParseErrorInvalidNumber) {
+    EXPECT_THROW(JsonParser::Parse("3."), JsonParseException);         // Decimal point without trailing digits
+    EXPECT_THROW(JsonParser::Parse("-3."), JsonParseException);        // Negative decimal point without trailing digits
     EXPECT_THROW(JsonParser::Parse("1.2.3"), JsonParseException);      // Multiple decimal points
     EXPECT_THROW(JsonParser::Parse("1ee4"), JsonParseException);       // Invalid scientific notation (double 'e')
     EXPECT_THROW(JsonParser::Parse("--5"), JsonParseException);        // Double negative
