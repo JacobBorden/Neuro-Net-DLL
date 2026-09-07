@@ -46,3 +46,6 @@ if(NEURONET_PYTHON_TEST_EXECUTABLE)
         PROPERTIES ENVIRONMENT "PYNEURONET_BUILD_DIR=${CMAKE_BINARY_DIR}"
     )
 endif()
+
+# Append the new test to runTests
+target_sources(runTests PRIVATE test_matrix.cpp)
