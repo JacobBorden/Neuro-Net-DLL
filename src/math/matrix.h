@@ -1075,6 +1075,20 @@ namespace Matrix
         }
 		
 		Matrix<T> c(m_Rows, b.m_Cols); // Result matrix initialized to zeros by MatrixRow constructor
+		if (b.m_Cols == 1) {
+			// A column-vector RHS needs one dot product per output row. Keep the
+			// accumulation local so each output element is written only once.
+#ifdef _OPENMP
+			#pragma omp parallel for
+#endif
+			for (size_t i = 0; i < m_Rows; i++) {
+				T sum = T{};
+				for (size_t j = 0; j < m_Cols; j++) {
+					sum += m_Data[i][j] * b.m_Data[j][0];
+				}
+				c.m_Data[i][0] = sum;
+			}
+		} else {
         // Parallelize the outermost loop using OpenMP. Loop variable i is private by default.
 #ifdef _OPENMP
 		#pragma omp parallel for
@@ -1087,6 +1101,7 @@ namespace Matrix
 				}
             }
         }
+		}
 
 #ifdef ENABLE_BENCHMARKING
         timer.stop();

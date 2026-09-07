@@ -19,7 +19,7 @@ include_directories(src)
 # Enable PIC for pybind11 shared library
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-add_library(neuronet STATIC 
+set(NEURONET_SOURCES
     src/neural_network/neuronet.cpp
     src/neural_network/rnn_layer.cpp
     src/neural_network/lstm_layer.cpp
@@ -45,6 +45,15 @@ add_library(neuronet STATIC
     src/math/least_squares.cpp
     src/classifier/naive_bayes.cpp
 )
+
+add_library(neuronet STATIC ${NEURONET_SOURCES})
+
+# Keep instrumentation confined to the executable that reports benchmark timings.
+# Header-only matrix operations are compiled by matrix_benchmarks itself; the
+# separately compiled neural-network and GA operations require this companion
+# library to make their ENABLE_BENCHMARKING blocks available as well.
+add_library(neuronet_benchmarks STATIC ${NEURONET_SOURCES})
+target_compile_definitions(neuronet_benchmarks PRIVATE ENABLE_BENCHMARKING)
 
 # Testing subdirectory
 add_subdirectory(tests)
