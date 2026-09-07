@@ -24,3 +24,44 @@ TEST(LoggerTest, InfoLevelOutput) {
 
     ::NeuroNet::Logger::SetStream(&std::cout);
 }
+
+TEST(LoggerTest, WarningLevelOutput) {
+    std::ostringstream oss;
+    ::NeuroNet::Logger::SetStream(&oss);
+    ::NeuroNet::Logger::SetLevel(::NeuroNet::Logger::Level::WARNING);
+
+    ::NeuroNet::Logger::Debug("Should not print");
+    ::NeuroNet::Logger::Info("Should not print");
+    ::NeuroNet::Logger::Warning("Test ", 3, " warning");
+    EXPECT_EQ(oss.str(), "[WARNING] Test 3 warning\n");
+
+    ::NeuroNet::Logger::SetStream(&std::cout);
+}
+
+TEST(LoggerTest, ErrorLevelOutput) {
+    std::ostringstream oss;
+    ::NeuroNet::Logger::SetStream(&oss);
+    ::NeuroNet::Logger::SetLevel(::NeuroNet::Logger::Level::ERROR);
+
+    ::NeuroNet::Logger::Debug("Should not print");
+    ::NeuroNet::Logger::Info("Should not print");
+    ::NeuroNet::Logger::Warning("Should not print");
+    ::NeuroNet::Logger::Error("Test ", 4, " error");
+    EXPECT_EQ(oss.str(), "[ERROR] Test 4 error\n");
+
+    ::NeuroNet::Logger::SetStream(&std::cout);
+}
+
+TEST(LoggerTest, NoneLevelOutput) {
+    std::ostringstream oss;
+    ::NeuroNet::Logger::SetStream(&oss);
+    ::NeuroNet::Logger::SetLevel(::NeuroNet::Logger::Level::NONE);
+
+    ::NeuroNet::Logger::Debug("Should not print");
+    ::NeuroNet::Logger::Info("Should not print");
+    ::NeuroNet::Logger::Warning("Should not print");
+    ::NeuroNet::Logger::Error("Should not print");
+    EXPECT_EQ(oss.str(), "");
+
+    ::NeuroNet::Logger::SetStream(&std::cout);
+}
