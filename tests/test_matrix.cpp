@@ -38,3 +38,8 @@ TEST_F(MatrixTest, SplitHorizontalDefaultErrorInvalidDivisor) {
     Matrix::Matrix<float> mat(2, 5);
     EXPECT_THROW(mat.SplitHorizontal(), std::invalid_argument);
 }
+
+TEST_F(MatrixTest, DeterminantRejectsNonSquareMatrices) {
+    Matrix::Matrix<float> mat(2, 3);
+    EXPECT_THROW(mat.Determinant(), std::invalid_argument);
+}
