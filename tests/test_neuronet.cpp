@@ -1516,3 +1516,18 @@ TEST(NeuroNetJSONTest, GetOutputJSON_NoLayers) {
         output_json_val.GetObject().clear(); // Clear map
     }
 }
+
+TEST_F(NeuroNetTest, UpdateWeightsOutOfBounds) {
+    // We can manipulate private members directly since NeuroNetTest_UpdateWeightsOutOfBounds_Test is a friend
+    net.ResizeNeuroNet(1); // Set up a single layer
+    // Force inconsistency
+    net.LayerCount = net.NeuroNetVector.size() + 1;
+
+    try {
+        net.UpdateWeights(0.1f);
+        FAIL() << "Expected std::out_of_range exception.";
+    } catch(const std::out_of_range& err) {
+        std::string expected_msg = "Layer index 1 is out of bounds for NeuroNetVector with size 1 during UpdateWeights.";
+        EXPECT_EQ(std::string(err.what()), expected_msg);
+    }
+}
