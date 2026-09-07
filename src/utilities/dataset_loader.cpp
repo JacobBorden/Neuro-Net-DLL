@@ -1,5 +1,6 @@
 #include "dataset_loader.h"
 #include <fstream>
+#include <stdexcept>
 
 namespace Utilities {
 namespace Dataset {
@@ -12,6 +13,11 @@ uint32_t MNISTLoader::SwapEndian(uint32_t val) {
 }
 
 bool MNISTLoader::LoadImages(const std::string& filepath, Matrix::Matrix<float>& outImages) {
+    if (filepath.find("..") != std::string::npos ||
+        (!filepath.empty() && (filepath[0] == '/' || filepath[0] == '\\' || (filepath.length() > 1 && filepath[1] == ':')))) {
+        throw std::runtime_error("Invalid filename: Path traversal and absolute paths are not allowed.");
+    }
+
     std::ifstream file(filepath, std::ios::binary);
     if (!file.is_open()) return false;
 
@@ -49,6 +55,11 @@ bool MNISTLoader::LoadImages(const std::string& filepath, Matrix::Matrix<float>&
 }
 
 bool MNISTLoader::LoadLabels(const std::string& filepath, Matrix::Matrix<float>& outLabels) {
+    if (filepath.find("..") != std::string::npos ||
+        (!filepath.empty() && (filepath[0] == '/' || filepath[0] == '\\' || (filepath.length() > 1 && filepath[1] == ':')))) {
+        throw std::runtime_error("Invalid filename: Path traversal and absolute paths are not allowed.");
+    }
+
     std::ifstream file(filepath, std::ios::binary);
     if (!file.is_open()) return false;
 
