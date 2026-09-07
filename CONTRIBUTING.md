@@ -21,12 +21,12 @@ If you have an idea for an enhancement or a new feature, we'd love to hear about
 
 ### Pull Request Process
 
-1.  **Fork the repository** and create your branch from `main` (or the most relevant development branch).
+1.  **Fork the repository** and create your branch from the current `master` branch. `development` is historical and should only be used when an issue explicitly requires it.
 2.  **Ensure your code adheres to the existing style** to maintain consistency.
 3.  **Add tests** for any new features or bug fixes. Ensure all tests pass before submitting.
 4.  **Update documentation** (README.md, Doxygen comments, other relevant .md files) with details of changes to the interface, this includes new environment variables, exposed ports, useful file locations and container parameters.
 5.  **Ensure your commit messages are clear and descriptive.**
-6.  **Open a pull request** to the `main` branch (or the appropriate target branch).
+6.  **Open a pull request** to the `master` branch, unless an issue explicitly identifies another target branch.
 7.  Clearly describe the problem and solution. Include the relevant issue number if applicable.
 8.  After submitting, allow for some time for review and feedback. Address any comments or requested changes.
 
