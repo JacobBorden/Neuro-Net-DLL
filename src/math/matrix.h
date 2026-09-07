@@ -1131,7 +1131,7 @@ namespace Matrix
     // const_Iterator end() const { return const_Iterator(m_Data.get() + m_Rows); }
 
 
-private:
+public:
 	/**
 	 * @brief Helper function to get the minor of a matrix.
 	 * Used in determinant and inverse calculations.

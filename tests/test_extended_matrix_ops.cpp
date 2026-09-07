@@ -195,3 +195,8 @@ TEST_F(SoftmaxTest, EmptyMatrixThrows) {
     EXPECT_THROW(NeuroNet::MathUtils::softmax(empty_mat, 1), std::invalid_argument);
     EXPECT_THROW(NeuroNet::MathUtils::softmax(empty_mat, 0), std::invalid_argument);
 }
+
+TEST_F(ExtendedMatrixOpsTest, GetMinorNonSquareThrows) {
+    Matrix::Matrix<float> mat(2, 3); // Non-square matrix
+    EXPECT_THROW(mat.getMinor(mat, 0, 0), std::invalid_argument);
+}
