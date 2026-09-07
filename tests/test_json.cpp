@@ -922,3 +922,14 @@ TEST_F(JsonLibTest, ParseErrorOnlyWhitespace) {
     // Whitespace is skipped, but then an empty string results, which is not valid JSON.
     EXPECT_THROW(JsonParser::Parse("   \t\n   "), JsonParseException);
 }
+
+TEST_F(JsonLibTest, InsertIntoObjectError) {
+    JsonValue arr_val;
+    arr_val.type = JsonValueType::Array;
+    JsonValue* val_ptr = new JsonValue();
+    val_ptr->type = JsonValueType::Null;
+
+    EXPECT_THROW(arr_val.InsertIntoObject("test", val_ptr), JsonParseException);
+
+    delete val_ptr;
+}
