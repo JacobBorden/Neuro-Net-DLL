@@ -197,6 +197,11 @@ static void insert_matrix_into_json(JsonValue& obj, const std::string& key, cons
 }
 
 bool TransformerModel::save_model(const std::string& filename) const { // Fixed std::string
+    if (filename.find("..") != std::string::npos ||
+        (!filename.empty() && (filename[0] == '/' || filename[0] == '\\' || (filename.length() > 1 && filename[1] == ':')))) {
+        throw std::runtime_error("Invalid filename: Path traversal and absolute paths are not allowed.");
+    }
+
     JsonValue root;
     root.SetObject();
 
