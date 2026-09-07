@@ -925,3 +925,9 @@ TEST_F(JsonLibTest, ParseErrorOnlyWhitespace) {
     // Whitespace is skipped, but then an empty string results, which is not valid JSON.
     EXPECT_THROW(JsonParser::Parse("   \t\n   "), JsonParseException);
 }
+
+TEST_F(JsonLibTest, ParseErrorUnterminatedComment) {
+    // JSON string ending inside a /* comment.
+    EXPECT_THROW(JsonParser::Parse("/* unterminated comment"), JsonParseException);
+    EXPECT_THROW(JsonParser::Parse("{\"key\": \"value\"} /* unclosed comment "), JsonParseException);
+}
