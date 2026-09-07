@@ -692,13 +692,12 @@ int main() {
         populationSize,
         mutationRate,
         crossoverRate,
-        numGenerations,
         templateNetwork // The configured template network
     );
 
     // d. Run Evolution
     std::cout << "Starting genetic algorithm evolution..." << std::endl;
-    ga.run_evolution(fitness_function);
+    ga.run_evolution(num_generations, fitness_function);
     std::cout << "Evolution finished." << std::endl;
 
     // e. Get Best Individual

@@ -85,14 +85,13 @@ The main `README.md` provides a comprehensive example of training a `NeuroNet` u
         populationSize,
         mutationRate,
         crossoverRate,
-        numGenerations,
         templateNetwork
     );
     ```
 
 4.  **Running Evolution:**
     ```cpp
-    ga.run_evolution(fitness_function);
+    ga.run_evolution(num_generations, fitness_function);
     ```
 
 5.  **Getting the Best Individual:**
