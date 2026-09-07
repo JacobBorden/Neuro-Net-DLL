@@ -1,5 +1,7 @@
 #include "gtest/gtest.h"
+#define private public
 #include "../src/utilities/json/json.hpp"
+#undef private
 #include "../src/utilities/json/json_exception.hpp"
 #include <string>
 #include <vector>
@@ -921,4 +923,11 @@ TEST_F(JsonLibTest, ParseErrorEmptyInput) {
 TEST_F(JsonLibTest, ParseErrorOnlyWhitespace) {
     // Whitespace is skipped, but then an empty string results, which is not valid JSON.
     EXPECT_THROW(JsonParser::Parse("   \t\n   "), JsonParseException);
+}
+
+TEST_F(JsonLibTest, ParseErrorInvalidUnicodeCodePointDirect) {
+    // Tests the private static method directly via the #define private public trick
+    // to cover code paths that are unreachable through standard \uXXXX parsing
+    EXPECT_THROW(JsonParser::UnicodeCodePointToUtf8(-1), JsonParseException);
+    EXPECT_THROW(JsonParser::UnicodeCodePointToUtf8(0x110000), JsonParseException);
 }
