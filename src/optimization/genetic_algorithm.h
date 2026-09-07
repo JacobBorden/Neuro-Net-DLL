@@ -19,6 +19,8 @@
 #include "../neural_network/neuronet.h" // NeuroNet class header
 #include "optimization/training_metrics.h" // For training metrics
 
+class GeneticAlgorithmTest;
+
 namespace Optimization {
 
 /**
@@ -149,6 +151,8 @@ private:
      *                         Returns a reference to a fallback network if population is empty.
      */
     const NeuroNet::NeuroNet& tournament_selection(int tournament_size = 5) const;
+
+    friend class ::GeneticAlgorithmTest;
 };
 
 } // namespace Optimization
