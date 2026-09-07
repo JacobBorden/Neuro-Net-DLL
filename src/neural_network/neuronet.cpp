@@ -1019,6 +1019,11 @@ NeuroNet::NeuroNet NeuroNet::NeuroNet::load_model(const std::string& filename)
 
 bool NeuroNet::NeuroNet::save_model(const std::string& filename) const
 {
+    if (filename.find("..") != std::string::npos ||
+        (!filename.empty() && (filename[0] == '/' || filename[0] == '\\' || (filename.length() > 1 && filename[1] == ':')))) {
+        throw std::runtime_error("Invalid filename: Path traversal and absolute paths are not allowed.");
+    }
+
     std::string json_string = this->to_custom_json_string();
 
     std::ofstream ofs(filename);
