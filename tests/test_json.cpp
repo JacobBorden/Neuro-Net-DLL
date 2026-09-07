@@ -881,6 +881,9 @@ TEST_F(JsonLibTest, ParseErrorInvalidNumber) {
     EXPECT_THROW(JsonParser::Parse("1ee4"), JsonParseException);       // Invalid scientific notation (double 'e')
     EXPECT_THROW(JsonParser::Parse("--5"), JsonParseException);        // Double negative
     EXPECT_THROW(JsonParser::Parse("1.e"), JsonParseException);        // Incomplete scientific notation
+    EXPECT_THROW(JsonParser::Parse("1e"), JsonParseException);         // Missing exponent digits
+    EXPECT_THROW(JsonParser::Parse("1e+"), JsonParseException);        // Missing exponent digits after sign
+    EXPECT_THROW(JsonParser::Parse("1E-"), JsonParseException);        // Missing exponent digits after sign
     // Standard JSON does not allow leading zeros on non-zero numbers (e.g. 0123 is not valid for number 123)
     // The custom parser should enforce this if it's strictly following JSON.
     EXPECT_THROW(JsonParser::Parse("0123"), JsonParseException);
