@@ -65,6 +65,16 @@ Optimization::GeneticAlgorithm::GeneticAlgorithm(
 }
 
 /**
+ * @brief Constructs a GA with a zero default generation limit for per-call configuration.
+ */
+Optimization::GeneticAlgorithm::GeneticAlgorithm(
+    int population_size,
+    double mutation_rate,
+    double crossover_rate,
+    const NeuroNet::NeuroNet& template_network)
+    : GeneticAlgorithm(population_size, mutation_rate, crossover_rate, 0, template_network) {}
+
+/**
  * @brief Creates a new NeuroNet individual with randomized weights and biases.
  *
  * The structure (number of layers, neurons per layer, input size) is copied
@@ -122,7 +132,6 @@ void Optimization::GeneticAlgorithm::initialize_population() {
     // as it will be updated when a better individual is found.
     // Clear previous run data
     current_run_metrics_ = {}; 
-    current_run_metrics_.generation_data.reserve(num_generations_);
 }
 
 /**
@@ -468,20 +477,30 @@ void Optimization::GeneticAlgorithm::evolve_one_generation(
  * @param fitness_function The function to evaluate individual fitness.
  */
 void Optimization::GeneticAlgorithm::run_evolution(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function, int early_stopping_patience) {
+    run_evolution(num_generations_, fitness_function, early_stopping_patience);
+}
+
+/**
+ * @brief Runs evolution with a per-call generation limit and optional early stopping.
+ */
+void Optimization::GeneticAlgorithm::run_evolution(int num_generations, const std::function<double(NeuroNet::NeuroNet&)>& fitness_function, int early_stopping_patience) {
+    if (num_generations < 0) {
+        throw std::invalid_argument("Generation count must be non-negative.");
+    }
     initialize_population(); // Prepare the initial random population and resets metrics.
     current_generation_ = 0; // Ensure generation count starts from 0 for the loop.
 
     // Record start time
     current_run_metrics_.start_time = utilities::get_current_time_string();
 
-    current_run_metrics_.total_generations = num_generations_;
+    current_run_metrics_.total_generations = num_generations;
     current_run_metrics_.generation_data.clear(); // Clear any data from previous runs
-    current_run_metrics_.generation_data.reserve(num_generations_);
+    current_run_metrics_.generation_data.reserve(num_generations);
 
     int generations_without_improvement = 0;
     double previous_best_fitness = std::numeric_limits<double>::lowest();
 
-    for (int i = 0; i < num_generations_; ++i) {
+    for (int i = 0; i < num_generations; ++i) {
         current_generation_ = i + 1; // Generation numbers are typically 1-indexed for reporting
         evolve_one_generation(fitness_function, current_generation_);
         if (early_stopping_patience > 0) {

@@ -35,7 +35,7 @@ public:
      * @param population_size The number of individuals in the population.
      * @param mutation_rate The probability of mutating a gene (e.g., a weight or bias).
      * @param crossover_rate The probability of performing crossover between two parents.
-     * @param num_generations The total number of generations to run the evolution.
+     * @param num_generations The default generation limit for fitness-first run_evolution calls.
      * @param template_network A NeuroNet object configured with the desired layer structure
      *                         (input size, layer sizes). This template is used to create
      *                         new individuals in the population.
@@ -45,6 +45,21 @@ public:
         double mutation_rate,
         double crossover_rate,
         int num_generations,
+        const NeuroNet::NeuroNet& template_network
+    );
+
+    /**
+     * @brief Constructs a GA whose generation limit is supplied to run_evolution.
+     * @param population_size The number of individuals in the population.
+     * @param mutation_rate The probability of mutating a gene.
+     * @param crossover_rate The probability of crossing over two parents.
+     * @param template_network The network architecture used for all individuals.
+     * @note The default generation limit is zero; use the count-first run_evolution overload.
+     */
+    GeneticAlgorithm(
+        int population_size,
+        double mutation_rate,
+        double crossover_rate,
         const NeuroNet::NeuroNet& template_network
     );
 
@@ -97,12 +112,22 @@ public:
     void evolve_one_generation(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function, int current_generation_number);
 
     /**
-     * @brief Runs the complete evolution process for the specified number of generations.
+     * @brief Runs evolution using the generation limit supplied to the constructor.
      * Initializes the population and then iteratively calls evolve_one_generation.
      * @param fitness_function The fitness function to evaluate individuals.
      * @param early_stopping_patience Number of generations to wait for an improvement before stopping. 0 means no early stopping.
      */
     void run_evolution(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function, int early_stopping_patience = 0);
+
+    /**
+     * @brief Runs evolution with a generation limit for this call only.
+     * Reinitializes the population and metrics without changing the constructor's default limit.
+     * @param num_generations Maximum generations to run; zero initializes without evaluating fitness.
+     * @param fitness_function The fitness function to evaluate individuals.
+     * @param early_stopping_patience Generations without improvement before stopping; 0 disables it.
+     * @throws std::invalid_argument If num_generations is negative, before changing run state.
+     */
+    void run_evolution(int num_generations, const std::function<double(NeuroNet::NeuroNet&)>& fitness_function, int early_stopping_patience = 0);
 
     /**
      * @brief Retrieves the best NeuroNet individual found during the evolution process.
@@ -122,7 +147,7 @@ private:
     int population_size_;       ///< Number of individuals in the population.
     double mutation_rate_;      ///< Probability of mutation for each gene.
     double crossover_rate_;     ///< Probability of performing crossover.
-    int num_generations_;       ///< Total number of generations for evolution.
+    int num_generations_;       ///< Default generation limit for fitness-first evolution calls.
     NeuroNet::NeuroNet template_network_; ///< Template NeuroNet defining the structure of individuals.
 
     std::vector<NeuroNet::NeuroNet> population_;     ///< Current population of NeuroNet individuals.

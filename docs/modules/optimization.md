@@ -32,7 +32,8 @@ To provide a ready-to-use genetic algorithm for optimizing the parameters of `Ne
 ### Key Functionalities (refer to Doxygen API docs for full details)
 
 *   **Constructor `GeneticAlgorithm(int population_size, double mutation_rate, double crossover_rate, int num_generations, const NeuroNet::NeuroNet& template_network)`:**
-    *   Initializes the GA with essential parameters.
+    *   Initializes the GA with essential parameters and a default generation limit.
+    *   The four-argument overload `GeneticAlgorithm(population_size, mutation_rate, crossover_rate, template_network)` lets each run supply its generation limit. Its default limit is zero.
     *   `template_network`: A crucial `NeuroNet` object that defines the fixed architecture (input size, layer count, layer sizes) for all individuals in the population.
 *   **`initialize_population()`:** Creates the initial population. Each `NeuroNet` individual is a copy of the `template_network`'s architecture but with randomly initialized weights and biases.
 *   **`evaluate_fitness(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function)`:** Calculates and stores the fitness score for each individual in the population using the provided fitness function.
@@ -40,7 +41,8 @@ To provide a ready-to-use genetic algorithm for optimizing the parameters of `Ne
 *   **`crossover(const NeuroNet::NeuroNet& parent1, const NeuroNet::NeuroNet& parent2)`:** Combines two parent networks to produce two offspring by swapping segments of their flattened weights and biases.
 *   **`mutate(NeuroNet::NeuroNet& individual)`:** Applies random changes to the weights and biases of an individual network.
 *   **`evolve_one_generation(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function, int current_generation_number)`:** Runs a single cycle of evaluation, selection, crossover, and mutation.
-*   **`run_evolution(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function)`:** Executes the main evolutionary loop for the configured number of generations.
+*   **`run_evolution(fitness_function, int early_stopping_patience = 0)`:** Runs with the constructor's default generation limit. Existing calls keep their behavior: the second argument is patience, and zero disables early stopping.
+*   **`run_evolution(int num_generations, fitness_function, int early_stopping_patience = 0)`:** Runs with a generation limit for this call, without changing the constructor's default. Each call starts a fresh population and resets metrics. Zero generations initializes without evaluating fitness; a negative count throws `std::invalid_argument` before changing state. Early stopping can shorten either overload's run, and exported metrics report the actual number of generations.
 *   **`get_best_individual() const`:** Returns the `NeuroNet` individual with the highest fitness score achieved during the evolution.
 *   **`export_training_metrics_json(const std::string& filename) const`:** Saves training metrics (e.g., fitness per generation) to a JSON file.
 
@@ -85,14 +87,13 @@ The main `README.md` provides a comprehensive example of training a `NeuroNet` u
         populationSize,
         mutationRate,
         crossoverRate,
-        numGenerations,
         templateNetwork
     );
     ```
 
 4.  **Running Evolution:**
     ```cpp
-    ga.run_evolution(fitness_function);
+    ga.run_evolution(numGenerations, fitness_function);
     ```
 
 5.  **Getting the Best Individual:**
