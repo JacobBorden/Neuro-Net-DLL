@@ -14,6 +14,10 @@ void CreateTempVocabFile(const std::string& filepath, const std::string& content
 
 // Test Fixture for Vocabulary Tests (optional, but good for setup/teardown if needed)
 class VocabularyTest : public ::testing::Test {
+public:
+    std::string call_to_lowercase(const std::string& str) const {
+        return vocab.to_lowercase(str);
+    }
 protected:
     const std::string test_vocab_path = "temp_test_vocab.json";
     NeuroNet::Vocabulary vocab;
@@ -216,4 +220,14 @@ TEST_F(VocabularyTest, PrepareBatchMatrix_BatchOfEmptyStrings) {
     ASSERT_EQ(matrix.cols(), 1); // Padded to 1 column of <pad>
     EXPECT_FLOAT_EQ(matrix[0][0], 0); // <pad>
     EXPECT_FLOAT_EQ(matrix[1][0], 0); // <pad>
+}
+
+
+// Derived from VocabularyTest, but we need to define a helper IN VocabularyTest
+
+TEST_F(VocabularyTest, ToLowercase_EdgeCases) {
+    EXPECT_EQ(call_to_lowercase("HELLO"), "hello");
+    EXPECT_EQ(call_to_lowercase("Hello World"), "hello world");
+    EXPECT_EQ(call_to_lowercase("123!@#"), "123!@#");
+    EXPECT_EQ(call_to_lowercase(""), "");
 }

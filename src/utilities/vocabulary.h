@@ -6,6 +6,8 @@
 #include "../math/matrix.h" // For Matrix::Matrix<float>
 #include "json/json.hpp"    // For JsonValue, JsonParser
 
+class VocabularyTest;
+
 namespace NeuroNet { // Assuming NeuroNet is the root namespace used elsewhere
 
 class Vocabulary {
@@ -87,6 +89,8 @@ private:
 
     std::string to_lowercase(const std::string& str) const;
     std::vector<std::string> split_by_space(const std::string& str) const;
+
+    friend class ::VocabularyTest;
 };
 
 } // namespace NeuroNet
