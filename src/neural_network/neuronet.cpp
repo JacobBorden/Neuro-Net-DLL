@@ -99,9 +99,9 @@ void NeuroNet::NeuroNet::UpdateWeights(float learning_rate) {
 
     for (int i = 0; i < this->LayerCount; ++i) {
         // Ensure layer index is valid for NeuroNetVector (safety check)
-        if (static_cast<size_t>(i) >= this->NeuroNetVector.size()) {
+        if (i >= this->LayerCount) {
             throw std::out_of_range("Layer index " + std::to_string(i) +
-                                    " is out of bounds for NeuroNetVector with size " + std::to_string(this->NeuroNetVector.size()) +
+                                    " is out of bounds for NeuroNetVector with size " + std::to_string(this->LayerCount) +
                                     " during UpdateWeights.");
         }
         NeuroNetLayer& layer = this->NeuroNetVector[i];
@@ -110,7 +110,7 @@ void NeuroNet::NeuroNet::UpdateWeights(float learning_rate) {
         if (i == 0) {
             layer_input_size = this->GetInputSize();
         } else {
-            if (static_cast<size_t>(i-1) >= this->NeuroNetVector.size()){ // Should not happen if LayerCount is correct
+            if (i-1 >= this->LayerCount){ // Should not happen if LayerCount is correct
                  throw std::out_of_range("Previous layer index " + std::to_string(i-1) + " is out of bounds during UpdateWeights.");
             }
             layer_input_size = this->NeuroNetVector[i-1].LayerSize();
@@ -220,7 +220,7 @@ void NeuroNet::NeuroNet::Train(const std::vector<Matrix::Matrix<float>>& trainin
     if (this->LayerCount == 0) {
         throw std::runtime_error("Cannot train an empty network (0 layers). Initialize layers first.");
     }
-     if (this->NeuroNetVector.empty()) { // Should be redundant if LayerCount is managed well
+     if (this->LayerCount == 0) { // Should be redundant if LayerCount is managed well
         throw std::runtime_error("Cannot train a network with an empty NeuroNetVector. Initialize layers first.");
     }
 
@@ -734,15 +734,15 @@ bool NeuroNet::NeuroNetLayer::SetInput(const Matrix::Matrix<float>& pInputMatrix
 }
 
 NeuroNet::NeuroNetLayer& NeuroNet::NeuroNet::getLayer(int index) {
-    if (index < 0 || static_cast<size_t>(index) >= this->NeuroNetVector.size()) {
-        throw std::out_of_range("Layer index out of bounds in getLayer(). Requested index: " + std::to_string(index) + ", Layer count: " + std::to_string(this->NeuroNetVector.size()));
+    if (index < 0 || index >= this->LayerCount) {
+        throw std::out_of_range("Layer index out of bounds in getLayer(). Requested index: " + std::to_string(index) + ", Layer count: " + std::to_string(this->LayerCount));
     }
     return this->NeuroNetVector[index];
 }
 
 const NeuroNet::NeuroNetLayer& NeuroNet::NeuroNet::getLayer(int index) const {
-    if (index < 0 || static_cast<size_t>(index) >= this->NeuroNetVector.size()) {
-        throw std::out_of_range("Layer index out of bounds in getLayer() const. Requested index: " + std::to_string(index) + ", Layer count: " + std::to_string(this->NeuroNetVector.size()));
+    if (index < 0 || index >= this->LayerCount) {
+        throw std::out_of_range("Layer index out of bounds in getLayer() const. Requested index: " + std::to_string(index) + ", Layer count: " + std::to_string(this->LayerCount));
     }
     return this->NeuroNetVector[index];
 }
@@ -1108,7 +1108,7 @@ float NeuroNet::NeuroNetLayer::get_weight(int prev_neuron_idx, int current_neuro
 }
 
 void NeuroNet::NeuroNet::Backpropagate(const Matrix::Matrix<float>& actual_output, const Matrix::Matrix<float>& target_output) {
-    if (this->NeuroNetVector.empty()) {
+    if (this->LayerCount == 0) {
         return; // No layers to backpropagate through.
     }
 
@@ -1131,9 +1131,9 @@ void NeuroNet::NeuroNet::Backpropagate(const Matrix::Matrix<float>& actual_outpu
     // Using LayerCount as it's explicitly managed by ResizeNeuroNet and represents the intended number of layers.
     for (int i = this->LayerCount - 1; i >= 0; --i) {
         // Ensure layer index is valid for NeuroNetVector (safety check, though LayerCount should be consistent)
-        if (static_cast<size_t>(i) >= this->NeuroNetVector.size()) {
+        if (i >= this->LayerCount) {
             throw std::out_of_range("Layer index " + std::to_string(i) +
-                                    " is out of bounds for NeuroNetVector with size " + std::to_string(this->NeuroNetVector.size()) +
+                                    " is out of bounds for NeuroNetVector with size " + std::to_string(this->LayerCount) +
                                     " during backpropagation.");
         }
         NeuroNetLayer& current_layer = this->NeuroNetVector[i];
@@ -1419,7 +1419,7 @@ NeuroNet::NeuroNet::~NeuroNet() {
 }
 
 bool NeuroNet::NeuroNet::ResizeLayer(int pLayerIndex, int pLayerSize) {
-	if (pLayerIndex < 0 || static_cast<size_t>(pLayerIndex) >= this->NeuroNetVector.size()) {
+	if (pLayerIndex < 0 || pLayerIndex >= this->LayerCount) {
 		return false; // Index out of bounds.
 	}
 
@@ -1442,7 +1442,7 @@ bool NeuroNet::NeuroNet::ResizeLayer(int pLayerIndex, int pLayerSize) {
 	this->NeuroNetVector[pLayerIndex].ResizeLayer(currentLayerInputSize, pLayerSize);
 
 	// If this is not the last layer, update the input size of the next layer.
-	if (static_cast<size_t>(pLayerIndex + 1) < this->NeuroNetVector.size()) {
+	if (pLayerIndex + 1 < this->LayerCount) {
 		// The next layer's input size is the current layer's output size (pLayerSize).
         // We need to re-call ResizeLayer on the next layer to update its internal matrices.
         // This creates a cascading resize if layer sizes change.
@@ -1455,7 +1455,7 @@ bool NeuroNet::NeuroNet::ResizeLayer(int pLayerIndex, int pLayerSize) {
 void NeuroNet::NeuroNet::SetInputSize(int pInputSize) {
 	this->InputSize = pInputSize;
 	// If there's at least one layer, its input size needs to be updated.
-	if (!this->NeuroNetVector.empty()) {
+	if (this->LayerCount > 0) {
         int firstLayerCurrentOutputSize = this->NeuroNetVector[0].LayerSize();
 		this->NeuroNetVector[0].ResizeLayer(this->InputSize, firstLayerCurrentOutputSize);
         // If the first layer's output size changes as a result of some internal logic in ResizeLayer (it shouldn't here),
@@ -1470,7 +1470,7 @@ void NeuroNet::NeuroNet::ResizeNeuroNet(int pLayerCount) {
 }
 
 bool NeuroNet::NeuroNet::SetInput(const Matrix::Matrix<float>& pInputMatrix) {
-	if (this->NeuroNetVector.empty()) {
+	if (this->LayerCount == 0) {
 		return false; // No layers to process input.
 	}
 	return this->NeuroNetVector[0].SetInput(pInputMatrix);
@@ -1482,32 +1482,20 @@ Matrix::Matrix<float> NeuroNet::NeuroNet::GetOutput() {
     total_forward_pass_timer.start();
 #endif
 
-	if (this->NeuroNetVector.empty()) {
+	if (this->LayerCount == 0) {
 #ifdef ENABLE_BENCHMARKING
         total_forward_pass_timer.stop();
         ::NeuroNet::Logger::Info("NeuroNet::GetOutput() (Total Forward Pass - No Layers) took: ", total_forward_pass_timer.elapsed_milliseconds(), " ms");
 #endif
 		return Matrix::Matrix<float>(); // Return an empty matrix if no layers.
 	}
-    if (this->LayerCount == 0 && !this->NeuroNetVector.empty()){
-        // This state implies NeuroNetVector was resized but LayerCount wasn't updated.
-        // This indicates an internal inconsistency. For safety, use NeuroNetVector.size().
-        // However, the design intends LayerCount to be the authority.
-        // This situation should be fixed by ensuring LayerCount is always consistent.
-        // For now, let's trust NeuroNetVector for iteration if LayerCount is 0 but vector isn't empty.
-        // A better fix is to ensure LayerCount is always accurate.
-        // The ResizeNeuroNet method should be the primary way to change layer count.
-    }
-
 
 	// Process first layer
 	// Note: NeuroNetLayer::CalculateOutput() will print its own timing if ENABLE_BENCHMARKING is defined.
 	this->NeuroNetVector[0].CalculateOutput();
 
 	// Process subsequent layers
-    // Use NeuroNetVector.size() for safety if LayerCount might be out of sync.
-    // However, the design relies on LayerCount. If ResizeNeuroNet is used correctly, they should match.
-	for (size_t i = 1; i < this->NeuroNetVector.size(); i++) { // Iterate up to actual number of layers present
+	for (size_t i = 1; i < this->LayerCount; i++) { // Iterate up to actual number of layers present
 		this->NeuroNetVector[i].SetInput(this->NeuroNetVector[i - 1].ReturnOutputMatrix());
 		this->NeuroNetVector[i].CalculateOutput(); // This will also print its timing.
 	}
@@ -1516,7 +1504,7 @@ Matrix::Matrix<float> NeuroNet::NeuroNet::GetOutput() {
 
 #ifdef ENABLE_BENCHMARKING
     total_forward_pass_timer.stop();
-    ::NeuroNet::Logger::Info("NeuroNet::GetOutput() (Total Forward Pass for ", this->NeuroNetVector.size(), " layers) took: ", total_forward_pass_timer.elapsed_milliseconds(), " ms");
+    ::NeuroNet::Logger::Info("NeuroNet::GetOutput() (Total Forward Pass for ", this->LayerCount, " layers) took: ", total_forward_pass_timer.elapsed_milliseconds(), " ms");
 #endif
 	return final_output; // Output of the last layer
 }
@@ -1568,7 +1556,7 @@ NeuroNet::LayerBiases NeuroNet::NeuroNetLayer::get_biases() const {
 
 std::vector<NeuroNet::LayerWeights> NeuroNet::NeuroNet::get_all_layer_weights() {
 	std::vector<LayerWeights> all_weights;
-	all_weights.reserve(this->NeuroNetVector.size());
+	all_weights.reserve(this->LayerCount);
 	for (auto& layer : this->NeuroNetVector) {
 		all_weights.push_back(layer.get_weights());
 	}
@@ -1576,10 +1564,10 @@ std::vector<NeuroNet::LayerWeights> NeuroNet::NeuroNet::get_all_layer_weights() 
 }
 
 bool NeuroNet::NeuroNet::set_all_layer_weights(const std::vector<LayerWeights>& all_weights) {
-	if (all_weights.size() != this->NeuroNetVector.size()) {
+	if (all_weights.size() != this->LayerCount) {
 		return false; // Mismatch in the number of layers.
 	}
-	for (size_t i = 0; i < this->NeuroNetVector.size(); ++i) {
+	for (size_t i = 0; i < this->LayerCount; ++i) {
 		if (!this->NeuroNetVector[i].SetWeights(all_weights[i])) {
 			// Log error or handle partial update? For now, return false on first failure.
 			return false; // Failed to set weights for a layer.
@@ -1590,7 +1578,7 @@ bool NeuroNet::NeuroNet::set_all_layer_weights(const std::vector<LayerWeights>& 
 
 std::vector<NeuroNet::LayerBiases> NeuroNet::NeuroNet::get_all_layer_biases() {
 	std::vector<LayerBiases> all_biases;
-	all_biases.reserve(this->NeuroNetVector.size());
+	all_biases.reserve(this->LayerCount);
 	for (auto& layer : this->NeuroNetVector) {
 		all_biases.push_back(layer.get_biases());
 	}
@@ -1598,10 +1586,10 @@ std::vector<NeuroNet::LayerBiases> NeuroNet::NeuroNet::get_all_layer_biases() {
 }
 
 bool NeuroNet::NeuroNet::set_all_layer_biases(const std::vector<LayerBiases>& all_biases) {
-	if (all_biases.size() != this->NeuroNetVector.size()) {
+	if (all_biases.size() != this->LayerCount) {
 		return false; // Mismatch in the number of layers.
 	}
-	for (size_t i = 0; i < this->NeuroNetVector.size(); ++i) {
+	for (size_t i = 0; i < this->LayerCount; ++i) {
 		if (!this->NeuroNetVector[i].SetBiases(all_biases[i])) {
 			return false; // Failed to set biases for a layer.
 		}
