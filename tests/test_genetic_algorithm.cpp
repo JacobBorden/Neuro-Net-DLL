@@ -26,6 +26,13 @@ double simple_fitness_function(NeuroNet::NeuroNet& net) {
 
 // Test fixture for GeneticAlgorithm tests
 class GeneticAlgorithmTest : public ::testing::Test {
+public:
+    void triggerError() {
+        Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, num_generations, template_net);
+        ga.population_ = std::vector<NeuroNet::NeuroNet>(10, template_net);
+        ga.fitness_scores_ = std::vector<double>(5, 1.0); // Mismatched size (10 vs 5)
+        ga.tournament_selection(); // Call the private method
+    }
 protected:
     NeuroNet::NeuroNet template_net;
     int population_size = 10;
@@ -380,3 +387,12 @@ TEST_F(GeneticAlgorithmTest, ExportTrainingMetrics) {
 //     ::testing::InitGoogleTest(&argc, argv);
 //     return RUN_ALL_TESTS();
 // }
+
+TEST_F(GeneticAlgorithmTest, TournamentSelectionFitnessAlignmentError) {
+    try {
+        triggerError();
+        FAIL() << "Expected std::runtime_error";
+    } catch (const std::runtime_error& err) {
+        EXPECT_EQ(err.what(), std::string("Fitness scores are not aligned with the population for tournament selection."));
+    }
+}
