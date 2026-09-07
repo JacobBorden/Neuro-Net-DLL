@@ -837,6 +837,15 @@ TEST_F(JsonLibTest, ParseErrorIncompleteObject) {
     EXPECT_THROW(JsonParser::Parse("{\"key\": }"), JsonParseException);
 }
 
+TEST_F(JsonLibTest, ParseErrorUnexpectedEndObject) {
+    try {
+        JsonParser::Parse("{\"key\": \"value\"");
+        FAIL() << "Expected JsonParseException";
+    } catch (const JsonParseException& e) {
+        EXPECT_STREQ(e.what(), "Unexpected end of object definition, missing '}'");
+    }
+}
+
 TEST_F(JsonLibTest, ParseErrorIncompleteArray) {
     // Missing closing bracket
     EXPECT_THROW(JsonParser::Parse("[1, 2, 3"), JsonParseException);
