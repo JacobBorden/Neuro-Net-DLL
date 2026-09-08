@@ -477,13 +477,13 @@ void Optimization::GeneticAlgorithm::evolve_one_generation(
  * @param fitness_function The function to evaluate individual fitness.
  */
 void Optimization::GeneticAlgorithm::run_evolution(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function, int early_stopping_patience) {
-    run_evolution(num_generations_, fitness_function, early_stopping_patience);
+    run_evolution_for(num_generations_, fitness_function, early_stopping_patience);
 }
 
 /**
  * @brief Runs evolution with a per-call generation limit and optional early stopping.
  */
-void Optimization::GeneticAlgorithm::run_evolution(int num_generations, const std::function<double(NeuroNet::NeuroNet&)>& fitness_function, int early_stopping_patience) {
+void Optimization::GeneticAlgorithm::run_evolution_for(int num_generations, const std::function<double(NeuroNet::NeuroNet&)>& fitness_function, int early_stopping_patience) {
     if (num_generations < 0) {
         throw std::invalid_argument("Generation count must be non-negative.");
     }

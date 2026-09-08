@@ -222,7 +222,7 @@ int main() {
     // The internal timers for evaluate_fitness, selection, crossover, mutate will be called for each generation.
     utilities::Timer run_evol_timer;
     run_evol_timer.start();
-    ga_run.run_evolution(fitness_func);
+    ga_run.run_evolution_for(few_generations, fitness_func);
     run_evol_timer.stop();
      std::cout << "GA run_evolution() for " << few_generations << " generations (pop size " << population_size 
               << ") took: " << run_evol_timer.elapsed_milliseconds() << " ms (external timer)" << std::endl;
