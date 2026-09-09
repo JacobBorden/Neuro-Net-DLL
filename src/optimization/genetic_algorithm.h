@@ -127,7 +127,7 @@ public:
      * @param early_stopping_patience Generations without improvement before stopping; 0 disables it.
      * @throws std::invalid_argument If num_generations is negative, before changing run state.
      */
-    void run_evolution_for(int num_generations, const std::function<double(NeuroNet::NeuroNet&)>& fitness_function, int early_stopping_patience = 0);
+    void run_evolution(int num_generations, const std::function<double(NeuroNet::NeuroNet&)>& fitness_function, int early_stopping_patience = 0);
 
     /**
      * @brief Retrieves the best NeuroNet individual found during the evolution process.
