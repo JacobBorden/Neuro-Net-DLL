@@ -35,7 +35,7 @@ public:
      * @param population_size The number of individuals in the population.
      * @param mutation_rate The probability of mutating a gene (e.g., a weight or bias).
      * @param crossover_rate The probability of performing crossover between two parents.
-     * @param num_generations The default generation limit for fitness-first run_evolution calls.
+     * @param num_generations The default generation limit for run_evolution calls.
      * @param template_network A NeuroNet object configured with the desired layer structure
      *                         (input size, layer sizes). This template is used to create
      *                         new individuals in the population.
@@ -54,7 +54,7 @@ public:
      * @param mutation_rate The probability of mutating a gene.
      * @param crossover_rate The probability of crossing over two parents.
      * @param template_network The network architecture used for all individuals.
-     * @note The default generation limit is zero; use the count-first run_evolution overload.
+     * @note The default generation limit is zero; use run_evolution_for.
      */
     GeneticAlgorithm(
         int population_size,
@@ -127,7 +127,7 @@ public:
      * @param early_stopping_patience Generations without improvement before stopping; 0 disables it.
      * @throws std::invalid_argument If num_generations is negative, before changing run state.
      */
-    void run_evolution(int num_generations, const std::function<double(NeuroNet::NeuroNet&)>& fitness_function, int early_stopping_patience = 0);
+    void run_evolution_for(int num_generations, const std::function<double(NeuroNet::NeuroNet&)>& fitness_function, int early_stopping_patience = 0);
 
     /**
      * @brief Retrieves the best NeuroNet individual found during the evolution process.

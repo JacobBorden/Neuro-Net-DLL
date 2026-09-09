@@ -405,7 +405,7 @@ void run_genetic_algorithm_xor_example() {
 
     // 3. Run Evolution
     std::cout << "Running evolution for " << num_generations << " generations..." << std::endl;
-    ga_instance.run_evolution(num_generations, xor_fitness_function);
+    ga_instance.run_evolution_for(num_generations, xor_fitness_function);
     std::cout << "Evolution finished." << std::endl;
 
     // 4. Export Training Metrics

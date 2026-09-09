@@ -42,7 +42,7 @@ To provide a ready-to-use genetic algorithm for optimizing the parameters of `Ne
 *   **`mutate(NeuroNet::NeuroNet& individual)`:** Applies random changes to the weights and biases of an individual network.
 *   **`evolve_one_generation(const std::function<double(NeuroNet::NeuroNet&)>& fitness_function, int current_generation_number)`:** Runs a single cycle of evaluation, selection, crossover, and mutation.
 *   **`run_evolution(fitness_function, int early_stopping_patience = 0)`:** Runs with the constructor's default generation limit. Existing calls keep their behavior: the second argument is patience, and zero disables early stopping.
-*   **`run_evolution(int num_generations, fitness_function, int early_stopping_patience = 0)`:** Runs with a generation limit for this call, without changing the constructor's default. Each call starts a fresh population and resets metrics. Zero generations initializes without evaluating fitness; a negative count throws `std::invalid_argument` before changing state. Early stopping can shorten either overload's run, and exported metrics report the actual number of generations.
+*   **`run_evolution_for(int num_generations, fitness_function, int early_stopping_patience = 0)`:** Runs with a generation limit for this call, without changing the constructor's default. Each call starts a fresh population and resets metrics. Zero generations initializes without evaluating fitness; a negative count throws `std::invalid_argument` before changing state. Early stopping can shorten either overload's run, and exported metrics report the actual number of generations.
 *   **`get_best_individual() const`:** Returns the `NeuroNet` individual with the highest fitness score achieved during the evolution.
 *   **`export_training_metrics_json(const std::string& filename) const`:** Saves training metrics (e.g., fitness per generation) to a JSON file.
 
@@ -93,7 +93,7 @@ The main `README.md` provides a comprehensive example of training a `NeuroNet` u
 
 4.  **Running Evolution:**
     ```cpp
-    ga.run_evolution(numGenerations, fitness_function);
+    ga.run_evolution_for(numGenerations, fitness_function);
     ```
 
 5.  **Getting the Best Individual:**
