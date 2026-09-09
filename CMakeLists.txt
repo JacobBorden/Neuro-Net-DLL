@@ -1,5 +1,10 @@
-cmake_minimum_required(VERSION 3.0.0)
+cmake_minimum_required(VERSION 3.14)
 project(neuronet VERSION 0.1.0)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+
 
 include(CTest)
 include(FetchContent)
@@ -48,12 +53,20 @@ set(NEURONET_SOURCES
 
 add_library(neuronet STATIC ${NEURONET_SOURCES})
 
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(neuronet PUBLIC OpenMP::OpenMP_CXX)
+endif()
+
 # Keep instrumentation confined to the executable that reports benchmark timings.
 # Header-only matrix operations are compiled by matrix_benchmarks itself; the
 # separately compiled neural-network and GA operations require this companion
 # library to make their ENABLE_BENCHMARKING blocks available as well.
 add_library(neuronet_benchmarks STATIC ${NEURONET_SOURCES})
 target_compile_definitions(neuronet_benchmarks PRIVATE ENABLE_BENCHMARKING)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(neuronet_benchmarks PUBLIC OpenMP::OpenMP_CXX)
+endif()
 
 # Testing subdirectory
 add_subdirectory(tests)

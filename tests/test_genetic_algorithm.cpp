@@ -256,7 +256,7 @@ TEST_F(GeneticAlgorithmTest, LegacyGenerationLimitRemainsTheDefault) {
     int evaluations = 0;
     auto fitness = [&](NeuroNet::NeuroNet&) { ++evaluations; return 1.0; };
 
-    ga.run_evolution_for(2, fitness);
+    ga.run_evolution(2, fitness);
     EXPECT_EQ(evaluations, population_size * 2);
     ExpectGenerationMetrics(ga, 2);
 
@@ -273,7 +273,7 @@ TEST_F(GeneticAlgorithmTest, PerCallGenerationLimitsResetMetrics) {
 
     for (int generations : {2, 4, 0}) {
         evaluations = 0;
-        ga.run_evolution_for(generations, fitness);
+        ga.run_evolution(generations, fitness);
         EXPECT_EQ(evaluations, population_size * generations);
         ExpectGenerationMetrics(ga, generations);
     }
@@ -289,12 +289,12 @@ TEST_F(GeneticAlgorithmTest, PerCallGenerationLimitSupportsEarlyStopping) {
     int evaluations = 0;
     auto fitness = [&](NeuroNet::NeuroNet&) { ++evaluations; return 1.0; };
 
-    ga.run_evolution_for(20, fitness, 3);
+    ga.run_evolution(20, fitness, 3);
     EXPECT_EQ(evaluations, population_size * 4);
     ExpectGenerationMetrics(ga, 4);
 
     evaluations = 0;
-    ga.run_evolution_for(2, fitness, 3);
+    ga.run_evolution(2, fitness, 3);
     EXPECT_EQ(evaluations, population_size * 2);
     ExpectGenerationMetrics(ga, 2);
 }
@@ -303,10 +303,10 @@ TEST_F(GeneticAlgorithmTest, NegativeGenerationLimitPreservesPreviousRun) {
     Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, template_net);
     int evaluations = 0;
     auto fitness = [&](NeuroNet::NeuroNet&) { ++evaluations; return 1.0; };
-    ga.run_evolution_for(2, fitness);
+    ga.run_evolution(2, fitness);
     const auto best_weights = ga.get_best_individual().get_all_weights_flat();
 
-    EXPECT_THROW(ga.run_evolution_for(-1, fitness), std::invalid_argument);
+    EXPECT_THROW(ga.run_evolution(-1, fitness), std::invalid_argument);
     EXPECT_EQ(evaluations, population_size * 2);
     EXPECT_EQ(ga.get_best_individual().get_all_weights_flat(), best_weights);
     ExpectGenerationMetrics(ga, 2);
@@ -358,7 +358,7 @@ TEST_F(GeneticAlgorithmTest, ExportTrainingMetrics) {
     Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, num_generations, template_net);
     
     const int generations_to_run = 2; // Keep it small for test speed
-    ga.run_evolution_for(generations_to_run, simple_fitness_function);
+    ga.run_evolution(generations_to_run, simple_fitness_function);
 
     const std::string metrics_filename = "test_training_metrics_custom.json";
     ASSERT_NO_THROW(ga.export_training_metrics_json(metrics_filename));

@@ -74,7 +74,7 @@ This section provides details on the core classes and data structures used in th
 *   **Key Functionalities:**
     *   Constructor `GeneticAlgorithm(...)`: Initializes the GA with population size, mutation rate, crossover rate, and a `template_network` defining the architecture. The existing five-argument constructor also sets a default generation limit; the four-argument constructor defaults to zero.
     *   `initialize_population()`: Creates the initial population of random `NeuroNet` individuals based on the template network.
-    *   `run_evolution_for(num_generations, fitness_function, early_stopping_patience = 0)`: Starts a fresh population and runs up to the per-call generation limit. Existing `run_evolution(fitness_function, early_stopping_patience = 0)` calls retain the constructor's default limit. A per-call limit does not change that default. Zero generations only initializes; negative counts throw `std::invalid_argument`. Patience zero disables early stopping, and metrics report actual generations.
+    *   `run_evolution(num_generations, fitness_function, early_stopping_patience = 0)`: Starts a fresh population and runs up to the per-call generation limit. Existing `run_evolution(fitness_function, early_stopping_patience = 0)` calls retain the constructor's default limit. A per-call limit does not change that default. Zero generations only initializes; negative counts throw `std::invalid_argument`. Patience zero disables early stopping, and metrics report actual generations.
     *   `evolve_one_generation(...)`: Carries out a single step of the evolutionary process.
     *   `get_best_individual()`: After the evolution process, this function returns the `NeuroNet` individual that achieved the highest fitness score.
 *   **Source:** Defined in `src/optimization/genetic_algorithm.h`.
@@ -707,7 +707,7 @@ int main() {
 
     // d. Run Evolution
     std::cout << "Starting genetic algorithm evolution..." << std::endl;
-    ga.run_evolution_for(numGenerations, fitness_function);
+    ga.run_evolution(numGenerations, fitness_function);
     std::cout << "Evolution finished." << std::endl;
 
     // e. Get Best Individual

@@ -6,7 +6,7 @@ acceptance evidence exists; a proposed PR is not a delivered feature.
 
 ## P0 — Unblock integration
 
-- [x] Repair PR #45 with an additive, unambiguous per-call generation API. Keep the
+- [ ] Repair PR #45 with an additive, unambiguous per-call generation API. Keep the
   existing constructor and patience call semantics; test legacy and new callers,
   repeated calls, zero/invalid counts, and early stopping on current master.
 - [x] Consolidate duplicate PRs #214/#215 (closed 2026-09-06). The dense loop
@@ -18,7 +18,7 @@ acceptance evidence exists; a proposed PR is not a delivered feature.
 
 ## P1 — Reliability before feature expansion
 
-- [ ] Enforce C++17 in CMake, modernize the minimum version, discover/link optional
+- [x] Enforce C++17 in CMake, modernize the minimum version, discover/link optional
   OpenMP, and run clean Linux/Windows builds with CTest output on failure.
 - [ ] Upgrade checkout actions (#88); verify workflow permissions and artifact
   paths without weakening required checks.
