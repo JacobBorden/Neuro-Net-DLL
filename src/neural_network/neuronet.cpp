@@ -622,12 +622,13 @@ void NeuroNet::NeuroNetLayer::ApplySoftmax(Matrix::Matrix<float>& output) {
         // For a more general Softmax that could operate column-wise on a batch of outputs,
         // this logic would need to be adjusted. For now, it processes a single output vector.
     }
+    float m =std::max_element(output[0].begin(), output[0].end()); // Optional: For numerical stability, subtract max before exp.
 
     #ifdef _OPENMP
     #pragma omp parallel for reduction(+:sum_exp)
     #endif
     for (size_t j = 0; j < output.cols(); ++j) {
-        output[0][j] = std::exp(output[0][j]);
+        output[0][j] = std::exp(output[0][j] - m); // Subtract max for numerical stability 
         sum_exp += output[0][j];
     }
 
