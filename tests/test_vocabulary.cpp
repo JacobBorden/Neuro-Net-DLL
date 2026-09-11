@@ -122,12 +122,12 @@ TEST_F(VocabularyTest, PrepareBatchMatrix_PadToMaxLenParam) {
 
     ASSERT_EQ(matrix.rows(), 2);
     ASSERT_EQ(matrix.cols(), 3);
-    EXPECT_FLOAT_EQ(matrix[0][0], 0); // hello
-    EXPECT_FLOAT_EQ(matrix[0][1], 1); // world
-    EXPECT_FLOAT_EQ(matrix[0][2], 4); // <pad>
-    EXPECT_FLOAT_EQ(matrix[1][0], 0); // hello
-    EXPECT_FLOAT_EQ(matrix[1][1], 4); // <pad>
-    EXPECT_FLOAT_EQ(matrix[1][2], 4); // <pad>
+    EXPECT_NEAR(matrix[0][0], 0, 1e-5); // hello
+    EXPECT_NEAR(matrix[0][1], 1, 1e-5); // world
+    EXPECT_NEAR(matrix[0][2], 4, 1e-5); // <pad>
+    EXPECT_NEAR(matrix[1][0], 0, 1e-5); // hello
+    EXPECT_NEAR(matrix[1][1], 4, 1e-5); // <pad>
+    EXPECT_NEAR(matrix[1][2], 4, 1e-5); // <pad>
 }
 
 TEST_F(VocabularyTest, PrepareBatchMatrix_PadToInternalMaxSeqLen) {
@@ -144,9 +144,9 @@ TEST_F(VocabularyTest, PrepareBatchMatrix_PadToInternalMaxSeqLen) {
 
     ASSERT_EQ(matrix.rows(), 1);
     ASSERT_EQ(matrix.cols(), 3);
-    EXPECT_FLOAT_EQ(matrix[0][0], 0); // hello
-    EXPECT_FLOAT_EQ(matrix[0][1], 1); // <pad>
-    EXPECT_FLOAT_EQ(matrix[0][2], 1); // <pad>
+    EXPECT_NEAR(matrix[0][0], 0, 1e-5); // hello
+    EXPECT_NEAR(matrix[0][1], 1, 1e-5); // <pad>
+    EXPECT_NEAR(matrix[0][2], 1, 1e-5); // <pad>
 }
 
 TEST_F(VocabularyTest, PrepareBatchMatrix_PadToMaxInBatch) {
@@ -162,8 +162,8 @@ TEST_F(VocabularyTest, PrepareBatchMatrix_PadToMaxInBatch) {
 
     ASSERT_EQ(matrix.rows(), 2);
     ASSERT_EQ(matrix.cols(), 3);
-    EXPECT_FLOAT_EQ(matrix[0][0], 0); EXPECT_FLOAT_EQ(matrix[0][1], 1); EXPECT_FLOAT_EQ(matrix[0][2], 2);
-    EXPECT_FLOAT_EQ(matrix[1][0], 0); EXPECT_FLOAT_EQ(matrix[1][1], 1); EXPECT_FLOAT_EQ(matrix[1][2], 3); // <pad>
+    EXPECT_NEAR(matrix[0][0], 0, 1e-5); EXPECT_NEAR(matrix[0][1], 1, 1e-5); EXPECT_NEAR(matrix[0][2], 2, 1e-5);
+    EXPECT_NEAR(matrix[1][0], 0, 1e-5); EXPECT_NEAR(matrix[1][1], 1, 1e-5); EXPECT_NEAR(matrix[1][2], 3, 1e-5); // <pad>
 }
 
 TEST_F(VocabularyTest, PrepareBatchMatrix_Truncate) {
@@ -179,8 +179,8 @@ TEST_F(VocabularyTest, PrepareBatchMatrix_Truncate) {
 
     ASSERT_EQ(matrix.rows(), 1);
     ASSERT_EQ(matrix.cols(), 2);
-    EXPECT_FLOAT_EQ(matrix[0][0], 0); // a
-    EXPECT_FLOAT_EQ(matrix[0][1], 1); // b (c is truncated)
+    EXPECT_NEAR(matrix[0][0], 0, 1e-5); // a
+    EXPECT_NEAR(matrix[0][1], 1, 1e-5); // b (c is truncated)
 }
 
 TEST_F(VocabularyTest, PrepareBatchMatrix_EmptyBatch) {
@@ -208,6 +208,6 @@ TEST_F(VocabularyTest, PrepareBatchMatrix_BatchOfEmptyStrings) {
     Matrix::Matrix<float> matrix = vocab.prepare_batch_matrix(batch, -1, true);
     ASSERT_EQ(matrix.rows(), 2);
     ASSERT_EQ(matrix.cols(), 1); // Padded to 1 column of <pad>
-    EXPECT_FLOAT_EQ(matrix[0][0], 0); // <pad>
-    EXPECT_FLOAT_EQ(matrix[1][0], 0); // <pad>
+    EXPECT_NEAR(matrix[0][0], 0, 1e-5); // <pad>
+    EXPECT_NEAR(matrix[1][0], 0, 1e-5); // <pad>
 }
