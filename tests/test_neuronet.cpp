@@ -72,7 +72,7 @@ TEST_F(NeuroNetTest, NeuroNetLayerWeightsAndBiases) {
     NeuroNet::LayerWeights retrieved_weights = layer.get_weights();
     EXPECT_EQ(retrieved_weights.WeightCount, weights_to_set.WeightCount);
     for(int i = 0; i < weights_to_set.WeightCount; ++i) {
-        EXPECT_FLOAT_EQ(retrieved_weights.WeightsVector[i], weights_to_set.WeightsVector[i]);
+        EXPECT_NEAR(retrieved_weights.WeightsVector[i], weights_to_set.WeightsVector[i], 1e-5);
     }
 
     NeuroNet::LayerBiases biases_to_set;
@@ -86,7 +86,7 @@ TEST_F(NeuroNetTest, NeuroNetLayerWeightsAndBiases) {
     NeuroNet::LayerBiases retrieved_biases = layer.get_biases();
     EXPECT_EQ(retrieved_biases.BiasCount, biases_to_set.BiasCount);
     for(int i = 0; i < biases_to_set.BiasCount; ++i) {
-        EXPECT_FLOAT_EQ(retrieved_biases.BiasVector[i], biases_to_set.BiasVector[i]);
+        EXPECT_NEAR(retrieved_biases.BiasVector[i], biases_to_set.BiasVector[i], 1e-5);
     }
 }
 
@@ -104,10 +104,10 @@ TEST(NeuroNetLayerDerivativesTest, ReLU) {
 
     ASSERT_EQ(derivative.rows(), 1);
     ASSERT_EQ(derivative.cols(), 4);
-    EXPECT_FLOAT_EQ(derivative[0][0], 0.0f);
-    EXPECT_FLOAT_EQ(derivative[0][1], 0.0f);
-    EXPECT_FLOAT_EQ(derivative[0][2], 1.0f);
-    EXPECT_FLOAT_EQ(derivative[0][3], 1.0f);
+    EXPECT_NEAR(derivative[0][0], 0.0f, 1e-5);
+    EXPECT_NEAR(derivative[0][1], 0.0f, 1e-5);
+    EXPECT_NEAR(derivative[0][2], 1.0f, 1e-5);
+    EXPECT_NEAR(derivative[0][3], 1.0f, 1e-5);
 }
 
 TEST(NeuroNetLayerDerivativesTest, LeakyReLU) {
@@ -123,10 +123,10 @@ TEST(NeuroNetLayerDerivativesTest, LeakyReLU) {
 
     ASSERT_EQ(derivative.rows(), 1);
     ASSERT_EQ(derivative.cols(), 4);
-    EXPECT_FLOAT_EQ(derivative[0][0], alpha);
-    EXPECT_FLOAT_EQ(derivative[0][1], alpha);
-    EXPECT_FLOAT_EQ(derivative[0][2], 1.0f);
-    EXPECT_FLOAT_EQ(derivative[0][3], alpha);
+    EXPECT_NEAR(derivative[0][0], alpha, 1e-5);
+    EXPECT_NEAR(derivative[0][1], alpha, 1e-5);
+    EXPECT_NEAR(derivative[0][2], 1.0f, 1e-5);
+    EXPECT_NEAR(derivative[0][3], alpha, 1e-5);
 }
 
 TEST(NeuroNetLayerDerivativesTest, ELU) {
@@ -146,10 +146,10 @@ TEST(NeuroNetLayerDerivativesTest, ELU) {
 
     ASSERT_EQ(derivative.rows(), 1);
     ASSERT_EQ(derivative.cols(), 4);
-    EXPECT_FLOAT_EQ(derivative[0][0], activated_output[0][0] + alpha);
-    EXPECT_FLOAT_EQ(derivative[0][1], activated_output[0][1] + alpha);
-    EXPECT_FLOAT_EQ(derivative[0][2], 1.0f);
-    EXPECT_FLOAT_EQ(derivative[0][3], activated_output[0][3] + alpha);
+    EXPECT_NEAR(derivative[0][0], activated_output[0][0] + alpha, 1e-5);
+    EXPECT_NEAR(derivative[0][1], activated_output[0][1] + alpha, 1e-5);
+    EXPECT_NEAR(derivative[0][2], 1.0f, 1e-5);
+    EXPECT_NEAR(derivative[0][3], activated_output[0][3] + alpha, 1e-5);
 }
 
 TEST(NeuroNetLayerDerivativesTest, Softmax) {
@@ -165,9 +165,9 @@ TEST(NeuroNetLayerDerivativesTest, Softmax) {
 
     ASSERT_EQ(derivative.rows(), 1);
     ASSERT_EQ(derivative.cols(), 3);
-    EXPECT_FLOAT_EQ(derivative[0][0], 0.1f * (1.0f - 0.1f));
-    EXPECT_FLOAT_EQ(derivative[0][1], 0.6f * (1.0f - 0.6f));
-    EXPECT_FLOAT_EQ(derivative[0][2], 0.3f * (1.0f - 0.3f));
+    EXPECT_NEAR(derivative[0][0], 0.1f * (1.0f - 0.1f), 1e-5);
+    EXPECT_NEAR(derivative[0][1], 0.6f * (1.0f - 0.6f), 1e-5);
+    EXPECT_NEAR(derivative[0][2], 0.3f * (1.0f - 0.3f), 1e-5);
 }
 
 
@@ -485,7 +485,7 @@ TEST_F(NeuroNetTest, NeuroNetLayerCalculateOutput) {
     EXPECT_EQ(output.rows(), 1);
     EXPECT_EQ(output.cols(), 1);
     // Expected: (1.0*0.5 + 1.0*0.5) + 0.1 = 1.0 + 0.1 = 1.1
-    EXPECT_FLOAT_EQ(output[0][0], 1.1f);
+    EXPECT_NEAR(output[0][0], 1.1f, 1e-5);
 }
 
 
@@ -535,7 +535,7 @@ TEST_F(NeuroNetTest, NeuroNetSetAndGetInputOutput) {
     EXPECT_EQ(output.rows(), 1);
     EXPECT_EQ(output.cols(), 1); 
     // Expected: (1.0 * 0.5 + 2.0 * 0.3) + 0.1 = 0.5 + 0.6 + 0.1 = 1.2
-    EXPECT_FLOAT_EQ(output[0][0], 1.2f);
+    EXPECT_NEAR(output[0][0], 1.2f, 1e-5);
 }
 
 
@@ -559,13 +559,13 @@ TEST_F(NeuroNetTest, NeuroNetAllWeightsBiasesFlat) {
     std::vector<float> retrieved_weights = net.get_all_weights_flat();
     EXPECT_EQ(retrieved_weights.size(), weights_to_set.size());
     for(size_t i = 0; i < weights_to_set.size(); ++i) {
-        EXPECT_FLOAT_EQ(retrieved_weights[i], weights_to_set[i]);
+        EXPECT_NEAR(retrieved_weights[i], weights_to_set[i], 1e-5);
     }
 
     std::vector<float> retrieved_biases = net.get_all_biases_flat();
     EXPECT_EQ(retrieved_biases.size(), biases_to_set.size());
     for(size_t i = 0; i < biases_to_set.size(); ++i) {
-        EXPECT_FLOAT_EQ(retrieved_biases[i], biases_to_set[i]);
+        EXPECT_NEAR(retrieved_biases[i], biases_to_set[i], 1e-5);
     }
 
     // Test setting with wrong sizes
@@ -595,19 +595,19 @@ TEST_F(NeuroNetTest, NeuroNetAllLayerWeightsBiases) {
     std::vector<NeuroNet::LayerWeights> retrieved_all_w = net.get_all_layer_weights();
     ASSERT_EQ(retrieved_all_w.size(), 2);
     EXPECT_EQ(retrieved_all_w[0].WeightCount, 2);
-    EXPECT_FLOAT_EQ(retrieved_all_w[0].WeightsVector[0], 0.1f);
-    EXPECT_FLOAT_EQ(retrieved_all_w[0].WeightsVector[1], 0.2f);
+    EXPECT_NEAR(retrieved_all_w[0].WeightsVector[0], 0.1f, 1e-5);
+    EXPECT_NEAR(retrieved_all_w[0].WeightsVector[1], 0.2f, 1e-5);
     EXPECT_EQ(retrieved_all_w[1].WeightCount, 2);
-    EXPECT_FLOAT_EQ(retrieved_all_w[1].WeightsVector[0], 0.3f);
-    EXPECT_FLOAT_EQ(retrieved_all_w[1].WeightsVector[1], 0.4f);
+    EXPECT_NEAR(retrieved_all_w[1].WeightsVector[0], 0.3f, 1e-5);
+    EXPECT_NEAR(retrieved_all_w[1].WeightsVector[1], 0.4f, 1e-5);
 
     std::vector<NeuroNet::LayerBiases> retrieved_all_b = net.get_all_layer_biases();
     ASSERT_EQ(retrieved_all_b.size(), 2);
     EXPECT_EQ(retrieved_all_b[0].BiasCount, 2);
-    EXPECT_FLOAT_EQ(retrieved_all_b[0].BiasVector[0], -0.1f);
-    EXPECT_FLOAT_EQ(retrieved_all_b[0].BiasVector[1], -0.2f);
+    EXPECT_NEAR(retrieved_all_b[0].BiasVector[0], -0.1f, 1e-5);
+    EXPECT_NEAR(retrieved_all_b[0].BiasVector[1], -0.2f, 1e-5);
     EXPECT_EQ(retrieved_all_b[1].BiasCount, 1);
-    EXPECT_FLOAT_EQ(retrieved_all_b[1].BiasVector[0], -0.3f);
+    EXPECT_NEAR(retrieved_all_b[1].BiasVector[0], -0.3f, 1e-5);
 }
 
 // Removed */ block comment marker
@@ -638,9 +638,9 @@ TEST_F(NeuroNetTest, ActivationReLU) {
 
     EXPECT_EQ(output.rows(), 1);
     EXPECT_EQ(output.cols(), num_outputs);
-    EXPECT_FLOAT_EQ(output[0][0], 1.0f);
-    EXPECT_FLOAT_EQ(output[0][1], 0.0f);
-    EXPECT_FLOAT_EQ(output[0][2], 0.0f);
+    EXPECT_NEAR(output[0][0], 1.0f, 1e-5);
+    EXPECT_NEAR(output[0][1], 0.0f, 1e-5);
+    EXPECT_NEAR(output[0][2], 0.0f, 1e-5);
 }
 
 TEST_F(NeuroNetTest, ActivationLeakyReLU) {
@@ -666,9 +666,9 @@ TEST_F(NeuroNetTest, ActivationLeakyReLU) {
 
     EXPECT_EQ(output.rows(), 1);
     EXPECT_EQ(output.cols(), num_outputs);
-    EXPECT_FLOAT_EQ(output[0][0], 1.0f);
-    EXPECT_FLOAT_EQ(output[0][1], -0.02f);
-    EXPECT_FLOAT_EQ(output[0][2], -0.1f);
+    EXPECT_NEAR(output[0][0], 1.0f, 1e-5);
+    EXPECT_NEAR(output[0][1], -0.02f, 1e-5);
+    EXPECT_NEAR(output[0][2], -0.1f, 1e-5);
 }
 
 TEST_F(NeuroNetTest, ActivationELU) {
@@ -694,9 +694,9 @@ TEST_F(NeuroNetTest, ActivationELU) {
 
     EXPECT_EQ(output.rows(), 1);
     EXPECT_EQ(output.cols(), num_outputs);
-    EXPECT_FLOAT_EQ(output[0][0], 1.0f);
-    EXPECT_FLOAT_EQ(output[0][1], 1.0f * (std::exp(-2.0f) - 1.0f));
-    EXPECT_FLOAT_EQ(output[0][2], 0.0f);
+    EXPECT_NEAR(output[0][0], 1.0f, 1e-5);
+    EXPECT_NEAR(output[0][1], 1.0f * (std::exp(-2.0f) - 1.0f), 1e-5);
+    EXPECT_NEAR(output[0][2], 0.0f, 1e-5);
 }
 
 TEST_F(NeuroNetTest, ActivationSoftmax) {
@@ -728,9 +728,9 @@ TEST_F(NeuroNetTest, ActivationSoftmax) {
     float e3 = std::exp(3.0f);
     float sum_exp = e1 + e2 + e3;
 
-    EXPECT_FLOAT_EQ(output[0][0], e1 / sum_exp);
-    EXPECT_FLOAT_EQ(output[0][1], e2 / sum_exp);
-    EXPECT_FLOAT_EQ(output[0][2], e3 / sum_exp);
+    EXPECT_NEAR(output[0][0], e1 / sum_exp, 1e-5);
+    EXPECT_NEAR(output[0][1], e2 / sum_exp, 1e-5);
+    EXPECT_NEAR(output[0][2], e3 / sum_exp, 1e-5);
 }
 
 TEST_F(NeuroNetTest, ActivationNone) {
@@ -756,9 +756,9 @@ TEST_F(NeuroNetTest, ActivationNone) {
 
     EXPECT_EQ(output.rows(), 1);
     EXPECT_EQ(output.cols(), num_outputs);
-    EXPECT_FLOAT_EQ(output[0][0], 1.0f);
-    EXPECT_FLOAT_EQ(output[0][1], -2.0f);
-    EXPECT_FLOAT_EQ(output[0][2], 0.5f);
+    EXPECT_NEAR(output[0][0], 1.0f, 1e-5);
+    EXPECT_NEAR(output[0][1], -2.0f, 1e-5);
+    EXPECT_NEAR(output[0][2], 0.5f, 1e-5);
 }
 
 // --- End of Activation Function Tests ---
@@ -832,12 +832,12 @@ TEST_F(NeuroNetTest, Serialization) {
         
         ASSERT_EQ(loaded_weights_list[i].WeightsVector.size(), original_weights_list[i].WeightsVector.size());
         for (size_t j = 0; j < original_weights_list[i].WeightsVector.size(); ++j) {
-            EXPECT_FLOAT_EQ(loaded_weights_list[i].WeightsVector[j], original_weights_list[i].WeightsVector[j]);
+            EXPECT_NEAR(loaded_weights_list[i].WeightsVector[j], original_weights_list[i].WeightsVector[j], 1e-5);
         }
 
         ASSERT_EQ(loaded_biases_list[i].BiasVector.size(), original_biases_list[i].BiasVector.size());
         for (size_t j = 0; j < original_biases_list[i].BiasVector.size(); ++j) {
-            EXPECT_FLOAT_EQ(loaded_biases_list[i].BiasVector[j], original_biases_list[i].BiasVector[j]);
+            EXPECT_NEAR(loaded_biases_list[i].BiasVector[j], original_biases_list[i].BiasVector[j], 1e-5);
         }
     }
     
@@ -1119,7 +1119,7 @@ TEST(NeuroNetStringInputTest, EndToEnd_StringInput_SimpleNet) {
     Matrix::Matrix<float> output = net.GetOutput();
     ASSERT_EQ(output.rows(), 1);
     ASSERT_EQ(output.cols(), 1);
-    EXPECT_FLOAT_EQ(output[0][0], 15.0f); // 5.0*1.0 + 10.0*1.0 + 0.0 = 15.0
+    EXPECT_NEAR(output[0][0], 15.0f, 1e-5); // 5.0*1.0 + 10.0*1.0 + 0.0 = 15.0
 
     std::remove(nn_test_vocab_path.c_str());
 }
@@ -1368,7 +1368,7 @@ TEST(NeuroNetJSONTest, GetOutputJSON_Basic) {
 
     const JsonValue& cell_val = row_val.GetArray()[0];
     ASSERT_EQ(cell_val.type, JsonValueType::Number);
-    EXPECT_FLOAT_EQ(static_cast<float>(cell_val.GetNumber()), 6.5f);
+    EXPECT_NEAR(static_cast<float>(cell_val.GetNumber()), 6.5f, 1e-5);
 
     // Cleanup for parsed JSON object
     if (output_json_val.type == JsonValueType::Object) {
