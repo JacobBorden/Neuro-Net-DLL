@@ -18,7 +18,7 @@ acceptance evidence exists; a proposed PR is not a delivered feature.
 
 ## P1 — Reliability before feature expansion
 
-- [ ] Enforce C++17 in CMake, modernize the minimum version, discover/link optional
+- [x] Enforce C++17 in CMake, modernize the minimum version, discover/link optional
   OpenMP, and run clean Linux/Windows builds with CTest output on failure.
 - [ ] Upgrade checkout actions (#88); verify workflow permissions and artifact
   paths without weakening required checks.

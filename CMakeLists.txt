@@ -1,4 +1,8 @@
-cmake_minimum_required(VERSION 3.0.0)
+cmake_minimum_required(VERSION 3.15)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 project(neuronet VERSION 0.1.0)
 
 include(CTest)
@@ -54,6 +58,12 @@ add_library(neuronet STATIC ${NEURONET_SOURCES})
 # library to make their ENABLE_BENCHMARKING blocks available as well.
 add_library(neuronet_benchmarks STATIC ${NEURONET_SOURCES})
 target_compile_definitions(neuronet_benchmarks PRIVATE ENABLE_BENCHMARKING)
+
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(neuronet PUBLIC OpenMP::OpenMP_CXX)
+    target_link_libraries(neuronet_benchmarks PUBLIC OpenMP::OpenMP_CXX)
+endif()
 
 # Testing subdirectory
 add_subdirectory(tests)
