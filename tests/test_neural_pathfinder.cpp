@@ -15,10 +15,14 @@ protected:
 TEST_F(NeuralPathfinderTest, EmptyNetwork_ThrowsException) {
     NeuroNet::NeuroNet net;
     // Network is empty by default (0 layers)
-    EXPECT_THROW({
+    try {
         NeuralPathfinder pathfinder(net);
-        pathfinder.FindOptimalPathAStar();
-    }, std::runtime_error);
+        FAIL() << "Expected std::runtime_error";
+    } catch(const std::runtime_error& err) {
+        EXPECT_EQ(err.what(), std::string("NeuralPathfinder: Network has no layers."));
+    } catch(...) {
+        FAIL() << "Expected std::runtime_error";
+    }
 }
 
 TEST_F(NeuralPathfinderTest, SingleLayerNetwork_ReturnsSingleNode) {
