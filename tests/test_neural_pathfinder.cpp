@@ -2,7 +2,6 @@
 #include "optimization/neural_pathfinder.h"
 #include "neural_network/neuronet.h"
 
-using namespace NeuroNet;
 using namespace NeuroNet::Optimization;
 
 class NeuralPathfinderTest : public ::testing::Test {
