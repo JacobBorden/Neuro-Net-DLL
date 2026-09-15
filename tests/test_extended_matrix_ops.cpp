@@ -195,3 +195,23 @@ TEST_F(SoftmaxTest, EmptyMatrixThrows) {
     EXPECT_THROW(NeuroNet::MathUtils::softmax(empty_mat, 1), std::invalid_argument);
     EXPECT_THROW(NeuroNet::MathUtils::softmax(empty_mat, 0), std::invalid_argument);
 }
+
+TEST_F(ExtendedMatrixOpsTest, SplitVerticalInvalidDivisor) {
+    Matrix::Matrix<float> input(5, 4);
+    EXPECT_THROW(input.SplitVertical(2), std::invalid_argument);
+}
+
+TEST_F(ExtendedMatrixOpsTest, SplitVerticalZeroNum) {
+    Matrix::Matrix<float> input(4, 4);
+    EXPECT_THROW(input.SplitVertical(0), std::invalid_argument);
+}
+
+TEST_F(ExtendedMatrixOpsTest, SplitVerticalEmptyMatrix) {
+    Matrix::Matrix<float> input(0, 4);
+    auto splits = input.SplitVertical(2);
+    ASSERT_EQ(splits.size(), 2);
+    EXPECT_EQ(splits[0].rows(), 0);
+    EXPECT_EQ(splits[0].cols(), 4);
+    EXPECT_EQ(splits[1].rows(), 0);
+    EXPECT_EQ(splits[1].cols(), 4);
+}
