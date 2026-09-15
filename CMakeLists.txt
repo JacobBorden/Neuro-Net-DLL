@@ -60,7 +60,10 @@ add_library(neuronet_benchmarks STATIC ${NEURONET_SOURCES})
 target_compile_definitions(neuronet_benchmarks PRIVATE ENABLE_BENCHMARKING)
 
 find_package(OpenMP)
-if(OpenMP_CXX_FOUND)
+# MSVC's classic OpenMP runtime rejects the project's size_t induction
+# variables (C3016). Keep OpenMP optional there until those loops are migrated
+# to a signed canonical form; GCC/Clang retain the existing parallel build.
+if(OpenMP_CXX_FOUND AND NOT MSVC)
     target_link_libraries(neuronet PUBLIC OpenMP::OpenMP_CXX)
     target_link_libraries(neuronet_benchmarks PUBLIC OpenMP::OpenMP_CXX)
 endif()
