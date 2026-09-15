@@ -1055,12 +1055,15 @@ namespace Matrix
         // making them private to each iteration of the outer loop, and thus to each thread handling an `i`.
 		#pragma omp parallel for
 		for (size_t i = 0; i < m_Rows; i++) {
-			for (size_t k = 0; k < b.m_Cols; k++) { // Iterate over columns of b (which is cols of c)
-                T sum = T(0); // Initialize sum for c[i][k]
-				for (size_t j = 0; j < m_Cols; j++) { // Iterate over columns of a / rows of b
-					sum += m_Data[i][j] * b.m_Data[j][k];
+            // Reordered loops to i, j, k for better cache locality (linear memory access for B).
+			for (size_t k = 0; k < b.m_Cols; k++) {
+                c.m_Data[i][k] = T(0); // Explicitly zero-initialize accumulation targets
+            }
+            for (size_t j = 0; j < m_Cols; j++) {
+                T a_ij = m_Data[i][j]; // Cache A[i][j] to avoid repeated lookups
+                for (size_t k = 0; k < b.m_Cols; k++) {
+					c.m_Data[i][k] += a_ij * b.m_Data[j][k];
 				}
-                c.m_Data[i][k] = sum; // Each thread writes to a different c.m_Data[i] row part
             }
         }
 
