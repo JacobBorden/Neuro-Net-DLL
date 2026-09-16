@@ -2,7 +2,15 @@
 #include "../src/utilities/logger.h"
 #include <sstream>
 
-TEST(LoggerTest, DebugLevelOutput) {
+class LoggerTest : public ::testing::Test {
+protected:
+    void TearDown() override {
+        ::NeuroNet::Logger::SetLevel(::NeuroNet::Logger::Level::INFO);
+        ::NeuroNet::Logger::SetStream(&std::cout);
+    }
+};
+
+TEST_F(LoggerTest, DebugLevelOutput) {
     std::ostringstream oss;
     ::NeuroNet::Logger::SetStream(&oss);
     ::NeuroNet::Logger::SetLevel(::NeuroNet::Logger::Level::DEBUG);
@@ -10,10 +18,9 @@ TEST(LoggerTest, DebugLevelOutput) {
     ::NeuroNet::Logger::Debug("Test ", 1, " debug");
     EXPECT_EQ(oss.str(), "[DEBUG] Test 1 debug\n");
 
-    ::NeuroNet::Logger::SetStream(&std::cout);
 }
 
-TEST(LoggerTest, InfoLevelOutput) {
+TEST_F(LoggerTest, InfoLevelOutput) {
     std::ostringstream oss;
     ::NeuroNet::Logger::SetStream(&oss);
     ::NeuroNet::Logger::SetLevel(::NeuroNet::Logger::Level::INFO);
@@ -22,10 +29,9 @@ TEST(LoggerTest, InfoLevelOutput) {
     ::NeuroNet::Logger::Info("Test ", 2, " info");
     EXPECT_EQ(oss.str(), "[INFO] Test 2 info\n");
 
-    ::NeuroNet::Logger::SetStream(&std::cout);
 }
 
-TEST(LoggerTest, WarningLevelOutput) {
+TEST_F(LoggerTest, WarningLevelOutput) {
     std::ostringstream oss;
     ::NeuroNet::Logger::SetStream(&oss);
     ::NeuroNet::Logger::SetLevel(::NeuroNet::Logger::Level::WARNING);
@@ -35,10 +41,9 @@ TEST(LoggerTest, WarningLevelOutput) {
     ::NeuroNet::Logger::Warning("Test ", 3, " warning");
     EXPECT_EQ(oss.str(), "[WARNING] Test 3 warning\n");
 
-    ::NeuroNet::Logger::SetStream(&std::cout);
 }
 
-TEST(LoggerTest, ErrorLevelOutput) {
+TEST_F(LoggerTest, ErrorLevelOutput) {
     std::ostringstream oss;
     ::NeuroNet::Logger::SetStream(&oss);
     ::NeuroNet::Logger::SetLevel(::NeuroNet::Logger::Level::ERROR);
@@ -49,10 +54,9 @@ TEST(LoggerTest, ErrorLevelOutput) {
     ::NeuroNet::Logger::Error("Test ", 4, " error");
     EXPECT_EQ(oss.str(), "[ERROR] Test 4 error\n");
 
-    ::NeuroNet::Logger::SetStream(&std::cout);
 }
 
-TEST(LoggerTest, NoneLevelOutput) {
+TEST_F(LoggerTest, NoneLevelOutput) {
     std::ostringstream oss;
     ::NeuroNet::Logger::SetStream(&oss);
     ::NeuroNet::Logger::SetLevel(::NeuroNet::Logger::Level::NONE);
@@ -63,5 +67,4 @@ TEST(LoggerTest, NoneLevelOutput) {
     ::NeuroNet::Logger::Error("Should not print");
     EXPECT_EQ(oss.str(), "");
 
-    ::NeuroNet::Logger::SetStream(&std::cout);
 }
