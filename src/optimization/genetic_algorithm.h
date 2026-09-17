@@ -19,6 +19,7 @@
 #include "../neural_network/neuronet.h" // NeuroNet class header
 #include "optimization/training_metrics.h" // For training metrics
 
+class GeneticAlgorithmTest;
 namespace Optimization {
 
 /**
@@ -29,6 +30,7 @@ namespace Optimization {
  * to find an individual that performs well according to a user-defined fitness function.
  */
 class GeneticAlgorithm {
+    friend class ::GeneticAlgorithmTest;
 public:
     /**
      * @brief Constructs a GeneticAlgorithm instance.
