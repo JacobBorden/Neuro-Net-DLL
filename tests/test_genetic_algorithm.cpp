@@ -60,7 +60,18 @@ protected:
         template_net.ResizeLayer(0, 3); // Hidden layer: 2 in, 3 out
         template_net.ResizeLayer(1, 1); // Output layer: 3 in, 1 out
     }
+
+    // Proxy method to test private tournament_selection method
+    const NeuroNet::NeuroNet& call_tournament_selection(const Optimization::GeneticAlgorithm& ga, int tournament_size = 5) {
+        return ga.tournament_selection(tournament_size);
+    }
 };
+
+TEST_F(GeneticAlgorithmTest, TournamentSelectionEmptyPopulation) {
+    Optimization::GeneticAlgorithm ga(0, mutation_rate, crossover_rate, num_generations, template_net);
+    // Ensure population is explicitly empty.
+    EXPECT_THROW(call_tournament_selection(ga), std::runtime_error);
+}
 
 TEST_F(GeneticAlgorithmTest, Constructor) {
     Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, num_generations, template_net);
