@@ -71,6 +71,20 @@ TEST_F(MNISTLoaderTest, LoadLabelsSuccess) {
     EXPECT_EQ(labels[1][0], 1.0f);
 }
 
+TEST_F(MNISTLoaderTest, LoadImagesRejectsPathTraversal) {
+    Matrix::Matrix<float> images;
+    EXPECT_THROW(Utilities::Dataset::MNISTLoader::LoadImages("../dummy_images", images), std::runtime_error);
+    EXPECT_THROW(Utilities::Dataset::MNISTLoader::LoadImages("/absolute/dummy_images", images), std::runtime_error);
+    EXPECT_THROW(Utilities::Dataset::MNISTLoader::LoadImages("C:\\dummy_images", images), std::runtime_error);
+}
+
+TEST_F(MNISTLoaderTest, LoadLabelsRejectsPathTraversal) {
+    Matrix::Matrix<float> labels;
+    EXPECT_THROW(Utilities::Dataset::MNISTLoader::LoadLabels("../dummy_labels", labels), std::runtime_error);
+    EXPECT_THROW(Utilities::Dataset::MNISTLoader::LoadLabels("/absolute/dummy_labels", labels), std::runtime_error);
+    EXPECT_THROW(Utilities::Dataset::MNISTLoader::LoadLabels("C:\\dummy_labels", labels), std::runtime_error);
+}
+
 TEST_F(MNISTLoaderTest, FileNotFound) {
     Matrix::Matrix<float> images;
     bool success = Utilities::Dataset::MNISTLoader::LoadImages("nonexistent_file", images);
