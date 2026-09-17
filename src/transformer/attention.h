@@ -17,9 +17,8 @@ class ScaledDotProductAttention {
 public:
     /**
      * @brief Constructor for ScaledDotProductAttention.
-     * @param dropout_rate Rate for dropout (0.0 to 1.0). Not implemented in this version, placeholder for future.
      */
-    explicit ScaledDotProductAttention(float dropout_rate = 0.0f); // dropout_rate currently unused
+    explicit ScaledDotProductAttention();
 
     /**
      * @brief Performs the forward pass for scaled dot-product attention.
@@ -41,8 +40,6 @@ public:
         const Matrix::Matrix<float>& mask = Matrix::Matrix<float>(0,0) // Default empty matrix
     );
 
-private:
-    float dropout_rate_; // Placeholder, not currently used in implementation
 };
 
 } // namespace Transformer
