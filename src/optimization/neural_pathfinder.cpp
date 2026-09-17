@@ -5,6 +5,7 @@
 #include <algorithm>  // For std::reverse, std::max
 #include <queue>      // For std::priority_queue
 #include <map>        // For std::map (can be alt to unordered_map if issues with hash)
+#include "../utilities/logger.h"
 
 namespace NeuroNet {
 namespace Optimization {
@@ -64,7 +65,7 @@ double NeuralPathfinder::GetMaxAbsoluteWeight() const {
             for (int curr_n_idx = 0; curr_n_idx < current_layer_neuron_count; ++curr_n_idx) {
                 if (!layer.has_weight(prev_n_idx, curr_n_idx)) {
                     // This might happen if layer configuration is unusual or if there's a bug.
-                    // For robustness, could log this error. For now, skip this weight.
+                    ::NeuroNet::Logger::Warning("NeuralPathfinder: Missing weight in layer ", i, " between input ", prev_n_idx, " and neuron ", curr_n_idx);
                     continue;
                 }
                 float weight = layer.get_weight(prev_n_idx, curr_n_idx);
@@ -162,6 +163,7 @@ std::vector<AStarPathNode> NeuralPathfinder::FindOptimalPathAStar() {
 
             if (!next_layer_ref.has_weight(current_node.neuron_idx, neighbor_neuron_idx_in_layer)) {
                 // Should not happen if layer sizes and indices are correct.
+                ::NeuroNet::Logger::Warning("NeuralPathfinder: Missing weight in layer ", next_layer_idx, " between input ", current_node.neuron_idx, " and neuron ", neighbor_neuron_idx_in_layer);
                 continue; // Skip this potential connection
             }
 
