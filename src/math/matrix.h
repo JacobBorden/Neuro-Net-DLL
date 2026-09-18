@@ -604,7 +604,9 @@ namespace Matrix
             if (m_Rows == 0) return b;
 
 			Matrix<T> result(m_Rows + b.m_Rows, m_Cols);
+			#pragma omp parallel for
 			for(size_t i = 0; i < m_Rows; ++i) result.m_Data[i] = m_Data[i]; // Copy existing rows
+			#pragma omp parallel for
 			for(size_t i = 0; i < b.m_Rows; ++i) result.m_Data[m_Rows + i] = b.m_Data[i]; // Copy new rows
 			return result;
 		}
@@ -624,11 +626,12 @@ namespace Matrix
             if (m_Cols == 0) return b;
 
 			Matrix<T> result(m_Rows, m_Cols + b.m_Cols);
+			#pragma omp parallel for
 			for (size_t i = 0; i < m_Rows; ++i)
 			{
                 // Create new rows for the result matrix by copying elements
-                for(size_t j=0; j < m_Cols; ++j) result.m_Data[i][j] = m_Data[i][j];
-                for(size_t j=0; j < b.m_Cols; ++j) result.m_Data[i][m_Cols + j] = b.m_Data[i][j];
+                std::copy_n(&m_Data[i][0], m_Cols, &result.m_Data[i][0]);
+                std::copy_n(&b.m_Data[i][0], b.m_Cols, &result.m_Data[i][m_Cols]);
 			}
 			return result;
 		}
@@ -668,6 +671,7 @@ namespace Matrix
 			for (size_t i = 0; i < num; ++i)
 			{
 				Matrix<T> split(split_size, m_Cols);
+				#pragma omp parallel for
 				for(size_t r = 0; r < split_size; ++r) {
 					split.m_Data[r] = m_Data[i * split_size + r]; // Copy rows
 				}
@@ -711,12 +715,10 @@ namespace Matrix
 			for (size_t i = 0; i < num; ++i) // For each new matrix part
 			{
 				Matrix<T> split(m_Rows, split_col_size);
+				#pragma omp parallel for
 				for (size_t r = 0; r < m_Rows; ++r) // For each row in the original matrix
 				{
-					for (size_t c_split = 0; c_split < split_col_size; ++c_split) // For each column in the split part
-					{
-						split.m_Data[r][c_split] = m_Data[r][i * split_col_size + c_split];
-					}
+					std::copy_n(&m_Data[r][i * split_col_size], split_col_size, &split.m_Data[r][0]);
 				}
 				result.push_back(std::move(split));
 			}
@@ -732,6 +734,7 @@ namespace Matrix
 		{
 			Matrix<T> result(*this); // Make a copy
 			if (!result.m_Data) return result; // Return copy if empty
+			#pragma omp parallel for
 			for (size_t i = 0; i < result.m_Rows; ++i) // Use size_t
 			{
 				for (size_t j = 0; j < result.m_Cols; ++j) // Use size_t
@@ -809,6 +812,7 @@ namespace Matrix
 		{
             if (m_Rows == 0 || m_Cols == 0) return Matrix<T>(m_Cols, m_Rows); // Transpose of empty/vector
 			Matrix<T> result(m_Cols, m_Rows);
+			#pragma omp parallel for
 			for (size_t i = 0; i < m_Rows; ++i) { // Iterate up to m_Rows
 				for (size_t j = 0; j < m_Cols; ++j) { // Iterate up to m_Cols
 					result.m_Data[j][i] = m_Data[i][j];
