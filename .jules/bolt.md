@@ -1,0 +1,3 @@
+## 2024-05-14 - Parallelize Matrix Operations in extended_matrix_ops.cpp
+**Learning:** Performance profiling revealed that several operations in `extended_matrix_ops.cpp` (`softmax`, `layer_norm`, `gelu`) were executed sequentially and taking a significant amount of time for large matrices (e.g. 2000x2000). Applying OpenMP `#pragma omp parallel for` across the outer loops resulted in massive speedups (e.g. `softmax` from 735 ms to 138 ms, `layer_norm` from 473 ms to 100 ms, `gelu` from 1713 ms to 410 ms). However, `split_matrix_by_cols` performed worse with OpenMP due to overhead.
+**Action:** Parallelize computation-heavy functions (`softmax`, `layer_norm`, `gelu`) with OpenMP but avoid it for data movement operations like `split_matrix_by_cols`.

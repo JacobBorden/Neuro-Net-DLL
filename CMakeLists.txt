@@ -16,6 +16,8 @@ FetchContent_MakeAvailable(googletest)
 
 include_directories(src)
 
+find_package(OpenMP REQUIRED)
+
 add_library(neuronet STATIC 
     src/neural_network/neuronet.cpp
     src/optimization/genetic_algorithm.cpp
@@ -35,6 +37,7 @@ add_library(neuronet STATIC
     src/math/least_squares.cpp
     src/classifier/naive_bayes.cpp
 )
+target_link_libraries(neuronet PUBLIC OpenMP::OpenMP_CXX)
 
 # Testing subdirectory
 add_subdirectory(tests)
