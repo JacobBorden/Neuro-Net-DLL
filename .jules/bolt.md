@@ -1,3 +1,0 @@
-## 2026-09-22 - Optimize Narrow RHS Matrix Multiplication
-**Learning:** For narrow matrix multiplications (RHS columns <= 128), it is more efficient to cache the accumulator variable per output element to reduce redundant write operations to the output matrix, rather than parallelizing only the outer loops and continually accumulating into memory.
-**Action:** When optimizing performance-critical nested loops, analyze memory access patterns and apply specialized code paths that minimize memory writes for specific matrix dimension thresholds (like `b.m_Cols <= 128`), keeping OpenMP pragmas outside the loop that defines the accumulator.
