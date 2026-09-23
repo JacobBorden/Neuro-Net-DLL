@@ -1088,21 +1088,6 @@ namespace Matrix
 				}
 				c.m_Data[i][0] = sum;
 			}
-		} else if (b.m_Cols <= 128) {
-			// A narrow RHS benefits from preserving the accumulator for each column
-			// to reduce write operations to the output matrix c.
-#ifdef _OPENMP
-			#pragma omp parallel for
-#endif
-			for (size_t i = 0; i < m_Rows; i++) {
-				for (size_t k = 0; k < b.m_Cols; k++) {
-					T sum = T{};
-					for (size_t j = 0; j < m_Cols; j++) {
-						sum += m_Data[i][j] * b.m_Data[j][k];
-					}
-					c.m_Data[i][k] = sum;
-				}
-			}
 		} else {
         // Parallelize the outermost loop using OpenMP. Loop variable i is private by default.
 #ifdef _OPENMP

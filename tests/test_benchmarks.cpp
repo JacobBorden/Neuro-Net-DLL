@@ -62,6 +62,8 @@ bool compare_matrices(const Matrix::Matrix<float>& a, const Matrix::Matrix<float
 
 
 int main() {
+    bool benchmark_passed = true;
+
     std::cout << "=============== Starting Benchmarks ===============" << std::endl;
     std::cout << "#define ENABLE_BENCHMARKING is active." << std::endl << std::endl;
 
@@ -82,6 +84,7 @@ int main() {
         Matrix::Matrix<float> C_ref = reference_multiply(A, B);
         if (!compare_matrices(C, C_ref)) {
             std::cerr << "Mismatch in square matrix multiplication!" << std::endl;
+            benchmark_passed = false;
         }
         std::cout << "Matrix C created with rows: " << C.rows() << ", cols: " << C.cols() << " (result not printed)" << std::endl;
         std::cout << "--- Finished Matrix Multiplication " << size << "x" << size << " ---" << std::endl;
@@ -100,6 +103,7 @@ int main() {
     Matrix::Matrix<float> vector_c_ref = reference_multiply(vector_a, vector_b);
     if (!compare_matrices(vector_c, vector_c_ref)) {
         std::cerr << "Mismatch in matrix-vector multiplication!" << std::endl;
+        benchmark_passed = false;
     }
     std::cout << "Matrix-vector result has rows: " << vector_c.rows()
               << ", cols: " << vector_c.cols() << std::endl;
@@ -119,6 +123,7 @@ int main() {
     Matrix::Matrix<float> rect_c_ref = reference_multiply(rect_a, rect_b);
     if (!compare_matrices(rect_c, rect_c_ref)) {
         std::cerr << "Mismatch in rectangular matrix multiplication!" << std::endl;
+        benchmark_passed = false;
     }
     std::cout << "Rectangular result has rows: " << rect_c.rows()
               << ", cols: " << rect_c.cols() << std::endl;
@@ -287,5 +292,5 @@ int main() {
 
     std::cout << "=============== All Benchmarks Finished ===============" << std::endl;
 
-    return 0;
+    return benchmark_passed ? 0 : 1;
 }
