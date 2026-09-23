@@ -33,6 +33,33 @@ void fill_matrix_sequential(Matrix::Matrix<float>& mat) {
     }
 }
 
+// Reference O(N^3) matrix multiplication
+Matrix::Matrix<float> reference_multiply(const Matrix::Matrix<float>& a, const Matrix::Matrix<float>& b) {
+    if (a.cols() != b.rows()) throw std::invalid_argument("Incompatible sizes");
+    Matrix::Matrix<float> c(a.rows(), b.cols());
+    for (size_t i = 0; i < a.rows(); ++i) {
+        for (size_t j = 0; j < b.cols(); ++j) {
+            float sum = 0.0f;
+            for (size_t k = 0; k < a.cols(); ++k) {
+                sum += a[i][k] * b[k][j];
+            }
+            c[i][j] = sum;
+        }
+    }
+    return c;
+}
+
+// Compare two matrices
+bool compare_matrices(const Matrix::Matrix<float>& a, const Matrix::Matrix<float>& b, float epsilon = 1e-3f) {
+    if (a.rows() != b.rows() || a.cols() != b.cols()) return false;
+    for (size_t i = 0; i < a.rows(); ++i) {
+        for (size_t j = 0; j < a.cols(); ++j) {
+            if (std::abs(a[i][j] - b[i][j]) > epsilon) return false;
+        }
+    }
+    return true;
+}
+
 
 int main() {
     std::cout << "=============== Starting Benchmarks ===============" << std::endl;
@@ -52,6 +79,10 @@ int main() {
 
         // The actual multiplication will trigger the internal timer in matrix.h
         Matrix::Matrix<float> C = A * B; 
+        Matrix::Matrix<float> C_ref = reference_multiply(A, B);
+        if (!compare_matrices(C, C_ref)) {
+            std::cerr << "Mismatch in square matrix multiplication!" << std::endl;
+        }
         std::cout << "Matrix C created with rows: " << C.rows() << ", cols: " << C.cols() << " (result not printed)" << std::endl;
         std::cout << "--- Finished Matrix Multiplication " << size << "x" << size << " ---" << std::endl;
     }
@@ -66,9 +97,32 @@ int main() {
     fill_matrix_random(vector_a);
     fill_matrix_random(vector_b);
     Matrix::Matrix<float> vector_c = vector_a * vector_b;
+    Matrix::Matrix<float> vector_c_ref = reference_multiply(vector_a, vector_b);
+    if (!compare_matrices(vector_c, vector_c_ref)) {
+        std::cerr << "Mismatch in matrix-vector multiplication!" << std::endl;
+    }
     std::cout << "Matrix-vector result has rows: " << vector_c.rows()
               << ", cols: " << vector_c.cols() << std::endl;
     std::cout << "------- Finished Benchmark 1b: Matrix-Vector Multiplication -------"
+              << std::endl << std::endl;
+
+    // Benchmark 1c: Rectangular matrix multiplication.
+    constexpr int rect_rows = 512;
+    constexpr int rect_width = 4096;
+    constexpr int rect_cols = 512;
+    std::cout << "------- Benchmark 1c: Rectangular Matrix Multiplication -------" << std::endl;
+    Matrix::Matrix<float> rect_a(rect_rows, rect_width);
+    Matrix::Matrix<float> rect_b(rect_width, rect_cols);
+    fill_matrix_random(rect_a);
+    fill_matrix_random(rect_b);
+    Matrix::Matrix<float> rect_c = rect_a * rect_b;
+    Matrix::Matrix<float> rect_c_ref = reference_multiply(rect_a, rect_b);
+    if (!compare_matrices(rect_c, rect_c_ref)) {
+        std::cerr << "Mismatch in rectangular matrix multiplication!" << std::endl;
+    }
+    std::cout << "Rectangular result has rows: " << rect_c.rows()
+              << ", cols: " << rect_c.cols() << std::endl;
+    std::cout << "------- Finished Benchmark 1c: Rectangular Matrix Multiplication -------"
               << std::endl << std::endl;
 
     // Benchmark 2: Neural Network Forward Pass
