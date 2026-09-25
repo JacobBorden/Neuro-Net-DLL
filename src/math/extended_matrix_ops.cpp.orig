@@ -12,7 +12,6 @@ Matrix::Matrix<float> gelu(const Matrix::Matrix<float>& input) {
     Matrix::Matrix<float> output(input.rows(), input.cols());
     constexpr float M_SQRT2_OVER_PI = 0.7978845608028654f; // sqrt(2/PI)
 
-    // Bolt: Parallelizing outer loop for significant performance boost on large matrices
     #pragma omp parallel for
     for (size_t i = 0; i < input.rows(); ++i) {
         for (size_t j = 0; j < input.cols(); ++j) {
@@ -40,7 +39,6 @@ Matrix::Matrix<float> softmax(const Matrix::Matrix<float>& input, int axis) {
     Matrix::Matrix<float> output(rows, cols);
 
     if (axis == 1 || axis == -1) { // Row-wise Softmax
-        // Bolt: Parallelizing outer loop for significant performance boost on large matrices
         #pragma omp parallel for
         for (size_t i = 0; i < rows; ++i) {
             float max_val = input[i][0];
@@ -70,7 +68,6 @@ Matrix::Matrix<float> softmax(const Matrix::Matrix<float>& input, int axis) {
             }
         }
     } else { // Column-wise Softmax (axis == 0)
-        // Bolt: Parallelizing outer loop for significant performance boost on large matrices
         #pragma omp parallel for
         for (size_t j = 0; j < cols; ++j) {
             float max_val = input[0][j];
@@ -111,7 +108,6 @@ Matrix::Matrix<float> layer_norm(const Matrix::Matrix<float>& input, float epsil
 
     Matrix::Matrix<float> output(input.rows(), input.cols());
 
-    // Bolt: Parallelizing outer loop for significant performance boost on large matrices
     #pragma omp parallel for
     for (size_t i = 0; i < input.rows(); ++i) {
         float sum = 0.0f;

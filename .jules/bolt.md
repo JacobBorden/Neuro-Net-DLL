@@ -1,0 +1,3 @@
+## 2026-09-25 - Parallelizing Computation-Heavy Matrix Operations
+**Learning:** Adding OpenMP parallelization to outer loops significantly improves the performance of math-intensive matrix operations like `gelu`, `softmax`, and `layer_norm` (e.g. gelu drops from ~29ms to ~11ms for 1000x1000 matrices). However, for data-movement operations like `split_matrix_by_cols`, parallelization overhead causes a performance degradation.
+**Action:** When working on similar C++ matrix libraries, explicitly separate math operations from memory-moving ones before parallelizing. Always ensure `find_package(OpenMP REQUIRED)` and `target_link_libraries(target PUBLIC OpenMP::OpenMP_CXX)` are correctly set in CMakeLists.txt.
