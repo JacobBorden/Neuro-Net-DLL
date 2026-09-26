@@ -30,7 +30,7 @@ acceptance evidence exists; a proposed PR is not a delivered feature.
   seeds; preserve the same initial population when testing elitism/improvement.
 - [ ] Wire benchmark examples into CMake and record compiler, flags, dimensions,
   repetitions, and thread counts. Verify #153's merged API repair before closing it.
-- [ ] Resolve the orphan `dependencies/matrix` gitlink metadata without deleting a
+- [x] Resolve the orphan `dependencies/matrix` gitlink metadata without deleting a
   user's dependency checkout; verify a fresh clone and Actions cleanup.
 - [ ] Audit JSON ownership/model validation and least-squares conditioning with
   adversarial and numerical tests; use evidence to choose scoped repairs.
