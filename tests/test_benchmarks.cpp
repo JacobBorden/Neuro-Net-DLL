@@ -157,7 +157,7 @@ int main() {
     std::function<double(NeuroNet::NeuroNet&)> fitness_func = 
         [](NeuroNet::NeuroNet& nn) {
             // Simple dummy: get output, sum its elements. More complex might be needed for real scenarios.
-            Matrix::Matrix<float> temp_input(1, nn.getLayer(0).InputSize > 0 ? nn.getLayer(0).InputSize : 10); // Use actual input size
+            Matrix::Matrix<float> temp_input(1, nn.GetInputSize() > 0 ? nn.GetInputSize() : 10); // Use actual input size
             fill_matrix_random(temp_input); // Create some input
             nn.SetInput(temp_input);
             Matrix::Matrix<float> output = nn.GetOutput(); // This itself is timed internally by NeuroNet
@@ -196,7 +196,7 @@ int main() {
     // evolve_one_generation calls evaluate_fitness, selection, etc.
     // evaluate_fitness will be timed again here.
     // selection, crossover, and mutate are timed internally.
-    ga.evolve_one_generation(fitness_func);
+    ga.evolve_one_generation(fitness_func, 0);
     std::cout << "--- Finished GA: evolve_one_generation ---" << std::endl;
     
     std::cout << "\n--- Benchmarking GA: run_evolution (for " << num_generations_for_benchmark << " generation(s)) ---" << std::endl;

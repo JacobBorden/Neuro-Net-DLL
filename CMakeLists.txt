@@ -14,6 +14,7 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
+find_package(OpenMP REQUIRED)
 include_directories(src)
 
 add_library(neuronet STATIC 
@@ -37,12 +38,14 @@ add_library(neuronet STATIC
 )
 
 # Testing subdirectory
+target_link_libraries(neuronet PUBLIC OpenMP::OpenMP_CXX)
 add_subdirectory(tests)
 
 # Example executable
 add_executable(BasicUsageExport examples/basic_usage_export.cpp)
 target_link_libraries(BasicUsageExport PRIVATE neuronet)
-# target_include_directories(BasicUsageExport PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src) # Already covered by global include_directories(src)
+# target_include_directories(BasicUsageExport PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src) # Already covered by global find_package(OpenMP REQUIRED)
+include_directories(src)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
