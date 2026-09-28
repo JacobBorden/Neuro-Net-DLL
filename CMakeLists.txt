@@ -16,6 +16,13 @@ FetchContent_MakeAvailable(googletest)
 
 include_directories(src)
 
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    # Link OpenMP later if found
+else()
+    message(WARNING "OpenMP not found, compiling without OpenMP support.")
+endif()
+
 add_library(neuronet STATIC 
     src/neural_network/neuronet.cpp
     src/optimization/genetic_algorithm.cpp
@@ -35,6 +42,9 @@ add_library(neuronet STATIC
     src/math/least_squares.cpp
     src/classifier/naive_bayes.cpp
 )
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(neuronet PUBLIC OpenMP::OpenMP_CXX)
+endif()
 
 # Testing subdirectory
 add_subdirectory(tests)
