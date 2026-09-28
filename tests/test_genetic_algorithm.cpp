@@ -263,26 +263,25 @@ TEST_F(GeneticAlgorithmTest, LegacyGenerationLimitRemainsTheDefault) {
     evaluations = 0;
     ga.run_evolution(fitness);
     EXPECT_EQ(evaluations, population_size * num_generations);
-    // Additive
-    ExpectGenerationMetrics(ga, 2 + num_generations);
+    ExpectGenerationMetrics(ga, num_generations);
 }
 
-TEST_F(GeneticAlgorithmTest, AdditivePerCallEvolution) {
+TEST_F(GeneticAlgorithmTest, PerCallGenerationLimitsResetMetrics) {
     Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, template_net);
     int evaluations = 0;
     auto fitness = [&](NeuroNet::NeuroNet&) { ++evaluations; return 1.0; };
 
-    ga.run_evolution(2, fitness);
-    EXPECT_EQ(evaluations, population_size * 2);
-    ExpectGenerationMetrics(ga, 2);
+    for (int generations : {2, 4, 0}) {
+        evaluations = 0;
+        ga.run_evolution(generations, fitness);
+        EXPECT_EQ(evaluations, population_size * generations);
+        ExpectGenerationMetrics(ga, generations);
+    }
 
-    ga.run_evolution(4, fitness);
-    EXPECT_EQ(evaluations, population_size * 6);
-    ExpectGenerationMetrics(ga, 6);
-
-    ga.run_evolution(0, fitness);
-    EXPECT_EQ(evaluations, population_size * 6);
-    ExpectGenerationMetrics(ga, 6);
+    // The convenience constructor documents zero as the default limit.
+    ga.run_evolution(fitness);
+    EXPECT_EQ(evaluations, 0);
+    ExpectGenerationMetrics(ga, 0);
 }
 
 TEST_F(GeneticAlgorithmTest, PerCallGenerationLimitSupportsEarlyStopping) {
@@ -297,8 +296,7 @@ TEST_F(GeneticAlgorithmTest, PerCallGenerationLimitSupportsEarlyStopping) {
     evaluations = 0;
     ga.run_evolution(2, fitness, 3);
     EXPECT_EQ(evaluations, population_size * 2);
-    // Additive
-    ExpectGenerationMetrics(ga, 4 + 2);
+    ExpectGenerationMetrics(ga, 2);
 }
 
 TEST_F(GeneticAlgorithmTest, NegativeGenerationLimitPreservesPreviousRun) {
