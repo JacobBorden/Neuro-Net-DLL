@@ -2,6 +2,41 @@
 
 #include "math/matrix.h"
 
+TEST(MatrixMultiplicationTest, MultipliesRectangularMatrixByRectangularMatrix) {
+    Matrix::Matrix<float> left(2, 3);
+    Matrix::Matrix<float> right(3, 2);
+
+    const float left_values[2][3] = {
+        {1.0f, 2.0f, 3.0f},
+        {4.0f, 5.0f, 6.0f}
+    };
+    const float right_values[3][2] = {
+        {7.0f, 8.0f},
+        {9.0f, 10.0f},
+        {11.0f, 12.0f}
+    };
+
+    for (size_t row = 0; row < left.rows(); ++row) {
+        for (size_t column = 0; column < left.cols(); ++column) {
+            left[row][column] = left_values[row][column];
+        }
+    }
+    for (size_t row = 0; row < right.rows(); ++row) {
+        for (size_t column = 0; column < right.cols(); ++column) {
+            right[row][column] = right_values[row][column];
+        }
+    }
+
+    const Matrix::Matrix<float> result = left * right;
+
+    ASSERT_EQ(result.rows(), 2U);
+    ASSERT_EQ(result.cols(), 2U);
+    EXPECT_FLOAT_EQ(result[0][0], 58.0f);
+    EXPECT_FLOAT_EQ(result[0][1], 64.0f);
+    EXPECT_FLOAT_EQ(result[1][0], 139.0f);
+    EXPECT_FLOAT_EQ(result[1][1], 154.0f);
+}
+
 TEST(MatrixMultiplicationTest, MultipliesRectangularMatrixByColumnVector) {
     Matrix::Matrix<float> left(3, 4);
     Matrix::Matrix<float> right(4, 1);

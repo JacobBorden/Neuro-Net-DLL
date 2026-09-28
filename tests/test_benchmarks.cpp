@@ -71,6 +71,21 @@ int main() {
     std::cout << "------- Finished Benchmark 1b: Matrix-Vector Multiplication -------"
               << std::endl << std::endl;
 
+    // Benchmark 1c: Rectangular matrix multiplication
+    constexpr int rect_m = 64;
+    constexpr int rect_k = 16384;
+    constexpr int rect_n = 128;
+    std::cout << "------- Benchmark 1c: Rectangular Matrix Multiplication -------" << std::endl;
+    Matrix::Matrix<float> rect_a(rect_m, rect_k);
+    Matrix::Matrix<float> rect_b(rect_k, rect_n);
+    fill_matrix_random(rect_a);
+    fill_matrix_random(rect_b);
+    Matrix::Matrix<float> rect_c = rect_a * rect_b;
+    std::cout << "Rectangular matrix result has rows: " << rect_c.rows()
+              << ", cols: " << rect_c.cols() << std::endl;
+    std::cout << "------- Finished Benchmark 1c: Rectangular Matrix Multiplication -------"
+              << std::endl << std::endl;
+
     // Benchmark 2: Neural Network Forward Pass
     std::cout << "------- Benchmark 2: Neural Network Forward Pass -------" << std::endl;
 
