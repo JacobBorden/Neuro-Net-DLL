@@ -487,21 +487,26 @@ void Optimization::GeneticAlgorithm::run_evolution(int num_generations, const st
     if (num_generations < 0) {
         throw std::invalid_argument("Generation count must be non-negative.");
     }
-    initialize_population(); // Prepare the initial random population and resets metrics.
-    current_generation_ = 0; // Ensure generation count starts from 0 for the loop.
 
-    // Record start time
-    current_run_metrics_.start_time = utilities::get_current_time_string();
+    // Only initialize if population is empty (preserves existing population for additive calls)
+    if (population_.empty()) {
+        initialize_population();
+        current_run_metrics_.start_time = utilities::get_current_time_string();
+        current_run_metrics_.total_generations = 0;
+    }
 
-    current_run_metrics_.total_generations = num_generations;
-    current_run_metrics_.generation_data.clear(); // Clear any data from previous runs
-    current_run_metrics_.generation_data.reserve(num_generations);
+    current_run_metrics_.total_generations += num_generations;
+    current_run_metrics_.generation_data.reserve(current_run_metrics_.total_generations);
 
     int generations_without_improvement = 0;
     double previous_best_fitness = std::numeric_limits<double>::lowest();
+    if (!fitness_scores_.empty()) {
+        previous_best_fitness = *std::max_element(fitness_scores_.begin(), fitness_scores_.end());
+    }
 
+    int start_generation = current_generation_;
     for (int i = 0; i < num_generations; ++i) {
-        current_generation_ = i + 1; // Generation numbers are typically 1-indexed for reporting
+        current_generation_ = start_generation + i + 1; // Generation numbers are typically 1-indexed for reporting
         evolve_one_generation(fitness_function, current_generation_);
         if (early_stopping_patience > 0) {
             if (best_fitness_score_ > previous_best_fitness) {
