@@ -40,12 +40,26 @@ int main() {
 
     // Benchmark 1: Matrix Multiplication
     std::cout << "------- Benchmark 1: Matrix Multiplication -------" << std::endl;
-    std::vector<int> matrix_sizes = {10, 50, 100, 200, 500};
 
-    for (int size : matrix_sizes) {
-        std::cout << "\n--- Benchmarking Matrix Multiplication " << size << "x" << size << " ---" << std::endl;
-        Matrix::Matrix<float> A(size, size);
-        Matrix::Matrix<float> B(size, size);
+    struct Workload {
+        size_t m, k, n;
+        std::string name;
+    };
+    std::vector<Workload> workloads = {
+        {10, 10, 10, "Square 10x10"},
+        {50, 50, 50, "Square 50x50"},
+        {100, 100, 100, "Square 100x100"},
+        {200, 200, 200, "Square 200x200"},
+        {500, 500, 500, "Square 500x500"},
+        {512, 4096, 512, "Rectangular 512x4096 * 4096x512"},
+        {4096, 512, 4096, "Rectangular 4096x512 * 512x4096"},
+        {512, 4096, 1, "Vector 512x4096 * 4096x1"}
+    };
+
+    for (const auto& w : workloads) {
+        std::cout << "\n--- Benchmarking Matrix Multiplication: " << w.name << " ---" << std::endl;
+        Matrix::Matrix<float> A(w.m, w.k);
+        Matrix::Matrix<float> B(w.k, w.n);
         
         fill_matrix_random(A);
         fill_matrix_random(B);
@@ -53,23 +67,9 @@ int main() {
         // The actual multiplication will trigger the internal timer in matrix.h
         Matrix::Matrix<float> C = A * B; 
         std::cout << "Matrix C created with rows: " << C.rows() << ", cols: " << C.cols() << " (result not printed)" << std::endl;
-        std::cout << "--- Finished Matrix Multiplication " << size << "x" << size << " ---" << std::endl;
+        std::cout << "--- Finished Matrix Multiplication: " << w.name << " ---" << std::endl;
     }
     std::cout << "------- Finished Benchmark 1: Matrix Multiplication -------" << std::endl << std::endl;
-
-    // Benchmark 1b: Matrix-vector multiplication exercises the narrow-RHS path.
-    constexpr int vector_rows = 512;
-    constexpr int vector_width = 4096;
-    std::cout << "------- Benchmark 1b: Matrix-Vector Multiplication -------" << std::endl;
-    Matrix::Matrix<float> vector_a(vector_rows, vector_width);
-    Matrix::Matrix<float> vector_b(vector_width, 1);
-    fill_matrix_random(vector_a);
-    fill_matrix_random(vector_b);
-    Matrix::Matrix<float> vector_c = vector_a * vector_b;
-    std::cout << "Matrix-vector result has rows: " << vector_c.rows()
-              << ", cols: " << vector_c.cols() << std::endl;
-    std::cout << "------- Finished Benchmark 1b: Matrix-Vector Multiplication -------"
-              << std::endl << std::endl;
 
     // Benchmark 2: Neural Network Forward Pass
     std::cout << "------- Benchmark 2: Neural Network Forward Pass -------" << std::endl;
