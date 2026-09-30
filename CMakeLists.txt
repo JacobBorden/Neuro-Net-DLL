@@ -42,6 +42,11 @@ add_subdirectory(tests)
 # Example executable
 add_executable(BasicUsageExport examples/basic_usage_export.cpp)
 target_link_libraries(BasicUsageExport PRIVATE neuronet)
+
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(neuronet PUBLIC OpenMP::OpenMP_CXX)
+endif()
 # target_include_directories(BasicUsageExport PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src) # Already covered by global include_directories(src)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
