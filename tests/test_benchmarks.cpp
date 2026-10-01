@@ -8,6 +8,8 @@
 #include <functional>
 #include <random> // For populating matrices with random data
 #include <numeric> // For std::iota if needed
+#include <cmath>
+#include <algorithm>
 
 // Helper function to fill a matrix with random data
 void fill_matrix_random(Matrix::Matrix<float>& mat) {
@@ -33,6 +35,31 @@ void fill_matrix_sequential(Matrix::Matrix<float>& mat) {
     }
 }
 
+/** Check representative outputs against an independent dot product. */
+bool matches_reference(const Matrix::Matrix<float>& left,
+                       const Matrix::Matrix<float>& right,
+                       const Matrix::Matrix<float>& result) {
+    if (result.rows() != left.rows() || result.cols() != right.cols()) return false;
+    const size_t rows[] = {0, left.rows() / 2, left.rows() - 1};
+    const size_t cols[] = {0, right.cols() / 2, right.cols() - 1};
+    for (size_t row : rows) {
+        for (size_t col : cols) {
+            float expected = 0.0f;
+            for (size_t inner = 0; inner < left.cols(); ++inner) {
+                expected += left[row][inner] * right[inner][col];
+            }
+            const float actual = result[row][col];
+            if (!std::isfinite(actual) ||
+                std::abs(actual - expected) > 1e-4f * std::max(1.0f, std::abs(expected))) {
+                std::cerr << "Matrix reference mismatch at (" << row << ", " << col
+                          << "): expected " << expected << ", got " << actual << std::endl;
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 
 int main() {
     std::cout << "=============== Starting Benchmarks ===============" << std::endl;
@@ -52,10 +79,27 @@ int main() {
 
         // The actual multiplication will trigger the internal timer in matrix.h
         Matrix::Matrix<float> C = A * B; 
+        if (!matches_reference(A, B, C)) return 1;
         std::cout << "Matrix C created with rows: " << C.rows() << ", cols: " << C.cols() << " (result not printed)" << std::endl;
         std::cout << "--- Finished Matrix Multiplication " << size << "x" << size << " ---" << std::endl;
     }
     std::cout << "------- Finished Benchmark 1: Matrix Multiplication -------" << std::endl << std::endl;
+
+    // Benchmark 1a: Rectangular Matrix Multiplication
+    std::cout << "------- Benchmark 1a: Rectangular Matrix Multiplication -------" << std::endl;
+    constexpr int rect_m = 64;
+    constexpr int rect_k = 16384;
+    constexpr int rect_n = 128;
+    Matrix::Matrix<float> rect_a(rect_m, rect_k);
+    Matrix::Matrix<float> rect_b(rect_k, rect_n);
+    fill_matrix_random(rect_a);
+    fill_matrix_random(rect_b);
+    Matrix::Matrix<float> rect_c = rect_a * rect_b;
+    if (!matches_reference(rect_a, rect_b, rect_c)) return 1;
+    std::cout << "Rectangular matrix result has rows: " << rect_c.rows()
+              << ", cols: " << rect_c.cols() << std::endl;
+    std::cout << "------- Finished Benchmark 1a: Rectangular Matrix Multiplication -------"
+              << std::endl << std::endl;
 
     // Benchmark 1b: Matrix-vector multiplication exercises the narrow-RHS path.
     constexpr int vector_rows = 512;
@@ -66,6 +110,7 @@ int main() {
     fill_matrix_random(vector_a);
     fill_matrix_random(vector_b);
     Matrix::Matrix<float> vector_c = vector_a * vector_b;
+    if (!matches_reference(vector_a, vector_b, vector_c)) return 1;
     std::cout << "Matrix-vector result has rows: " << vector_c.rows()
               << ", cols: " << vector_c.cols() << std::endl;
     std::cout << "------- Finished Benchmark 1b: Matrix-Vector Multiplication -------"
