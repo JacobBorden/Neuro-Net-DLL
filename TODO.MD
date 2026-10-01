@@ -11,7 +11,7 @@ acceptance evidence exists; a proposed PR is not a delivered feature.
   repeated calls, zero/invalid counts, and early stopping on current master.
 - [x] Consolidate duplicate PRs #214/#215 (closed 2026-09-06). The dense loop
   interchange already exists on master; issue #106 retains the narrow-product finding.
-- [ ] Fix #106: preserve an accumulator for single-column multiplication; compare
+- [x] Fix #106: preserve an accumulator for single-column multiplication; compare
   reference results and benchmark square, rectangular, and vector workloads.
 - [ ] Retire or reconfigure the external stale optimization generator (#197).
   Verify its actual schedule/configuration; repository PR cleanup alone is insufficient.
