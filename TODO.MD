@@ -22,7 +22,7 @@ acceptance evidence exists; a proposed PR is not a delivered feature.
   OpenMP, and run clean Linux/Windows builds with CTest output on failure.
 - [x] Upgrade checkout actions (#88); verify workflow permissions and artifact
   paths without weakening required checks.
-- [ ] Register and run Python smoke tests reliably after interpreter discovery;
+- [x] Register and run Python smoke tests reliably after interpreter discovery;
   verify test enumeration on a clean configure and import the built extension.
 - [ ] Add numerical gradient checks for dense losses/activations and reference
   values for CNN/RNN/LSTM and attention masks, including invalid/empty shapes.
