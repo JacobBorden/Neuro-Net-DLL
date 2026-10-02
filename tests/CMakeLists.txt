@@ -34,12 +34,10 @@ target_compile_definitions(matrix_benchmarks PRIVATE ENABLE_BENCHMARKING)
 # Discover and add tests
 gtest_discover_tests(runTests)
 
-find_package(Python3 COMPONENTS Interpreter Development.Module)
-
-if(Python3_FOUND AND Python3_Interpreter_FOUND)
+if(PYTHON_EXECUTABLE)
     add_test(
         NAME pyneuronet_python
-        COMMAND Python3::Interpreter ${CMAKE_CURRENT_SOURCE_DIR}/test_pyneuronet.py
+        COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_pyneuronet.py
     )
     set_tests_properties(
         pyneuronet_python
