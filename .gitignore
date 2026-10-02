@@ -364,3 +364,4 @@ FodyWeavers.xsd
 .vscode/settings.json
 build/
 docs/api/
+Testing/
