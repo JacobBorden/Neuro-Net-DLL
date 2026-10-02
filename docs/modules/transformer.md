@@ -41,7 +41,7 @@ The main components include:
     *   `d_k` is the dimension of the key vectors.
     *   `mask` is an optional matrix to prevent attention to certain positions (e.g., padding tokens or future tokens in self-attention).
 *   **Key Methods:**
-    *   `ScaledDotProductAttention(float dropout_rate)`: Constructor (dropout currently a placeholder).
+    *   `ScaledDotProductAttention()`: Constructor.
     *   `forward(query, key, value, mask)`: Performs the attention calculation, returning an `AttentionOutput` struct containing the context vector and attention weights.
 *   **Source:** `src/transformer/attention.h`
 
