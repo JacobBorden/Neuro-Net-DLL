@@ -68,6 +68,9 @@ if(OpenMP_CXX_FOUND AND NOT MSVC)
     target_link_libraries(neuronet_benchmarks PUBLIC OpenMP::OpenMP_CXX)
 endif()
 
+# Testing subdirectory
+add_subdirectory(tests)
+
 # Pybind11 for Python bindings
 include(FetchContent)
 FetchContent_Declare(
@@ -79,10 +82,6 @@ FetchContent_MakeAvailable(pybind11)
 
 pybind11_add_module(pyneuronet src/python_bindings/pyneuronet.cpp)
 target_link_libraries(pyneuronet PRIVATE neuronet)
-
-# Register the smoke test after pybind11 selects the Python interpreter used
-# to build the extension. This keeps CTest on the same Python ABI.
-add_subdirectory(tests)
 
 # Example executable
 add_executable(BasicUsageExport examples/basic_usage_export.cpp)
