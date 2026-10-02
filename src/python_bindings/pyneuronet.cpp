@@ -19,7 +19,7 @@ PYBIND11_MODULE(pyneuronet, m) {
         .value("Swish", NeuroNet::ActivationFunctionType::Swish)
         .export_values();
 
-    py::class_<Matrix::Matrix<float>>(m, "Matrix")
+    py::class_<Matrix::Matrix<float>>(m, "Matrix", "Dense matrix of single-precision values.")
         .def(py::init<int, int>())
         .def("rows", &Matrix::Matrix<float>::rows)
         .def("cols", &Matrix::Matrix<float>::cols)
@@ -46,7 +46,7 @@ PYBIND11_MODULE(pyneuronet, m) {
             return data;
         });
 
-    py::class_<NeuroNet::NeuroNet>(m, "NeuroNet")
+    py::class_<NeuroNet::NeuroNet>(m, "NeuroNet", "Dense neural network with training and model persistence.")
         .def(py::init<>())
         .def(py::init<int>())
         .def("resize_layer", &NeuroNet::NeuroNet::ResizeLayer)

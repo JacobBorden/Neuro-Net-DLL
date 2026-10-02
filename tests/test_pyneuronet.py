@@ -11,6 +11,16 @@ sys.path.append(build_dir)
 
 import pyneuronet
 
+class TestPyNeuroNetImport(unittest.TestCase):
+    def test_import_and_doc(self):
+        self.assertTrue(hasattr(pyneuronet, 'NeuroNet'))
+        self.assertTrue(hasattr(pyneuronet, 'Matrix'))
+        self.assertTrue(hasattr(pyneuronet, 'ActivationFunctionType'))
+        self.assertIsInstance(pyneuronet.NeuroNet.__doc__, str)
+        self.assertTrue(pyneuronet.NeuroNet.__doc__.strip())
+        self.assertIsInstance(pyneuronet.Matrix.__doc__, str)
+        self.assertTrue(pyneuronet.Matrix.__doc__.strip())
+
 class TestNeuroNetBindings(unittest.TestCase):
     def test_xor_training(self):
         nn = pyneuronet.NeuroNet(2)
