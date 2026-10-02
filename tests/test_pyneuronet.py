@@ -16,8 +16,10 @@ class TestPyNeuroNetImport(unittest.TestCase):
         self.assertTrue(hasattr(pyneuronet, 'NeuroNet'))
         self.assertTrue(hasattr(pyneuronet, 'Matrix'))
         self.assertTrue(hasattr(pyneuronet, 'ActivationFunctionType'))
-        self.assertTrue(hasattr(pyneuronet.NeuroNet, '__doc__'))
-        self.assertTrue(hasattr(pyneuronet.Matrix, '__doc__'))
+        self.assertIsInstance(pyneuronet.NeuroNet.__doc__, str)
+        self.assertTrue(pyneuronet.NeuroNet.__doc__.strip())
+        self.assertIsInstance(pyneuronet.Matrix.__doc__, str)
+        self.assertTrue(pyneuronet.Matrix.__doc__.strip())
 
 class TestNeuroNetBindings(unittest.TestCase):
     def test_xor_training(self):

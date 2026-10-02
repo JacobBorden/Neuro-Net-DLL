@@ -34,7 +34,7 @@ target_compile_definitions(matrix_benchmarks PRIVATE ENABLE_BENCHMARKING)
 # Discover and add tests
 gtest_discover_tests(runTests)
 
-find_package(Python3 COMPONENTS Interpreter)
+find_package(Python3 COMPONENTS Interpreter Development.Module)
 
 if(Python3_FOUND AND Python3_Interpreter_FOUND)
     add_test(
@@ -43,7 +43,7 @@ if(Python3_FOUND AND Python3_Interpreter_FOUND)
     )
     set_tests_properties(
         pyneuronet_python
-        PROPERTIES ENVIRONMENT "PYNEURONET_BUILD_DIR=${CMAKE_BINARY_DIR}"
+        PROPERTIES ENVIRONMENT "PYNEURONET_BUILD_DIR=$<TARGET_FILE_DIR:pyneuronet>"
     )
 endif()
 
