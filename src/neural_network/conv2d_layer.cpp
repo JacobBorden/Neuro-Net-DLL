@@ -43,27 +43,39 @@ Matrix::Matrix<float> Conv2DLayer::Forward(const Matrix::Matrix<float>& input, i
     }
 
     Matrix::Matrix<float> output(1, output_channels_ * out_h * out_w);
-    output.assign(0.0f);
 
+    const int in_spatial = input_height * input_width;
+    const int k_spatial = kernel_size_ * kernel_size_;
+    const int out_spatial = out_h * out_w;
+
+    // Parallelize 2D convolution over output channels and rows.
+    // Hoist invariant spatial stride/channel offsets out of inner kernel loops.
+    #pragma omp parallel for collapse(2) schedule(static)
     for (int oc = 0; oc < output_channels_; ++oc) {
         for (int oh = 0; oh < out_h; ++oh) {
+            int ih_base = oh * stride_ - padding_;
             for (int ow = 0; ow < out_w; ++ow) {
+                int iw_base = ow * stride_ - padding_;
                 float val = 0.0f;
                 for (int ic = 0; ic < input_channels_; ++ic) {
+                    int in_ic_offset = ic * in_spatial;
+                    int filter_ic_offset = ic * k_spatial;
                     for (int kh = 0; kh < kernel_size_; ++kh) {
-                        for (int kw = 0; kw < kernel_size_; ++kw) {
-                            int ih = oh * stride_ - padding_ + kh;
-                            int iw = ow * stride_ - padding_ + kw;
-                            if (ih >= 0 && ih < input_height && iw >= 0 && iw < input_width) {
-                                int input_idx = ic * (input_height * input_width) + ih * input_width + iw;
-                                int filter_idx = ic * (kernel_size_ * kernel_size_) + kh * kernel_size_ + kw;
-                                val += input[0][input_idx] * filters_[oc][filter_idx];
+                        int ih = ih_base + kh;
+                        if (ih >= 0 && ih < input_height) {
+                            int in_row_offset = in_ic_offset + ih * input_width;
+                            int filter_row_offset = filter_ic_offset + kh * kernel_size_;
+                            for (int kw = 0; kw < kernel_size_; ++kw) {
+                                int iw = iw_base + kw;
+                                if (iw >= 0 && iw < input_width) {
+                                    val += input[0][in_row_offset + iw] * filters_[oc][filter_row_offset + kw];
+                                }
                             }
                         }
                     }
                 }
                 val += biases_[0][oc];
-                int out_idx = oc * (out_h * out_w) + oh * out_w + ow;
+                int out_idx = oc * out_spatial + oh * out_w + ow;
                 output[0][out_idx] = val;
             }
         }
