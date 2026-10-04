@@ -69,42 +69,32 @@ TEST_F(GeneticAlgorithmTest, Constructor) {
 }
 
 TEST_F(GeneticAlgorithmTest, InitializePopulation) {
-    Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, num_generations, template_net);
-    ga.initialize_population();
-    
-    // Population size is implicitly tested by other methods using the population.
-    // For now, let's check if get_best_individual returns something (even if random)
-    // after initialization. This relies on the internal population_ being populated.
-    // A more direct way would be to add a getter for the population or population_size,
-    // but the problem description doesn't ask for that.
-    // So, we'll infer from other tests.
-    
-    // Let's check if at least some individuals are somewhat distinct.
-    // This is a probabilistic test.
-    ga.evaluate_fitness(simple_fitness_function); // Need fitness scores for get_best_individual
-    NeuroNet::NeuroNet ind1 = ga.get_best_individual(); // Will be one of the random individuals
+    const unsigned int seed = 12345;
+    Optimization::GeneticAlgorithm ga1(population_size, mutation_rate, crossover_rate, num_generations, template_net);
+    ga1.set_seed(seed);
+    ga1.initialize_population();
+    ga1.evaluate_fitness(simple_fitness_function);
+    NeuroNet::NeuroNet ind1 = ga1.get_best_individual();
 
-    ga.initialize_population(); // Re-initialize
-    ga.evaluate_fitness(simple_fitness_function);
-    NeuroNet::NeuroNet ind2 = ga.get_best_individual();
+    Optimization::GeneticAlgorithm ga2(population_size, mutation_rate, crossover_rate, num_generations, template_net);
+    ga2.set_seed(seed);
+    ga2.initialize_population();
+    ga2.evaluate_fitness(simple_fitness_function);
+    NeuroNet::NeuroNet ind2 = ga2.get_best_individual();
 
-    // It's highly unlikely they'll have the exact same flat weights if randomized.
-    // This isn't a perfect test for distinctness of the whole population.
-    // A better test would be to get all individuals and compare them.
-    // For now, this is a basic sanity check.
-    if (template_net.get_all_weights_flat().size() > 0) { // Only if network has weights
-         // If they are different, it suggests randomization happened.
-         // This test might sometimes fail if by sheer chance two random initializations are identical,
-         // or if get_best_individual has issues.
-         // A more robust test for distinctness would be:
-         // std::vector<std::vector<float>> all_initial_weights;
-         // for (const auto& individual : ga.get_population()) { // Assuming a getter for population
-         //    all_initial_weights.push_back(individual.get_all_weights_flat());
-         // }
-         // std::set<std::vector<float>> unique_weights(all_initial_weights.begin(), all_initial_weights.end());
-         // EXPECT_GT(unique_weights.size(), 1); // Expect more than 1 unique individual if pop_size > 1
+    // Deterministic invariant: Identical seeds produce identical initial populations
+    EXPECT_EQ(ind1.get_all_weights_flat(), ind2.get_all_weights_flat());
+    EXPECT_EQ(ind1.get_all_biases_flat(), ind2.get_all_biases_flat());
+
+    // Different seed produces a distinct population
+    Optimization::GeneticAlgorithm ga3(population_size, mutation_rate, crossover_rate, num_generations, template_net);
+    ga3.set_seed(54321);
+    ga3.initialize_population();
+    ga3.evaluate_fitness(simple_fitness_function);
+    NeuroNet::NeuroNet ind3 = ga3.get_best_individual();
+    if (!template_net.get_all_weights_flat().empty()) {
+        EXPECT_NE(ind1.get_all_weights_flat(), ind3.get_all_weights_flat());
     }
-    SUCCEED(); // Placeholder, as direct population access is not available.
 }
 
 
@@ -195,10 +185,8 @@ TEST_F(GeneticAlgorithmTest, Crossover) {
 
 
 TEST_F(GeneticAlgorithmTest, RunEvolutionImprovesFitness) {
-    // This test is probabilistic and might not always pass if the GA gets stuck
-    // or if the problem/fitness function is too complex for few generations.
-    // For a simple sum-of-weights fitness, we expect improvement.
     Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, num_generations, template_net);
+    ga.set_seed(42);
     
     ga.initialize_population();
     ga.evaluate_fitness(simple_fitness_function);
@@ -206,20 +194,43 @@ TEST_F(GeneticAlgorithmTest, RunEvolutionImprovesFitness) {
     double initial_best_fitness = simple_fitness_function(initial_best);
 
     // Evolve the already-evaluated population so the comparison is against the
-    // same initial population. run_evolution() intentionally reinitializes.
+    // same initial population without reinitializing.
+    double prev_fitness = initial_best_fitness;
     for (int generation = 1; generation <= num_generations; ++generation) {
         ga.evolve_one_generation(simple_fitness_function, generation);
+        NeuroNet::NeuroNet current_best = ga.get_best_individual();
+        double current_best_fitness = simple_fitness_function(current_best);
+        // Elitism invariant: best fitness score across generations must be non-decreasing
+        EXPECT_GE(current_best_fitness, prev_fitness);
+        prev_fitness = current_best_fitness;
     }
 
     NeuroNet::NeuroNet final_best = ga.get_best_individual();
     double final_best_fitness = simple_fitness_function(final_best);
     
-    // Check if the number of weights is greater than 0 to avoid issues with empty networks.
-    if (template_net.get_all_weights_flat().size() > 0) {
+    if (!template_net.get_all_weights_flat().empty()) {
          EXPECT_GE(final_best_fitness, initial_best_fitness);
     } else {
-         SUCCEED(); // No weights to optimize, so fitness won't change meaningfully.
+         SUCCEED();
     }
+}
+
+TEST_F(GeneticAlgorithmTest, DeterministicInvariantsWithExplicitSeeds) {
+    const unsigned int seed = 98765;
+    Optimization::GeneticAlgorithm ga_a(population_size, mutation_rate, crossover_rate, num_generations, template_net);
+    ga_a.set_seed(seed);
+    ga_a.run_evolution(num_generations, simple_fitness_function);
+
+    Optimization::GeneticAlgorithm ga_b(population_size, mutation_rate, crossover_rate, num_generations, template_net);
+    ga_b.set_seed(seed);
+    ga_b.run_evolution(num_generations, simple_fitness_function);
+
+    // Deterministic invariant: Identical seeds must produce identical best individuals and fitness scores after evolution
+    EXPECT_EQ(ga_a.get_best_individual().get_all_weights_flat(), ga_b.get_best_individual().get_all_weights_flat());
+    EXPECT_EQ(ga_a.get_best_individual().get_all_biases_flat(), ga_b.get_best_individual().get_all_biases_flat());
+    NeuroNet::NeuroNet best_a = ga_a.get_best_individual();
+    NeuroNet::NeuroNet best_b = ga_b.get_best_individual();
+    EXPECT_DOUBLE_EQ(simple_fitness_function(best_a), simple_fitness_function(best_b));
 }
 
 TEST_F(GeneticAlgorithmTest, EarlyStopping) {

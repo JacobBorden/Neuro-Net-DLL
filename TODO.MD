@@ -26,7 +26,7 @@ acceptance evidence exists; a proposed PR is not a delivered feature.
   verify test enumeration on a clean configure and import the built extension.
 - [ ] Add numerical gradient checks for dense losses/activations and reference
   values for CNN/RNN/LSTM and attention masks, including invalid/empty shapes.
-- [ ] Make randomized training tests assert deterministic invariants with explicit
+- [x] Make randomized training tests assert deterministic invariants with explicit
   seeds; preserve the same initial population when testing elitism/improvement.
 - [ ] Wire benchmark examples into CMake and record compiler, flags, dimensions,
   repetitions, and thread counts. Verify #153's merged API repair before closing it.
