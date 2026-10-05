@@ -28,6 +28,13 @@ double simple_fitness_function(NeuroNet::NeuroNet& net) {
     return sum;
 }
 
+// Captured population data for elite-survival and negative-control checks
+struct PopulationCapture {
+    std::vector<std::vector<float>> weights;
+    std::vector<std::vector<float>> biases;
+    std::vector<double> fitnesses;
+};
+
 // Test fixture for GeneticAlgorithm tests
 class GeneticAlgorithmTest : public ::testing::Test {
 protected:
@@ -36,6 +43,53 @@ protected:
     double mutation_rate = 0.1;
     double crossover_rate = 0.7;
     int num_generations = 5; // Small number for testing
+
+    /** Captures all individuals' weights, biases, and fitness via the fitness callback. */
+    PopulationCapture capture_population(Optimization::GeneticAlgorithm& ga) {
+        PopulationCapture capture;
+        auto capture_fitness = [&](NeuroNet::NeuroNet& net) {
+            capture.weights.push_back(net.get_all_weights_flat());
+            capture.biases.push_back(net.get_all_biases_flat());
+            double fitness = simple_fitness_function(net);
+            capture.fitnesses.push_back(fitness);
+            return fitness;
+        };
+        ga.evaluate_fitness(capture_fitness);
+        return capture;
+    }
+
+    /** Rejects empty or misaligned captures before any indexed access. */
+    static bool valid_population(const PopulationCapture& population) {
+        if (population.weights.empty() ||
+            population.weights.size() != population.biases.size() ||
+            population.weights.size() != population.fitnesses.size()) return false;
+        for (size_t i = 0; i < population.weights.size(); ++i) {
+            if (population.weights[i].empty() || population.biases[i].empty()) return false;
+        }
+        return true;
+    }
+
+    /** Returns true if the preceding elite's paired complete genome survives. */
+    static bool elite_survived_in(const PopulationCapture& preceding, const PopulationCapture& current) {
+        if (!valid_population(preceding) || !valid_population(current)) return false;
+        auto max_it = std::max_element(preceding.fitnesses.begin(), preceding.fitnesses.end());
+        size_t elite_idx = std::distance(preceding.fitnesses.begin(), max_it);
+        for (size_t i = 0; i < current.weights.size(); ++i) {
+            if (current.weights[i] == preceding.weights[elite_idx] &&
+                current.biases[i] == preceding.biases[elite_idx]) return true;
+        }
+        return false;
+    }
+
+    /** Compares every ordered member's paired weights and biases, not just the winner. */
+    static bool populations_identical(const PopulationCapture& a, const PopulationCapture& b) {
+        if (!valid_population(a) || !valid_population(b)) return false;
+        if (a.weights.size() != b.weights.size()) return false;
+        for (size_t i = 0; i < a.weights.size(); ++i) {
+            if (a.weights[i] != b.weights[i] || a.biases[i] != b.biases[i]) return false;
+        }
+        return true;
+    }
 
     /** Verifies that exported metrics describe only the most recent run. */
     void ExpectGenerationMetrics(const Optimization::GeneticAlgorithm& ga, int generations) {
@@ -73,33 +127,30 @@ TEST_F(GeneticAlgorithmTest, Constructor) {
 
 TEST_F(GeneticAlgorithmTest, InitializePopulation) {
     const unsigned int seed = 12345;
-    using Genome = std::pair<std::vector<float>, std::vector<float>>;
-    auto capture_population = [](Optimization::GeneticAlgorithm& ga) {
-        std::vector<Genome> genomes;
-        ga.initialize_population();
-        ga.evaluate_fitness([&genomes](NeuroNet::NeuroNet& individual) {
-            genomes.emplace_back(individual.get_all_weights_flat(), individual.get_all_biases_flat());
-            return simple_fitness_function(individual);
-        });
-        return genomes;
-    };
-
     Optimization::GeneticAlgorithm ga1(population_size, mutation_rate, crossover_rate, num_generations, template_net);
     ga1.set_seed(seed);
+    ga1.initialize_population();
     const auto population1 = capture_population(ga1);
 
     Optimization::GeneticAlgorithm ga2(population_size, mutation_rate, crossover_rate, num_generations, template_net);
     ga2.set_seed(seed);
+    ga2.initialize_population();
     const auto population2 = capture_population(ga2);
 
-    ASSERT_EQ(population1.size(), static_cast<size_t>(population_size));
-    EXPECT_EQ(population1, population2);
+    ASSERT_TRUE(valid_population(population1));
+    ASSERT_TRUE(valid_population(population2));
+    ASSERT_EQ(population1.weights.size(), static_cast<size_t>(population_size));
+    ASSERT_EQ(population2.weights.size(), static_cast<size_t>(population_size));
+    EXPECT_TRUE(populations_identical(population1, population2));
 
     // A different seed must change at least one member of the initial population.
     Optimization::GeneticAlgorithm ga3(population_size, mutation_rate, crossover_rate, num_generations, template_net);
     ga3.set_seed(54321);
+    ga3.initialize_population();
     const auto population3 = capture_population(ga3);
-    EXPECT_NE(population1, population3);
+    ASSERT_TRUE(valid_population(population3));
+    ASSERT_EQ(population3.weights.size(), static_cast<size_t>(population_size));
+    EXPECT_FALSE(populations_identical(population1, population3));
 }
 
 
@@ -206,16 +257,100 @@ TEST_F(GeneticAlgorithmTest, RunEvolutionImprovesFitness) {
     // Each call evaluates the current population, then selects the next one.
     double previous_generation_best = initial_best_fitness;
     for (int generation = 1; generation <= num_generations; ++generation) {
+        // Capture preceding population (before selection) for elite-survival check
+        PopulationCapture preceding = capture_population(ga);
+        ASSERT_EQ(preceding.weights.size(), static_cast<size_t>(population_size))
+            << "Preceding population has wrong size at generation " << generation;
+        ASSERT_TRUE(valid_population(preceding));
+
         generation_best = std::numeric_limits<double>::lowest();
         ga.evolve_one_generation(measure_current_population, generation);
         EXPECT_GE(generation_best, previous_generation_best);
         previous_generation_best = generation_best;
+
+        // Capture current population (after selection) and verify elite survival
+        PopulationCapture current = capture_population(ga);
+        ASSERT_EQ(current.weights.size(), static_cast<size_t>(population_size))
+            << "Current population has wrong size at generation " << generation;
+        ASSERT_TRUE(valid_population(current));
+
+        // Verify preceding elite's complete weights and biases survive together
+        // in a current member (elitism carryover) — shared predicate
+        EXPECT_TRUE(elite_survived_in(preceding, current))
+            << "Elite did not survive into generation " << generation
+            << " — elitism carryover failed";
     }
 
     // Verify the population produced by the final selection as well.
     generation_best = std::numeric_limits<double>::lowest();
     ga.evaluate_fitness(measure_current_population);
     EXPECT_GE(generation_best, previous_generation_best);
+}
+
+// Exercise the same ordered full-genome predicate used by InitializePopulation.
+TEST_F(GeneticAlgorithmTest, NegativeControl_ChangedNonWinningMember) {
+    Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, num_generations, template_net);
+    ga.set_seed(12345);
+    ga.initialize_population();
+    const PopulationCapture original = capture_population(ga);
+    ASSERT_TRUE(valid_population(original));
+    ASSERT_EQ(original.weights.size(), static_cast<size_t>(population_size));
+    ASSERT_GT(original.weights.size(), 1u);
+
+    const auto max_it = std::max_element(original.fitnesses.begin(), original.fitnesses.end());
+    const size_t elite_idx = std::distance(original.fitnesses.begin(), max_it);
+    const size_t non_elite_idx = (elite_idx + 1) % original.weights.size();
+    ASSERT_NE(non_elite_idx, elite_idx);
+    ASSERT_TRUE(populations_identical(original, original));
+
+    PopulationCapture modified = original;
+    modified.weights[non_elite_idx][0] += 1.0f;
+    ASSERT_NE(modified.weights[non_elite_idx], original.weights[non_elite_idx]);
+    ASSERT_EQ(modified.weights[elite_idx], original.weights[elite_idx]);
+    ASSERT_EQ(modified.biases[elite_idx], original.biases[elite_idx]);
+    EXPECT_FALSE(populations_identical(original, modified))
+        << "Changed non-winning weights were not detected";
+
+    // A bias-only change must also fail the real initialization comparison.
+    modified = original;
+    modified.biases[non_elite_idx][0] += 1.0f;
+    ASSERT_NE(modified.biases[non_elite_idx], original.biases[non_elite_idx]);
+    ASSERT_EQ(modified.weights[elite_idx], original.weights[elite_idx]);
+    ASSERT_EQ(modified.biases[elite_idx], original.biases[elite_idx]);
+    EXPECT_FALSE(populations_identical(original, modified))
+        << "Changed non-winning biases were not detected";
+}
+
+// Exercise the same paired elite predicate used at every actual selection step.
+TEST_F(GeneticAlgorithmTest, NegativeControl_MissingElite) {
+    Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, num_generations, template_net);
+    ga.set_seed(12345);
+    ga.initialize_population();
+    const PopulationCapture original = capture_population(ga);
+    ASSERT_TRUE(valid_population(original));
+    ASSERT_EQ(original.weights.size(), static_cast<size_t>(population_size));
+    ASSERT_GT(original.weights.size(), 1u);
+
+    const auto max_it = std::max_element(original.fitnesses.begin(), original.fitnesses.end());
+    const size_t elite_idx = std::distance(original.fitnesses.begin(), max_it);
+    const size_t replacement_idx = (elite_idx + 1) % original.weights.size();
+    ASSERT_NE(replacement_idx, elite_idx);
+    // Establish that replacement actually removes the only copy of the elite.
+    for (size_t i = 0; i < original.weights.size(); ++i) {
+        if (i != elite_idx) {
+            ASSERT_TRUE(original.weights[i] != original.weights[elite_idx] ||
+                        original.biases[i] != original.biases[elite_idx]);
+        }
+    }
+    ASSERT_TRUE(elite_survived_in(original, original));
+
+    PopulationCapture modified = original;
+    modified.weights[elite_idx] = original.weights[replacement_idx];
+    modified.biases[elite_idx] = original.biases[replacement_idx];
+    modified.fitnesses[elite_idx] = original.fitnesses[replacement_idx];
+    EXPECT_FALSE(populations_identical(original, modified));
+    EXPECT_FALSE(elite_survived_in(original, modified))
+        << "Elite survival check did not detect missing elite";
 }
 
 TEST_F(GeneticAlgorithmTest, DeterministicInvariantsWithExplicitSeeds) {
