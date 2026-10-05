@@ -138,6 +138,12 @@ public:
     NeuroNet::NeuroNet get_best_individual() const;
 
     /**
+     * @brief Sets the seed for the internal random number generator.
+     * @param seed The seed value for std::mt19937.
+     */
+    void set_seed(unsigned int seed);
+
+    /**
      * @brief Exports the collected training metrics to a JSON file.
      * @param filename The path to the file where metrics should be saved.
      */

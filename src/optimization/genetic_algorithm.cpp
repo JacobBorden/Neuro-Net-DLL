@@ -568,6 +568,13 @@ NeuroNet::NeuroNet Optimization::GeneticAlgorithm::get_best_individual() const {
     return best_individual_; // Return the best found across generations
 }
 
+/**
+ * @brief Sets the seed for the internal random number generator.
+ * @param seed The seed value for std::mt19937.
+ */
+void Optimization::GeneticAlgorithm::set_seed(unsigned int seed) {
+    random_engine_.seed(seed);
+}
 
 /**
  * @brief Exports the collected training metrics to a JSON file.

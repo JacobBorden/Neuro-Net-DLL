@@ -448,6 +448,30 @@ TEST_F(GeneticAlgorithmTest, ExportTrainingMetrics) {
     std::remove(metrics_filename.c_str());
 }
 
+TEST_F(GeneticAlgorithmTest, DeterministicEvolutionWithSeed) {
+    unsigned int seed = 42;
+
+    Optimization::GeneticAlgorithm ga1(population_size, mutation_rate, crossover_rate, num_generations, template_net);
+    ga1.set_seed(seed);
+    ga1.run_evolution(simple_fitness_function);
+    NeuroNet::NeuroNet best1 = ga1.get_best_individual();
+    double best_fitness1 = simple_fitness_function(best1);
+    std::vector<float> weights1 = best1.get_all_weights_flat();
+    std::vector<float> biases1 = best1.get_all_biases_flat();
+
+    Optimization::GeneticAlgorithm ga2(population_size, mutation_rate, crossover_rate, num_generations, template_net);
+    ga2.set_seed(seed);
+    ga2.run_evolution(simple_fitness_function);
+    NeuroNet::NeuroNet best2 = ga2.get_best_individual();
+    double best_fitness2 = simple_fitness_function(best2);
+    std::vector<float> weights2 = best2.get_all_weights_flat();
+    std::vector<float> biases2 = best2.get_all_biases_flat();
+
+    EXPECT_DOUBLE_EQ(best_fitness1, best_fitness2);
+    EXPECT_EQ(weights1, weights2);
+    EXPECT_EQ(biases1, biases2);
+}
+
 // Main function for running tests (needed if not using gtest_main)
 // int main(int argc, char **argv) {
 //     ::testing::InitGoogleTest(&argc, argv);
