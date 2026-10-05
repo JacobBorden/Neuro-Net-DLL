@@ -668,4 +668,9 @@ void Optimization::GeneticAlgorithm::export_training_metrics_json(const std::str
     // The `root.GetObject().clear()` is not necessary as root is local.
 }
 
+
+void GeneticAlgorithm::set_seed(unsigned int seed) {
+    random_engine_.seed(seed);
+}
+
 } // namespace Optimization

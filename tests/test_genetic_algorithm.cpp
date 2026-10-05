@@ -194,11 +194,11 @@ TEST_F(GeneticAlgorithmTest, Crossover) {
 }
 
 
+
+
 TEST_F(GeneticAlgorithmTest, RunEvolutionImprovesFitness) {
-    // This test is probabilistic and might not always pass if the GA gets stuck
-    // or if the problem/fitness function is too complex for few generations.
-    // For a simple sum-of-weights fitness, we expect improvement.
     Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, num_generations, template_net);
+    ga.set_seed(42); // Make it deterministic
     
     ga.initialize_population();
     ga.evaluate_fitness(simple_fitness_function);
@@ -221,7 +221,6 @@ TEST_F(GeneticAlgorithmTest, RunEvolutionImprovesFitness) {
          SUCCEED(); // No weights to optimize, so fitness won't change meaningfully.
     }
 }
-
 TEST_F(GeneticAlgorithmTest, EarlyStopping) {
     // Fitness function that never improves
     auto static_fitness = [](NeuroNet::NeuroNet& net) {
@@ -453,3 +452,30 @@ TEST_F(GeneticAlgorithmTest, ExportTrainingMetrics) {
 //     ::testing::InitGoogleTest(&argc, argv);
 //     return RUN_ALL_TESTS();
 // }
+
+TEST_F(GeneticAlgorithmTest, SetSeedEnsuresDeterminism) {
+    Optimization::GeneticAlgorithm ga1(population_size, mutation_rate, crossover_rate, num_generations, template_net);
+    ga1.set_seed(42);
+    ga1.initialize_population();
+
+    Optimization::GeneticAlgorithm ga2(population_size, mutation_rate, crossover_rate, num_generations, template_net);
+    ga2.set_seed(42);
+    ga2.initialize_population();
+
+    // Test that the initial population best individual weights match
+    ga1.evaluate_fitness(simple_fitness_function);
+    ga2.evaluate_fitness(simple_fitness_function);
+
+    NeuroNet::NeuroNet best1 = ga1.get_best_individual();
+    NeuroNet::NeuroNet best2 = ga2.get_best_individual();
+
+    std::vector<float> weights1 = best1.get_all_weights_flat();
+    std::vector<float> weights2 = best2.get_all_weights_flat();
+
+    ASSERT_EQ(weights1.size(), weights2.size());
+    if (!weights1.empty()) {
+        for (size_t i = 0; i < weights1.size(); ++i) {
+            EXPECT_FLOAT_EQ(weights1[i], weights2[i]);
+        }
+    }
+}

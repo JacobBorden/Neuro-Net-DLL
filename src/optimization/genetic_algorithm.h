@@ -143,6 +143,12 @@ public:
      */
     void export_training_metrics_json(const std::string& filename) const;
 
+    /**
+     * @brief Sets the seed for the internal random number generator.
+     * @param seed The seed value.
+     */
+    void set_seed(unsigned int seed);
+
 private:
     int population_size_;       ///< Number of individuals in the population.
     double mutation_rate_;      ///< Probability of mutation for each gene.
