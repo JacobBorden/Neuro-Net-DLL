@@ -3,11 +3,14 @@
 #include "neural_network/neuronet.h"          // Access to NeuroNet for template and individuals
 #include "../src/utilities/json/json.hpp"
 #include "../src/utilities/json/json_exception.hpp"
+#include <algorithm>          // For std::max
 #include <cstdio>              // For std::remove
 #include <fstream>             // For std::ifstream
+#include <limits>               // For std::numeric_limits
 #include <numeric>             // For std::accumulate
 #include <stdexcept>           // For std::invalid_argument
 #include <set>                 // For checking distinctness
+#include <utility>             // For std::pair
 
 // Simple fitness function for testing: sum of all weights and biases
 // Assumes higher sum is better.
@@ -70,31 +73,33 @@ TEST_F(GeneticAlgorithmTest, Constructor) {
 
 TEST_F(GeneticAlgorithmTest, InitializePopulation) {
     const unsigned int seed = 12345;
+    using Genome = std::pair<std::vector<float>, std::vector<float>>;
+    auto capture_population = [](Optimization::GeneticAlgorithm& ga) {
+        std::vector<Genome> genomes;
+        ga.initialize_population();
+        ga.evaluate_fitness([&genomes](NeuroNet::NeuroNet& individual) {
+            genomes.emplace_back(individual.get_all_weights_flat(), individual.get_all_biases_flat());
+            return simple_fitness_function(individual);
+        });
+        return genomes;
+    };
+
     Optimization::GeneticAlgorithm ga1(population_size, mutation_rate, crossover_rate, num_generations, template_net);
     ga1.set_seed(seed);
-    ga1.initialize_population();
-    ga1.evaluate_fitness(simple_fitness_function);
-    NeuroNet::NeuroNet ind1 = ga1.get_best_individual();
+    const auto population1 = capture_population(ga1);
 
     Optimization::GeneticAlgorithm ga2(population_size, mutation_rate, crossover_rate, num_generations, template_net);
     ga2.set_seed(seed);
-    ga2.initialize_population();
-    ga2.evaluate_fitness(simple_fitness_function);
-    NeuroNet::NeuroNet ind2 = ga2.get_best_individual();
+    const auto population2 = capture_population(ga2);
 
-    // Deterministic invariant: Identical seeds produce identical initial populations
-    EXPECT_EQ(ind1.get_all_weights_flat(), ind2.get_all_weights_flat());
-    EXPECT_EQ(ind1.get_all_biases_flat(), ind2.get_all_biases_flat());
+    ASSERT_EQ(population1.size(), static_cast<size_t>(population_size));
+    EXPECT_EQ(population1, population2);
 
-    // Different seed produces a distinct population
+    // A different seed must change at least one member of the initial population.
     Optimization::GeneticAlgorithm ga3(population_size, mutation_rate, crossover_rate, num_generations, template_net);
     ga3.set_seed(54321);
-    ga3.initialize_population();
-    ga3.evaluate_fitness(simple_fitness_function);
-    NeuroNet::NeuroNet ind3 = ga3.get_best_individual();
-    if (!template_net.get_all_weights_flat().empty()) {
-        EXPECT_NE(ind1.get_all_weights_flat(), ind3.get_all_weights_flat());
-    }
+    const auto population3 = capture_population(ga3);
+    EXPECT_NE(population1, population3);
 }
 
 
@@ -187,32 +192,30 @@ TEST_F(GeneticAlgorithmTest, Crossover) {
 TEST_F(GeneticAlgorithmTest, RunEvolutionImprovesFitness) {
     Optimization::GeneticAlgorithm ga(population_size, mutation_rate, crossover_rate, num_generations, template_net);
     ga.set_seed(42);
-    
+
+    double generation_best = std::numeric_limits<double>::lowest();
+    auto measure_current_population = [&generation_best](NeuroNet::NeuroNet& individual) {
+        const double fitness = simple_fitness_function(individual);
+        generation_best = std::max(generation_best, fitness);
+        return fitness;
+    };
     ga.initialize_population();
-    ga.evaluate_fitness(simple_fitness_function);
-    NeuroNet::NeuroNet initial_best = ga.get_best_individual();
-    double initial_best_fitness = simple_fitness_function(initial_best);
+    ga.evaluate_fitness(measure_current_population);
+    const double initial_best_fitness = generation_best;
 
-    // Evolve the already-evaluated population so the comparison is against the
-    // same initial population without reinitializing.
-    double prev_fitness = initial_best_fitness;
+    // Each call evaluates the current population, then selects the next one.
+    double previous_generation_best = initial_best_fitness;
     for (int generation = 1; generation <= num_generations; ++generation) {
-        ga.evolve_one_generation(simple_fitness_function, generation);
-        NeuroNet::NeuroNet current_best = ga.get_best_individual();
-        double current_best_fitness = simple_fitness_function(current_best);
-        // Elitism invariant: best fitness score across generations must be non-decreasing
-        EXPECT_GE(current_best_fitness, prev_fitness);
-        prev_fitness = current_best_fitness;
+        generation_best = std::numeric_limits<double>::lowest();
+        ga.evolve_one_generation(measure_current_population, generation);
+        EXPECT_GE(generation_best, previous_generation_best);
+        previous_generation_best = generation_best;
     }
 
-    NeuroNet::NeuroNet final_best = ga.get_best_individual();
-    double final_best_fitness = simple_fitness_function(final_best);
-    
-    if (!template_net.get_all_weights_flat().empty()) {
-         EXPECT_GE(final_best_fitness, initial_best_fitness);
-    } else {
-         SUCCEED();
-    }
+    // Verify the population produced by the final selection as well.
+    generation_best = std::numeric_limits<double>::lowest();
+    ga.evaluate_fitness(measure_current_population);
+    EXPECT_GE(generation_best, previous_generation_best);
 }
 
 TEST_F(GeneticAlgorithmTest, DeterministicInvariantsWithExplicitSeeds) {
