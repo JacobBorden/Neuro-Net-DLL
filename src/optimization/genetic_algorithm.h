@@ -64,6 +64,12 @@ public:
     );
 
     /**
+     * @brief Sets an explicit random seed for deterministic GA operations.
+     * @param seed The seed value for the internal random engine.
+     */
+    void set_seed(unsigned int seed);
+
+    /**
      * @brief Initializes the population with random NeuroNet individuals.
      * Each individual is created based on the structure of the template_network
      * provided in the constructor, but with randomized weights and biases.

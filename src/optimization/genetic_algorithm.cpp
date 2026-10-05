@@ -109,6 +109,14 @@ NeuroNet::NeuroNet Optimization::GeneticAlgorithm::create_random_individual() co
 }
 
 /**
+ * @brief Sets an explicit seed for the random engine.
+ * @param seed Seed value to re-initialize random_engine_.
+ */
+void Optimization::GeneticAlgorithm::set_seed(unsigned int seed) {
+    random_engine_.seed(seed);
+}
+
+/**
  * @brief Clears and re-initializes the population with new random individuals.
  *
  * The population vector is cleared and then filled with `population_size_`
