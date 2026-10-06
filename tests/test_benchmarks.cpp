@@ -2,6 +2,7 @@
 #include "../src/neural_network/neuronet.h"
 #include "../src/optimization/genetic_algorithm.h"
 #include "../src/utilities/timer.h" // For completeness, though timing is internal
+#include "benchmark_build_info.h"
 
 #include <iostream>
 #include <vector>
@@ -68,6 +69,7 @@ bool matches_reference(const Matrix::Matrix<float>& left,
 int main() {
     std::cout << "=============== Starting Benchmarks ===============" << std::endl;
     std::cout << "#define ENABLE_BENCHMARKING is active." << std::endl;
+    PrintBenchmarkBuildInfo();
 
 #if defined(__clang__)
     std::cout << "Compiler: Clang " << __clang_version__ << std::endl;
@@ -84,6 +86,8 @@ int main() {
 #else
     std::cout << "Thread Count: 1 (OpenMP Disabled)" << std::endl;
 #endif
+    std::cout << "Repetitions: 1 per matrix shape and neural-network scenario; "
+              << "GA operations as labeled" << std::endl;
     std::cout << std::endl;
 
     // Benchmark 1: Matrix Multiplication
@@ -277,10 +281,10 @@ int main() {
     ga.evolve_one_generation(fitness_func, 0);
     std::cout << "--- Finished GA: evolve_one_generation ---" << std::endl;
     
-    std::cout << "\n--- Benchmarking GA: run_evolution (for " << num_generations_for_benchmark << " generation(s)) ---" << std::endl;
+    constexpr int few_generations = 3;
+    std::cout << "\n--- Benchmarking GA: run_evolution (for " << few_generations << " generation(s)) ---" << std::endl;
     // For a slightly longer run, let's re-initialize GA with more generations
     // and call run_evolution.
-    int few_generations = 3;
     Optimization::GeneticAlgorithm ga_run(
         population_size, mutation_rate, crossover_rate, few_generations, small_nn
     );
