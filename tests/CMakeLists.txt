@@ -30,6 +30,8 @@ target_link_libraries(runTests PRIVATE neuronet GTest::gtest_main)
 add_executable(matrix_benchmarks test_benchmarks.cpp)
 target_link_libraries(matrix_benchmarks PRIVATE neuronet_benchmarks)
 target_compile_definitions(matrix_benchmarks PRIVATE ENABLE_BENCHMARKING)
+target_compile_definitions(matrix_benchmarks PRIVATE NEURONET_BUILD_CONFIG="$<CONFIG>")
+target_include_directories(matrix_benchmarks PRIVATE ${CMAKE_BINARY_DIR})
 
 # Discover and add tests
 gtest_discover_tests(runTests)

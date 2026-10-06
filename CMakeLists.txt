@@ -68,6 +68,11 @@ if(OpenMP_CXX_FOUND AND NOT MSVC)
     target_link_libraries(neuronet_benchmarks PUBLIC OpenMP::OpenMP_CXX)
 endif()
 
+# Embed the configured compiler options in benchmark output so runs from
+# different build configurations can be compared without guessing their flags.
+configure_file(examples/benchmark_build_info.h.in
+    ${CMAKE_CURRENT_BINARY_DIR}/benchmark_build_info.h @ONLY)
+
 # Pybind11 for Python bindings
 include(FetchContent)
 FetchContent_Declare(
@@ -90,6 +95,8 @@ target_link_libraries(BasicUsageExport PRIVATE neuronet)
 
 add_executable(BenchmarkAStar examples/benchmark_astar.cpp)
 target_link_libraries(BenchmarkAStar PRIVATE neuronet)
+target_include_directories(BenchmarkAStar PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+target_compile_definitions(BenchmarkAStar PRIVATE NEURONET_BUILD_CONFIG="$<CONFIG>")
 
 add_executable(TransformerUsage examples/transformer_usage.cpp)
 target_link_libraries(TransformerUsage PRIVATE neuronet)
