@@ -11,6 +11,10 @@
 #include <cmath>
 #include <algorithm>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 // Helper function to fill a matrix with random data
 void fill_matrix_random(Matrix::Matrix<float>& mat) {
     if (mat.rows() == 0 || mat.cols() == 0) return;
@@ -63,7 +67,24 @@ bool matches_reference(const Matrix::Matrix<float>& left,
 
 int main() {
     std::cout << "=============== Starting Benchmarks ===============" << std::endl;
-    std::cout << "#define ENABLE_BENCHMARKING is active." << std::endl << std::endl;
+    std::cout << "#define ENABLE_BENCHMARKING is active." << std::endl;
+
+#if defined(__clang__)
+    std::cout << "Compiler: Clang " << __clang_version__ << std::endl;
+#elif defined(__GNUC__)
+    std::cout << "Compiler: GCC " << __VERSION__ << std::endl;
+#elif defined(_MSC_VER)
+    std::cout << "Compiler: MSVC " << _MSC_VER << std::endl;
+#else
+    std::cout << "Compiler: Unknown" << std::endl;
+#endif
+
+#ifdef _OPENMP
+    std::cout << "Thread Count (OpenMP): " << omp_get_max_threads() << std::endl;
+#else
+    std::cout << "Thread Count: 1 (OpenMP Disabled)" << std::endl;
+#endif
+    std::cout << std::endl;
 
     // Benchmark 1: Matrix Multiplication
     std::cout << "------- Benchmark 1: Matrix Multiplication -------" << std::endl;
