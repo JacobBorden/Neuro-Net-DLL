@@ -1,6 +1,5 @@
 #include "neural_network/neuronet.h"
 #include "optimization/neural_pathfinder.h"
-#include "benchmark_build_info.h"
 #include <iostream>
 #include <chrono>
 
@@ -10,7 +9,6 @@
 
 int main() {
     std::cout << "=============== Starting A* Pathfinder Benchmark ===============" << std::endl;
-    PrintBenchmarkBuildInfo();
 
 #if defined(__clang__)
     std::cout << "Compiler: Clang " << __clang_version__ << std::endl;
