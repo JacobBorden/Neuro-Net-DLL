@@ -16,6 +16,7 @@ FetchContent_Declare(
 )
 # For Windows: Prevent overriding the parent project's compiler/linker settings
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
 include_directories(src)
@@ -156,7 +157,7 @@ set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "C++ Neural Network and Transformer Librar
 set(CPACK_PACKAGE_VERSION_MAJOR "${PROJECT_VERSION_MAJOR}")
 set(CPACK_PACKAGE_VERSION_MINOR "${PROJECT_VERSION_MINOR}")
 set(CPACK_PACKAGE_VERSION_PATCH "${PROJECT_VERSION_PATCH}")
-set(CPACK_PACKAGE_CONTACT "maintainer@example.com")
+set(CPACK_PACKAGE_CONTACT "Jacob N Borden <amenra.beats@gmail.com>")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 set(CPACK_GENERATOR "DEB;RPM;TGZ")
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "")
