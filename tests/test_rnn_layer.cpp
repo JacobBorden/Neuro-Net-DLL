@@ -73,3 +73,50 @@ TEST(RNNLayerTest, ResetState) {
         EXPECT_FLOAT_EQ(state[0][c], 0.0f);
     }
 }
+
+TEST(RNNLayerTest, DeterministicReferenceValue) {
+    RNNLayer rnn(2, 2);
+    rnn.ResetState();
+
+    rnn.GetW_xh()[0][0] = 0.5f;  rnn.GetW_xh()[0][1] = -0.2f;
+    rnn.GetW_xh()[1][0] = 0.1f;  rnn.GetW_xh()[1][1] = 0.4f;
+
+    rnn.GetW_hh()[0][0] = 0.3f;  rnn.GetW_hh()[0][1] = 0.0f;
+    rnn.GetW_hh()[1][0] = -0.1f; rnn.GetW_hh()[1][1] = 0.2f;
+
+    rnn.Getb_h()[0][0] = 0.1f;   rnn.Getb_h()[0][1] = -0.1f;
+
+    // Step 1: Input [1.0, 0.5]
+    Matrix::Matrix<float> input1(1, 2);
+    input1[0][0] = 1.0f; input1[0][1] = 0.5f;
+
+    Matrix::Matrix<float> h1 = rnn.Forward(input1);
+    ASSERT_EQ(h1.rows(), 1); ASSERT_EQ(h1.cols(), 2);
+    EXPECT_NEAR(h1[0][0], std::tanh(0.65f), 1e-5f);
+    EXPECT_NEAR(h1[0][1], std::tanh(-0.1f), 1e-5f);
+
+    // Step 2: Input [-0.5, 1.0]
+    Matrix::Matrix<float> input2(1, 2);
+    input2[0][0] = -0.5f; input2[0][1] = 1.0f;
+
+    Matrix::Matrix<float> h2 = rnn.Forward(input2);
+    ASSERT_EQ(h2.rows(), 1); ASSERT_EQ(h2.cols(), 2);
+
+    float exp_z0 = -0.15f + (h1[0][0]*0.3f + h1[0][1]*(-0.1f)) + 0.1f;
+    float exp_z1 = 0.50f + (h1[0][0]*0.0f + h1[0][1]*0.2f) - 0.1f;
+    EXPECT_NEAR(h2[0][0], std::tanh(exp_z0), 1e-5f);
+    EXPECT_NEAR(h2[0][1], std::tanh(exp_z1), 1e-5f);
+}
+
+TEST(RNNLayerTest, EmptyShapeHandling) {
+    RNNLayer rnn(5, 10);
+
+    Matrix::Matrix<float> empty_0x0(0, 0);
+    EXPECT_THROW(rnn.Forward(empty_0x0), std::invalid_argument);
+
+    Matrix::Matrix<float> empty_0x5(0, 5);
+    EXPECT_THROW(rnn.Forward(empty_0x5), std::invalid_argument);
+
+    Matrix::Matrix<float> empty_1x0(1, 0);
+    EXPECT_THROW(rnn.Forward(empty_1x0), std::invalid_argument);
+}

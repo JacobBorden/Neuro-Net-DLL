@@ -1523,3 +1523,239 @@ TEST(NeuroNetJSONTest, GetOutputJSON_NoLayers) {
         output_json_val.GetObject().clear(); // Clear map
     }
 }
+
+// --- Numerical Gradient Check Tests for Dense Layers ---
+
+TEST(NumericalGradientCheckTest, DenseActivationsAndMSE) {
+    const std::vector<NeuroNet::ActivationFunctionType> activations = {
+        NeuroNet::ActivationFunctionType::None,
+        NeuroNet::ActivationFunctionType::ReLU,
+        NeuroNet::ActivationFunctionType::LeakyReLU,
+        NeuroNet::ActivationFunctionType::ELU,
+        NeuroNet::ActivationFunctionType::Sigmoid,
+        NeuroNet::ActivationFunctionType::Tanh,
+        NeuroNet::ActivationFunctionType::Swish
+    };
+
+    const float eps = 1e-3f;
+    const float tol = 1e-2f;
+
+    for (auto act : activations) {
+        NeuroNet::NeuroNetLayer layer;
+        const int input_size = 2;
+        const int layer_size = 3;
+        layer.ResizeLayer(input_size, layer_size);
+        layer.SetActivationFunction(act);
+
+        NeuroNet::LayerWeights lw;
+        lw.WeightCount = input_size * layer_size;
+        lw.WeightsVector = {0.2f, -0.3f, 0.5f, -0.1f, 0.4f, -0.2f};
+        ASSERT_TRUE(layer.SetWeights(lw));
+
+        NeuroNet::LayerBiases lb;
+        lb.BiasCount = layer_size;
+        lb.BiasVector = {0.1f, -0.05f, 0.2f};
+        ASSERT_TRUE(layer.SetBiases(lb));
+
+        Matrix::Matrix<float> input_x(1, input_size);
+        input_x[0][0] = 0.6f;
+        input_x[0][1] = -0.4f;
+
+        Matrix::Matrix<float> target_y(1, layer_size);
+        target_y[0][0] = 0.5f;
+        target_y[0][1] = 0.1f;
+        target_y[0][2] = -0.3f;
+
+        // Forward pass
+        layer.SetInput(input_x);
+        Matrix::Matrix<float> act_out = layer.CalculateOutput();
+
+        // Analytical backprop (MSE loss dL/dA = act_out - target_y)
+        Matrix::Matrix<float> dLdA = act_out - target_y;
+        Matrix::Matrix<float> dLdX_analytical = layer.BackwardPass(dLdA, input_x, true);
+        Matrix::Matrix<float> dLdW_analytical = layer.get_dLdW();
+        Matrix::Matrix<float> dLdB_analytical = layer.get_dLdB();
+
+        // Helper lambda for MSE loss
+        auto compute_loss = [&](NeuroNet::NeuroNetLayer& l, const Matrix::Matrix<float>& x) -> float {
+            l.SetInput(x);
+            Matrix::Matrix<float> out = l.CalculateOutput();
+            float loss = 0.0f;
+            for (size_t c = 0; c < out.cols(); ++c) {
+                float diff = out[0][c] - target_y[0][c];
+                loss += 0.5f * diff * diff;
+            }
+            return loss;
+        };
+
+        // 1. Check Weight Gradients dL/dW
+        for (int r = 0; r < input_size; ++r) {
+            for (int c = 0; c < layer_size; ++c) {
+                int w_idx = r * layer_size + c;
+                float orig_w = lw.WeightsVector[w_idx];
+
+                lw.WeightsVector[w_idx] = orig_w + eps;
+                layer.SetWeights(lw);
+                float loss_plus = compute_loss(layer, input_x);
+
+                lw.WeightsVector[w_idx] = orig_w - eps;
+                layer.SetWeights(lw);
+                float loss_minus = compute_loss(layer, input_x);
+
+                lw.WeightsVector[w_idx] = orig_w;
+                layer.SetWeights(lw);
+
+                float num_grad = (loss_plus - loss_minus) / (2.0f * eps);
+                float ana_grad = dLdW_analytical[r][c];
+                EXPECT_NEAR(num_grad, ana_grad, tol)
+                    << "Weight grad mismatch for activation " << static_cast<int>(act)
+                    << " at (" << r << "," << c << ")";
+            }
+        }
+
+        // 2. Check Bias Gradients dL/dB
+        for (int c = 0; c < layer_size; ++c) {
+            float orig_b = lb.BiasVector[c];
+
+            lb.BiasVector[c] = orig_b + eps;
+            layer.SetBiases(lb);
+            float loss_plus = compute_loss(layer, input_x);
+
+            lb.BiasVector[c] = orig_b - eps;
+            layer.SetBiases(lb);
+            float loss_minus = compute_loss(layer, input_x);
+
+            lb.BiasVector[c] = orig_b;
+            layer.SetBiases(lb);
+
+            float num_grad = (loss_plus - loss_minus) / (2.0f * eps);
+            float ana_grad = dLdB_analytical[0][c];
+            EXPECT_NEAR(num_grad, ana_grad, tol)
+                << "Bias grad mismatch for activation " << static_cast<int>(act)
+                << " at index " << c;
+        }
+
+        // 3. Check Input Gradients dL/dX
+        for (int c = 0; c < input_size; ++c) {
+            Matrix::Matrix<float> x_plus = input_x;
+            x_plus[0][c] += eps;
+            float loss_plus = compute_loss(layer, x_plus);
+
+            Matrix::Matrix<float> x_minus = input_x;
+            x_minus[0][c] -= eps;
+            float loss_minus = compute_loss(layer, x_minus);
+
+            float num_grad = (loss_plus - loss_minus) / (2.0f * eps);
+            float ana_grad = dLdX_analytical[0][c];
+            EXPECT_NEAR(num_grad, ana_grad, tol)
+                << "Input grad mismatch for activation " << static_cast<int>(act)
+                << " at index " << c;
+        }
+    }
+}
+
+TEST(NumericalGradientCheckTest, SoftmaxWithCCE) {
+    NeuroNet::NeuroNetLayer layer;
+    const int input_size = 3;
+    const int layer_size = 3;
+    layer.ResizeLayer(input_size, layer_size);
+    layer.SetActivationFunction(NeuroNet::ActivationFunctionType::Softmax);
+
+    NeuroNet::LayerWeights lw;
+    lw.WeightCount = input_size * layer_size;
+    lw.WeightsVector = {0.1f, 0.2f, -0.1f, -0.3f, 0.4f, 0.0f, 0.2f, -0.2f, 0.5f};
+    ASSERT_TRUE(layer.SetWeights(lw));
+
+    NeuroNet::LayerBiases lb;
+    lb.BiasCount = layer_size;
+    lb.BiasVector = {0.05f, -0.1f, 0.0f};
+    ASSERT_TRUE(layer.SetBiases(lb));
+
+    Matrix::Matrix<float> input_x(1, input_size);
+    input_x[0][0] = 0.5f; input_x[0][1] = -0.2f; input_x[0][2] = 0.8f;
+
+    Matrix::Matrix<float> target_y(1, layer_size); // one-hot
+    target_y[0][0] = 0.0f; target_y[0][1] = 1.0f; target_y[0][2] = 0.0f;
+
+    layer.SetInput(input_x);
+    Matrix::Matrix<float> act_out = layer.CalculateOutput(); // Softmax(Z)
+
+    // For Softmax with CCE, dLdZ = act_out - target_y when seeded with act_out - target_y
+    Matrix::Matrix<float> dLdA = act_out - target_y;
+    Matrix::Matrix<float> dLdX_analytical = layer.BackwardPass(dLdA, input_x, true);
+    Matrix::Matrix<float> dLdW_analytical = layer.get_dLdW();
+    Matrix::Matrix<float> dLdB_analytical = layer.get_dLdB();
+
+    auto compute_cce_loss = [&](NeuroNet::NeuroNetLayer& l, const Matrix::Matrix<float>& x) -> float {
+        l.SetInput(x);
+        Matrix::Matrix<float> out = l.CalculateOutput();
+        float loss = 0.0f;
+        for (size_t c = 0; c < out.cols(); ++c) {
+            if (target_y[0][c] > 0.0f) {
+                loss -= target_y[0][c] * std::log(std::max(out[0][c], 1e-7f));
+            }
+        }
+        return loss;
+    };
+
+    const float eps = 1e-3f;
+    const float tol = 1e-2f;
+
+    // Check Weight Gradients
+    for (int r = 0; r < input_size; ++r) {
+        for (int c = 0; c < layer_size; ++c) {
+            int w_idx = r * layer_size + c;
+            float orig_w = lw.WeightsVector[w_idx];
+
+            lw.WeightsVector[w_idx] = orig_w + eps;
+            layer.SetWeights(lw);
+            float loss_plus = compute_cce_loss(layer, input_x);
+
+            lw.WeightsVector[w_idx] = orig_w - eps;
+            layer.SetWeights(lw);
+            float loss_minus = compute_cce_loss(layer, input_x);
+
+            lw.WeightsVector[w_idx] = orig_w;
+            layer.SetWeights(lw);
+
+            float num_grad = (loss_plus - loss_minus) / (2.0f * eps);
+            float ana_grad = dLdW_analytical[r][c];
+            EXPECT_NEAR(num_grad, ana_grad, tol);
+        }
+    }
+
+    // Check Bias Gradients
+    for (int c = 0; c < layer_size; ++c) {
+        float orig_b = lb.BiasVector[c];
+
+        lb.BiasVector[c] = orig_b + eps;
+        layer.SetBiases(lb);
+        float loss_plus = compute_cce_loss(layer, input_x);
+
+        lb.BiasVector[c] = orig_b - eps;
+        layer.SetBiases(lb);
+        float loss_minus = compute_cce_loss(layer, input_x);
+
+        lb.BiasVector[c] = orig_b;
+        layer.SetBiases(lb);
+
+        float num_grad = (loss_plus - loss_minus) / (2.0f * eps);
+        float ana_grad = dLdB_analytical[0][c];
+        EXPECT_NEAR(num_grad, ana_grad, tol);
+    }
+
+    // Check Input Gradients
+    for (int c = 0; c < input_size; ++c) {
+        Matrix::Matrix<float> x_plus = input_x;
+        x_plus[0][c] += eps;
+        float loss_plus = compute_cce_loss(layer, x_plus);
+
+        Matrix::Matrix<float> x_minus = input_x;
+        x_minus[0][c] -= eps;
+        float loss_minus = compute_cce_loss(layer, x_minus);
+
+        float num_grad = (loss_plus - loss_minus) / (2.0f * eps);
+        float ana_grad = dLdX_analytical[0][c];
+        EXPECT_NEAR(num_grad, ana_grad, tol);
+    }
+}

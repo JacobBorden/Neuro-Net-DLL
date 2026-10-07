@@ -38,6 +38,18 @@ public:
      * @brief Computes the output feature-map width for a given input width.
      */
     int GetOutputWidth(int input_width) const;
+
+    /**
+     * @brief Access internal filters matrix.
+     */
+    Matrix::Matrix<float>& GetFilters() { return filters_; }
+    const Matrix::Matrix<float>& GetFilters() const { return filters_; }
+
+    /**
+     * @brief Access internal biases matrix.
+     */
+    Matrix::Matrix<float>& GetBiases() { return biases_; }
+    const Matrix::Matrix<float>& GetBiases() const { return biases_; }
 private:
     int input_channels_;
     int output_channels_;
