@@ -667,16 +667,22 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::CalculateOutput() {
     // Optimized to avoid intermediate matrix copies and apply OpenMP directly.
     this->OutputMatrix.resize(this->InputMatrix.rows(), this->WeightMatrix.cols());
 
+    // Cache friendly loop order (i, j, k) to avoid column-major misses on WeightMatrix
     #ifdef _OPENMP
-    #pragma omp parallel for collapse(2)
+    #pragma omp parallel for
     #endif
     for (size_t i = 0; i < this->InputMatrix.rows(); ++i) {
         for (size_t j = 0; j < this->WeightMatrix.cols(); ++j) {
-            float val = 0.0f;
-            for (size_t k = 0; k < this->InputMatrix.cols(); ++k) {
-                val += this->InputMatrix[i][k] * this->WeightMatrix[k][j];
+            this->OutputMatrix[i][j] = 0.0f;
+        }
+        for (size_t k = 0; k < this->InputMatrix.cols(); ++k) {
+            float a_val = this->InputMatrix[i][k];
+            for (size_t j = 0; j < this->WeightMatrix.cols(); ++j) {
+                this->OutputMatrix[i][j] += a_val * this->WeightMatrix[k][j];
             }
-            this->OutputMatrix[i][j] = val + this->BiasMatrix[0][j];
+        }
+        for (size_t j = 0; j < this->WeightMatrix.cols(); ++j) {
+            this->OutputMatrix[i][j] += this->BiasMatrix[0][j];
         }
     }
 
