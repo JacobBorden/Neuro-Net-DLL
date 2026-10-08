@@ -47,7 +47,7 @@ TEST(GaussianDistributionTest, ExtremeFiniteStandardDeviations) {
         GaussianDistribution dist(0.0, sigma);
         for (double z : {-1.0, 0.0, 1.0}) {
             const double density = dist.pdf(z * sigma);
-            ASSERT_TRUE(std::isfinite(density));
+            EXPECT_TRUE(std::isfinite(density));
             EXPECT_GT(density, 0.0);
             EXPECT_NEAR(density * sigma,
                         inv_sqrt_two_pi * std::exp(-0.5 * z * z), 1e-14);
