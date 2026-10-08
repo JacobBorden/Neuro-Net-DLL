@@ -75,3 +75,39 @@ TEST(LSTMLayerTest, ResetState) {
         EXPECT_FLOAT_EQ(state[0][c], 0.0f);
     }
 }
+
+TEST(LSTMLayerTest, DeterministicReferenceValue) {
+    LSTMLayer lstm(1, 1);
+    lstm.ResetState();
+
+    lstm.GetW_xf().assign(0.0f); lstm.GetW_hf().assign(0.0f); lstm.Getb_f().assign(0.0f);
+    lstm.GetW_xi().assign(0.0f); lstm.GetW_hi().assign(0.0f); lstm.Getb_i().assign(0.0f);
+    lstm.GetW_xc().assign(1.0f); lstm.GetW_hc().assign(0.0f); lstm.Getb_c().assign(0.0f);
+    lstm.GetW_xo().assign(0.0f); lstm.GetW_ho().assign(0.0f); lstm.Getb_o().assign(0.0f);
+
+    Matrix::Matrix<float> input(1, 1);
+    input[0][0] = 1.0f;
+
+    Matrix::Matrix<float> h1 = lstm.Forward(input);
+    ASSERT_EQ(h1.rows(), 1); ASSERT_EQ(h1.cols(), 1);
+
+    // f_t = 0.5, i_t = 0.5, c_tilde = tanh(1.0), o_t = 0.5
+    float c1_expected = 0.5f * std::tanh(1.0f);
+    float h1_expected = 0.5f * std::tanh(c1_expected);
+
+    EXPECT_NEAR(lstm.GetCellState()[0][0], c1_expected, 1e-5f);
+    EXPECT_NEAR(h1[0][0], h1_expected, 1e-5f);
+}
+
+TEST(LSTMLayerTest, EmptyShapeHandling) {
+    LSTMLayer lstm(5, 10);
+
+    Matrix::Matrix<float> empty_0x0(0, 0);
+    EXPECT_THROW(lstm.Forward(empty_0x0), std::invalid_argument);
+
+    Matrix::Matrix<float> empty_0x5(0, 5);
+    EXPECT_THROW(lstm.Forward(empty_0x5), std::invalid_argument);
+
+    Matrix::Matrix<float> empty_1x0(1, 0);
+    EXPECT_THROW(lstm.Forward(empty_1x0), std::invalid_argument);
+}

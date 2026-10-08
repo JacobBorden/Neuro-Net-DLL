@@ -24,7 +24,7 @@ acceptance evidence exists; a proposed PR is not a delivered feature.
   paths without weakening required checks.
 - [x] Register and run Python smoke tests reliably after interpreter discovery;
   verify test enumeration on a clean configure and import the built extension.
-- [ ] Add numerical gradient checks for dense losses/activations and reference
+- [x] Add numerical gradient checks for dense losses/activations and reference
   values for CNN/RNN/LSTM and attention masks, including invalid/empty shapes.
 - [x] Make randomized training tests assert deterministic invariants with explicit
   seeds; preserve the same initial population when testing elitism/improvement.

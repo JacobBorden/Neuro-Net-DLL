@@ -57,3 +57,52 @@ TEST(Conv2DLayerTest, ForwardPass) {
     EXPECT_EQ(output.rows(), 1);
     EXPECT_EQ(output.cols(), 4); // 2x2 output flattened
 }
+
+TEST(Conv2DLayerTest, DeterministicReferenceValue) {
+    Conv2DLayer layer(1, 1, 2, 1, 0); // 1 in_channel, 1 out_channel, 2x2 kernel
+
+    // Set explicit filter and bias
+    // filter: [1.0, 0.0, 0.0, -1.0]
+    layer.GetFilters()[0][0] = 1.0f;
+    layer.GetFilters()[0][1] = 0.0f;
+    layer.GetFilters()[0][2] = 0.0f;
+    layer.GetFilters()[0][3] = -1.0f;
+
+    // bias: [0.5]
+    layer.GetBiases()[0][0] = 0.5f;
+
+    // 3x3 input: 1,2,3, 4,5,6, 7,8,9
+    Matrix::Matrix<float> input(1, 9);
+    for (int i = 0; i < 9; ++i) {
+        input[0][i] = static_cast<float>(i + 1);
+    }
+
+    Matrix::Matrix<float> output = layer.Forward(input, 3, 3);
+    ASSERT_EQ(output.rows(), 1);
+    ASSERT_EQ(output.cols(), 4);
+
+    // Expected output values: -3.5, -3.5, -3.5, -3.5
+    for (int i = 0; i < 4; ++i) {
+        EXPECT_NEAR(output[0][i], -3.5f, 1e-5f);
+    }
+}
+
+TEST(Conv2DLayerTest, InvalidAndEmptyShapeHandling) {
+    Conv2DLayer layer(1, 1, 3, 1, 0);
+
+    // GetOutputHeight/Width with non-positive dimensions
+    EXPECT_EQ(layer.GetOutputHeight(0), 0);
+    EXPECT_EQ(layer.GetOutputWidth(-1), 0);
+
+    // Empty input matrix (0x0)
+    Matrix::Matrix<float> empty_input(0, 0);
+    EXPECT_THROW(layer.Forward(empty_input, 3, 3), std::invalid_argument);
+
+    // Mismatched flattened input length (expected 9 cols, provided 8)
+    Matrix::Matrix<float> wrong_len_input(1, 8);
+    EXPECT_THROW(layer.Forward(wrong_len_input, 3, 3), std::invalid_argument);
+
+    // Output dimension <= 0 (input size 2 is smaller than kernel 3 with 0 padding)
+    Matrix::Matrix<float> small_input(1, 4);
+    EXPECT_THROW(layer.Forward(small_input, 2, 2), std::invalid_argument);
+}

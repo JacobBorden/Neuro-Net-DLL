@@ -161,3 +161,67 @@ TEST_F(TransformerModelTest, ForwardPassInputTooLong) {
     // to check that the output corresponds to a truncated input.
     EXPECT_THROW(model.forward(long_input_sequence, mask), std::invalid_argument);
 }
+
+TEST(ScaledDotProductAttentionTest, MaskedAndUnmaskedReferenceValues) {
+    NeuroNet::Transformer::ScaledDotProductAttention attn;
+
+    Matrix::Matrix<float> query(1, 2);
+    query[0][0] = 1.0f; query[0][1] = 0.0f;
+
+    Matrix::Matrix<float> key(2, 2);
+    key[0][0] = 1.0f; key[0][1] = 0.0f;
+    key[1][0] = 0.0f; key[1][1] = 1.0f;
+
+    Matrix::Matrix<float> value(2, 2);
+    value[0][0] = 10.0f; value[0][1] = 20.0f;
+    value[1][0] = 30.0f; value[1][1] = 40.0f;
+
+    // 1. Masked attention test: mask out index 1 with large negative value (-1e9)
+    Matrix::Matrix<float> mask(1, 2);
+    mask[0][0] = 0.0f; mask[0][1] = -1e9f;
+
+    auto res_masked = attn.forward(query, key, value, mask);
+    EXPECT_NEAR(res_masked.attention_weights[0][0], 1.0f, 1e-4f);
+    EXPECT_NEAR(res_masked.attention_weights[0][1], 0.0f, 1e-4f);
+    EXPECT_NEAR(res_masked.output[0][0], 10.0f, 1e-4f);
+    EXPECT_NEAR(res_masked.output[0][1], 20.0f, 1e-4f);
+
+    // 2. Unmasked attention test
+    auto res_unmasked = attn.forward(query, key, value);
+    float exp_s0 = std::exp(1.0f / std::sqrt(2.0f));
+    float exp_s1 = std::exp(0.0f);
+    float sum_exp = exp_s0 + exp_s1;
+    float w0 = exp_s0 / sum_exp;
+    float w1 = exp_s1 / sum_exp;
+
+    EXPECT_NEAR(res_unmasked.attention_weights[0][0], w0, 1e-4f);
+    EXPECT_NEAR(res_unmasked.attention_weights[0][1], w1, 1e-4f);
+    EXPECT_NEAR(res_unmasked.output[0][0], w0 * 10.0f + w1 * 30.0f, 1e-4f);
+    EXPECT_NEAR(res_unmasked.output[0][1], w0 * 20.0f + w1 * 40.0f, 1e-4f);
+}
+
+TEST(ScaledDotProductAttentionTest, InvalidAndEmptyShapeHandling) {
+    NeuroNet::Transformer::ScaledDotProductAttention attn;
+
+    Matrix::Matrix<float> q(1, 2); q.assign(1.0f);
+    Matrix::Matrix<float> k_mismatched_cols(2, 3); k_mismatched_cols.assign(1.0f);
+    Matrix::Matrix<float> v(2, 2); v.assign(1.0f);
+
+    // Query and Key column mismatch
+    EXPECT_THROW(attn.forward(q, k_mismatched_cols, v), std::invalid_argument);
+
+    // Key and Value row mismatch
+    Matrix::Matrix<float> k_valid(2, 2); k_valid.assign(1.0f);
+    Matrix::Matrix<float> v_mismatched_rows(3, 2); v_mismatched_rows.assign(1.0f);
+    EXPECT_THROW(attn.forward(q, k_valid, v_mismatched_rows), std::invalid_argument);
+
+    // Zero feature dimension d_k
+    Matrix::Matrix<float> q_zero_col(1, 0);
+    Matrix::Matrix<float> k_zero_col(2, 0);
+    Matrix::Matrix<float> v_zero_col(2, 2);
+    EXPECT_THROW(attn.forward(q_zero_col, k_zero_col, v_zero_col), std::invalid_argument);
+
+    // Mismatched mask dimensions
+    Matrix::Matrix<float> invalid_mask(2, 2); // Expected 1x2 to match query rows and key rows
+    EXPECT_THROW(attn.forward(q, k_valid, v, invalid_mask), std::invalid_argument);
+}
