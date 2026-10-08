@@ -1,7 +1,7 @@
 #include "vocabulary.h"
 #include <fstream>      // For std::ifstream
-#include <sstream>      // For std::istringstream (used in split_by_space)
 #include <algorithm>    // For std::transform (used in to_lowercase) and std::max
+#include <cctype>       // For std::tolower
 #include <stdexcept>    // For std::runtime_error
 #include "json/json_exception.hpp" // For JsonParseException
 
@@ -141,13 +141,15 @@ bool Vocabulary::load_from_json(const std::string& filepath) {
 }
 
 int Vocabulary::get_token_id(const std::string& word) const {
-    // Direct lookup first to avoid string transformation allocations if word is already lowercased
-    auto it = word_to_token_map.find(word);
-    if (it != word_to_token_map.end()) {
-        return it->second;
+    // A direct lookup is valid only when lowercasing cannot change the key.
+    const bool already_lowercase = std::all_of(word.begin(), word.end(),
+        [](unsigned char c) { return std::tolower(c) == c; });
+    if (already_lowercase) {
+        auto it = word_to_token_map.find(word);
+        return it != word_to_token_map.end() ? it->second : unknown_token_id_internal;
     }
     std::string lower_word = to_lowercase(word);
-    it = word_to_token_map.find(lower_word);
+    auto it = word_to_token_map.find(lower_word);
     if (it != word_to_token_map.end()) {
         return it->second;
     }

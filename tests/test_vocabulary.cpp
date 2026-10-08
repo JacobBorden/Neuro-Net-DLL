@@ -93,6 +93,20 @@ TEST_F(VocabularyTest, GetTokenId) {
     EXPECT_EQ(vocab.get_token_id("unknownword"), 2); // unknown_token_id
 }
 
+TEST_F(VocabularyTest, GetTokenIdPreservesLowercaseLookupWithMixedCaseKeys) {
+    CreateTempVocabFile(test_vocab_path, R"({
+        "word_to_token": { "Apple": 5, "apple": 6, "MixedOnly": 7, "<unk>": 2, "<pad>": 3 },
+        "token_to_word": { "5": "Apple", "6": "apple", "7": "MixedOnly", "2": "<unk>", "3": "<pad>" },
+        "special_tokens": { "unknown_token": "<unk>", "padding_token": "<pad>" }
+    })");
+    ASSERT_TRUE(vocab.load_from_json(test_vocab_path));
+    EXPECT_EQ(vocab.get_token_id("Apple"), 6);
+    EXPECT_EQ(vocab.get_token_id("APPLE"), 6);
+    EXPECT_EQ(vocab.get_token_id("apple"), 6);
+    EXPECT_EQ(vocab.get_token_id("MixedOnly"), 2);
+    EXPECT_EQ(vocab.tokenize_sequence("Apple APPLE apple"), (std::vector<int>{6, 6, 6}));
+}
+
 TEST_F(VocabularyTest, GetWord) {
      CreateTempVocabFile(test_vocab_path, R"({
         "word_to_token": { "hello": 0, "world": 1, "<unk>": 2, "<pad>": 3 },
