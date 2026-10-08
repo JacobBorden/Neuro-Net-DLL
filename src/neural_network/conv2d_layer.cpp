@@ -43,28 +43,45 @@ Matrix::Matrix<float> Conv2DLayer::Forward(const Matrix::Matrix<float>& input, i
     }
 
     Matrix::Matrix<float> output(1, output_channels_ * out_h * out_w);
-    output.assign(0.0f);
 
+    // Precalculate spatial dimensions to avoid redundant multiplication in inner loops
+    const int input_spatial_size = input_height * input_width;
+    const int kernel_spatial_size = kernel_size_ * kernel_size_;
+    const int out_spatial_size = out_h * out_w;
+
+    // Optimize performance by parallelizing across output channels and rows,
+    // and hoisting invariant spatial stride and channel indexing out of the inner kernel loops.
+    #pragma omp parallel for collapse(2) schedule(static)
     for (int oc = 0; oc < output_channels_; ++oc) {
         for (int oh = 0; oh < out_h; ++oh) {
+            const int ih_base = oh * stride_ - padding_;
+            const float bias_val = biases_[0][oc];
+            const int oc_out_offset = oc * out_spatial_size + oh * out_w;
+
             for (int ow = 0; ow < out_w; ++ow) {
+                const int iw_base = ow * stride_ - padding_;
                 float val = 0.0f;
+
                 for (int ic = 0; ic < input_channels_; ++ic) {
+                    const int in_c_offset = ic * input_spatial_size;
+                    const int filter_c_offset = ic * kernel_spatial_size;
+
                     for (int kh = 0; kh < kernel_size_; ++kh) {
-                        for (int kw = 0; kw < kernel_size_; ++kw) {
-                            int ih = oh * stride_ - padding_ + kh;
-                            int iw = ow * stride_ - padding_ + kw;
-                            if (ih >= 0 && ih < input_height && iw >= 0 && iw < input_width) {
-                                int input_idx = ic * (input_height * input_width) + ih * input_width + iw;
-                                int filter_idx = ic * (kernel_size_ * kernel_size_) + kh * kernel_size_ + kw;
-                                val += input[0][input_idx] * filters_[oc][filter_idx];
+                        const int ih = ih_base + kh;
+                        if (ih >= 0 && ih < input_height) {
+                            const int in_h_offset = in_c_offset + ih * input_width;
+                            const int filter_h_offset = filter_c_offset + kh * kernel_size_;
+
+                            for (int kw = 0; kw < kernel_size_; ++kw) {
+                                const int iw = iw_base + kw;
+                                if (iw >= 0 && iw < input_width) {
+                                    val += input[0][in_h_offset + iw] * filters_[oc][filter_h_offset + kw];
+                                }
                             }
                         }
                     }
                 }
-                val += biases_[0][oc];
-                int out_idx = oc * (out_h * out_w) + oh * out_w + ow;
-                output[0][out_idx] = val;
+                output[0][oc_out_offset + ow] = val + bias_val;
             }
         }
     }
