@@ -42,7 +42,10 @@ Matrix::Matrix<float> Conv2DLayer::Forward(const Matrix::Matrix<float>& input, i
         throw std::invalid_argument("Invalid input dimensions in Conv2DLayer");
     }
 
-    Matrix::Matrix<float> output(1, output_channels_ * out_h * out_w);
+    // A flattened output has one row; resize avoids the matrix constructor's
+    // unconditional OpenMP team for that single allocation.
+    Matrix::Matrix<float> output;
+    output.resize(1, output_channels_ * out_h * out_w);
 
     // Precalculate spatial dimensions to avoid redundant multiplication in inner loops
     const int input_spatial_size = input_height * input_width;
