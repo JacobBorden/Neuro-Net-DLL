@@ -1523,3 +1523,39 @@ TEST(NeuroNetJSONTest, GetOutputJSON_NoLayers) {
         output_json_val.GetObject().clear(); // Clear map
     }
 }
+
+TEST(NeuroNetLayerForwardTest, SingleRowColumnBlocksMatchScalarReference) {
+    // Cover incomplete blocks, multiple blocks, bias addition and repeat calls.
+    for (int width : {1, 255, 256, 257, 1025}) {
+        SCOPED_TRACE(width);
+        const int inputs = 33;
+        NeuroNet::NeuroNetLayer layer;
+        layer.ResizeLayer(inputs, width);
+        layer.SetActivationFunction(NeuroNet::ActivationFunctionType::None);
+        NeuroNet::LayerWeights weights;
+        weights.WeightCount = inputs * width;
+        for (int k = 0; k < inputs; ++k)
+            for (int j = 0; j < width; ++j)
+                weights.WeightsVector.push_back(((k * 7 + j * 3) % 17 - 8) / 16.0f);
+        NeuroNet::LayerBiases biases;
+        biases.BiasCount = width;
+        for (int j = 0; j < width; ++j) biases.BiasVector.push_back((j % 5 - 2) / 8.0f);
+        ASSERT_TRUE(layer.SetWeights(weights));
+        ASSERT_TRUE(layer.SetBiases(biases));
+        for (int repeat = 0; repeat < 3; ++repeat) {
+            Matrix::Matrix<float> input(1, inputs);
+            for (int k = 0; k < inputs; ++k) input[0][k] = (k % 7 - 3 + repeat) / 8.0f;
+            layer.SetInput(input);
+            auto output = layer.CalculateOutput();
+            ASSERT_EQ(output.rows(), 1u);
+            ASSERT_EQ(output.cols(), static_cast<size_t>(width));
+            for (int j = 0; j < width; ++j) {
+                float expected = 0.0f;
+                for (int k = 0; k < inputs; ++k)
+                    expected += input[0][k] * weights.WeightsVector[k * width + j];
+                expected += biases.BiasVector[j];
+                EXPECT_FLOAT_EQ(output[0][j], expected) << "column " << j;
+            }
+        }
+    }
+}
