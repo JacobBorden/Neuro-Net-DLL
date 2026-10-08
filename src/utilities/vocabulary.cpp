@@ -20,13 +20,21 @@ std::string Vocabulary::to_lowercase(const std::string& str) const {
 }
 
 std::vector<std::string> Vocabulary::split_by_space(const std::string& str) const {
+    // Single-pass scanner to avoid std::istringstream buffer allocation overhead
     std::vector<std::string> tokens;
-    std::string token;
-    std::istringstream tokenStream(str);
-    while (std::getline(tokenStream, token, ' ')) {
-        if (!token.empty()) { // Avoid empty tokens if there are multiple spaces
-            tokens.push_back(token);
+    size_t start = 0;
+    size_t len = str.length();
+    while (start < len) {
+        while (start < len && str[start] == ' ') {
+            ++start;
         }
+        if (start >= len) break;
+        size_t end = start + 1;
+        while (end < len && str[end] != ' ') {
+            ++end;
+        }
+        tokens.push_back(str.substr(start, end - start));
+        start = end + 1;
     }
     return tokens;
 }
@@ -133,8 +141,13 @@ bool Vocabulary::load_from_json(const std::string& filepath) {
 }
 
 int Vocabulary::get_token_id(const std::string& word) const {
+    // Direct lookup first to avoid string transformation allocations if word is already lowercased
+    auto it = word_to_token_map.find(word);
+    if (it != word_to_token_map.end()) {
+        return it->second;
+    }
     std::string lower_word = to_lowercase(word);
-    auto it = word_to_token_map.find(lower_word);
+    it = word_to_token_map.find(lower_word);
     if (it != word_to_token_map.end()) {
         return it->second;
     }
