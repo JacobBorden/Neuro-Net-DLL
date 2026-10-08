@@ -226,6 +226,9 @@ std::unordered_map<std::string, JsonValue*> JsonParser::ParseObject(const std::s
 		SkipWhitespace(json_string, index);
 		if (index >= json_string.length()) throw JsonParseException("Unexpected end of object definition, missing value");
 		JsonValue* val = new JsonValue(ParseValue(json_string,index));
+		if (object.find(key) != object.end()) {
+			delete object[key];
+		}
 		object[key] = val;
 		SkipWhitespace(json_string, index);
 
