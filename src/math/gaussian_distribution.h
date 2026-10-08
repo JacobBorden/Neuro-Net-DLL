@@ -10,10 +10,8 @@ public:
 private:
     double mean_;
     double stddev_;
-    // Precomputed constants for pdf and cdf calculations
+    // Precomputed PDF normalization coefficient
     double pdf_coeff_;
-    double inv_2var_neg_;
-    double inv_stddev_sqrt2_;
 };
 
 #endif // GAUSSIAN_DISTRIBUTION_H
