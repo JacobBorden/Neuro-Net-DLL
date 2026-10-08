@@ -1538,9 +1538,12 @@ TEST(NumericalGradientCheckTest, DenseActivationsAndMSE) {
     };
 
     const float eps = 1e-3f;
-    const float tol = 1e-2f;
 
     for (auto act : activations) {
+        // The negative LeakyReLU gradients are only 4e-4 to 1e-3.
+        // This bound must reject a zero negative-branch derivative.
+        const float tol = act == NeuroNet::ActivationFunctionType::LeakyReLU
+            ? 1e-4f : 1e-2f;
         NeuroNet::NeuroNetLayer layer;
         const int input_size = 2;
         const int layer_size = 3;
