@@ -668,15 +668,25 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::CalculateOutput() {
     this->OutputMatrix.resize(this->InputMatrix.rows(), this->WeightMatrix.cols());
 
     #ifdef _OPENMP
-    #pragma omp parallel for collapse(2)
+    #pragma omp parallel for
     #endif
     for (size_t i = 0; i < this->InputMatrix.rows(); ++i) {
+        // Initialize with 0
         for (size_t j = 0; j < this->WeightMatrix.cols(); ++j) {
-            float val = 0.0f;
-            for (size_t k = 0; k < this->InputMatrix.cols(); ++k) {
-                val += this->InputMatrix[i][k] * this->WeightMatrix[k][j];
+            this->OutputMatrix[i][j] = 0.0f;
+        }
+
+        // Compute (InputMatrix * WeightMatrix) with improved cache locality (i, k, j loop order)
+        for (size_t k = 0; k < this->InputMatrix.cols(); ++k) {
+            float a_val = this->InputMatrix[i][k];
+            for (size_t j = 0; j < this->WeightMatrix.cols(); ++j) {
+                this->OutputMatrix[i][j] += a_val * this->WeightMatrix[k][j];
             }
-            this->OutputMatrix[i][j] = val + this->BiasMatrix[0][j];
+        }
+
+        // Add bias
+        for (size_t j = 0; j < this->WeightMatrix.cols(); ++j) {
+            this->OutputMatrix[i][j] += this->BiasMatrix[0][j];
         }
     }
 
