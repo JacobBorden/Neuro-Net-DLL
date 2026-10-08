@@ -670,34 +670,50 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::CalculateOutput() {
     // Optimized to avoid intermediate matrix copies and apply OpenMP directly.
     this->OutputMatrix.resize(this->InputMatrix.rows(), this->WeightMatrix.cols());
 
-    // Assign disjoint output-column blocks to workers, including for the
-    // supported 1xN input. Within each block, visit weights contiguously and
-    // retain the original input accumulation order for each output element.
+    // Check row boundaries once per block, then traverse contiguous values.
+    // Repeated checked matrix indexing in the innermost loop prevents SIMD.
     const size_t columns = this->WeightMatrix.cols();
-    // With one worker keep the full contiguous traversal of the original PR.
-    // Blocking then would add repeated input scans without parallel benefit.
-    size_t column_block = std::max(size_t{1}, columns);
+    const size_t inputs = this->InputMatrix.cols();
+    const auto multiply_block = [&](size_t i, size_t begin, size_t end) {
+        const size_t count = end - begin;
+        auto& output_row = this->OutputMatrix[i];
+        const auto& input_row = this->InputMatrix[i];
+        const auto& bias_row = this->BiasMatrix[0];
+        (void)output_row[end - 1];
+        (void)bias_row[end - 1];
+        float* output = &output_row[begin];
+        const float* bias = &bias_row[begin];
+        std::fill_n(output, count, 0.0f);
+        for (size_t k = 0; k < inputs; ++k) {
+            const auto& weight_row = this->WeightMatrix[k];
+            (void)weight_row[end - 1];
+            const float* weights = &weight_row[begin];
+            const float value = input_row[k];
+            for (size_t j = 0; j < count; ++j) output[j] += value * weights[j];
+        }
+        for (size_t j = 0; j < count; ++j) output[j] += bias[j];
+    };
+    constexpr size_t column_block = 256;
     #ifdef _OPENMP
-    if (omp_get_max_threads() > 1) column_block = 256;
-    #endif
-    const size_t blocks = (columns + column_block - 1) / column_block;
-    #ifdef _OPENMP
-    #pragma omp parallel for collapse(2) schedule(static)
-    #endif
-    for (size_t i = 0; i < this->InputMatrix.rows(); ++i) {
-        for (size_t block = 0; block < blocks; ++block) {
-            const size_t begin = block * column_block;
-            const size_t end = std::min(begin + column_block, columns);
-            for (size_t j = begin; j < end; ++j) this->OutputMatrix[i][j] = 0.0f;
-            for (size_t k = 0; k < this->InputMatrix.cols(); ++k) {
-                const float a_val = this->InputMatrix[i][k];
-                for (size_t j = begin; j < end; ++j) {
-                    this->OutputMatrix[i][j] += a_val * this->WeightMatrix[k][j];
-                }
+    const double work = static_cast<double>(this->InputMatrix.rows()) * inputs * columns;
+    // Cache-resident matrix-vector products benefit more from SIMD than from
+    // team dispatch. Reserve parallel blocks for at least four million products.
+    if (columns > column_block && work >= 4194304.0 && omp_get_max_threads() > 1) {
+        const size_t blocks = (columns + column_block - 1) / column_block;
+        #pragma omp parallel for collapse(2) schedule(static)
+        for (size_t i = 0; i < this->InputMatrix.rows(); ++i) {
+            for (size_t block = 0; block < blocks; ++block) {
+                const size_t begin = block * column_block;
+                multiply_block(i, begin, std::min(begin + column_block, columns));
             }
-            for (size_t j = begin; j < end; ++j) {
-                this->OutputMatrix[i][j] += this->BiasMatrix[0][j];
-            }
+        }
+    } else
+    #endif
+    {
+        // Bypass the OpenMP runtime entirely for small or single-worker calls.
+        if (columns != 0) {
+            for (size_t i = 0; i < this->InputMatrix.rows(); ++i)
+                multiply_block(i, 0, columns);
         }
     }
 

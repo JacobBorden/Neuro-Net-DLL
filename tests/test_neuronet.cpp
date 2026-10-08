@@ -1528,7 +1528,8 @@ TEST(NeuroNetLayerForwardTest, SingleRowColumnBlocksMatchScalarReference) {
     // Cover incomplete blocks, multiple blocks, bias addition and repeat calls.
     for (int width : {1, 255, 256, 257, 1025}) {
         SCOPED_TRACE(width);
-        const int inputs = 33;
+        // The final shape exceeds the parallel-work threshold and has a tail block.
+        const int inputs = width == 1025 ? 4097 : 33;
         NeuroNet::NeuroNetLayer layer;
         layer.ResizeLayer(inputs, width);
         layer.SetActivationFunction(NeuroNet::ActivationFunctionType::None);
