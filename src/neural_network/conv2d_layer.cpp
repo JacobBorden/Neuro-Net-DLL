@@ -49,53 +49,46 @@ Matrix::Matrix<float> Conv2DLayer::Forward(const Matrix::Matrix<float>& input, i
     const int kernel_spatial_size = kernel_size_ * kernel_size_;
     const int out_spatial_size = out_h * out_w;
 
-    // Share the arithmetic between serial and parallel dispatch. A serialized
-    // OpenMP region still has overhead, so tiny convolutions bypass it entirely.
-    const auto compute_row = [&](int oc, int oh) {
-        const int ih_base = oh * stride_ - padding_;
-        const float bias_val = biases_[0][oc];
-        const int oc_out_offset = oc * out_spatial_size + oh * out_w;
+    // Optimize performance by parallelizing across output channels and rows,
+    // and hoisting invariant spatial stride and channel indexing out of the inner kernel loops.
+    #ifdef _OPENMP
+    // Avoid starting a team when fork/join overhead dominates the arithmetic.
+    // Use floating point for the estimate to avoid integer-product overflow.
+    const double work = static_cast<double>(output_channels_) * out_h * out_w
+        * input_channels_ * kernel_size_ * kernel_size_;
+    #pragma omp parallel for collapse(2) schedule(static) if(work >= 32768.0 && (output_channels_ > 1 || out_h > 1))
+    #endif
+    for (int oc = 0; oc < output_channels_; ++oc) {
+        for (int oh = 0; oh < out_h; ++oh) {
+            const int ih_base = oh * stride_ - padding_;
+            const float bias_val = biases_[0][oc];
+            const int oc_out_offset = oc * out_spatial_size + oh * out_w;
 
-        for (int ow = 0; ow < out_w; ++ow) {
-            const int iw_base = ow * stride_ - padding_;
-            float val = 0.0f;
+            for (int ow = 0; ow < out_w; ++ow) {
+                const int iw_base = ow * stride_ - padding_;
+                float val = 0.0f;
 
-            for (int ic = 0; ic < input_channels_; ++ic) {
-                const int in_c_offset = ic * input_spatial_size;
-                const int filter_c_offset = ic * kernel_spatial_size;
+                for (int ic = 0; ic < input_channels_; ++ic) {
+                    const int in_c_offset = ic * input_spatial_size;
+                    const int filter_c_offset = ic * kernel_spatial_size;
 
-                for (int kh = 0; kh < kernel_size_; ++kh) {
-                    const int ih = ih_base + kh;
-                    if (ih >= 0 && ih < input_height) {
-                        const int in_h_offset = in_c_offset + ih * input_width;
-                        const int filter_h_offset = filter_c_offset + kh * kernel_size_;
+                    for (int kh = 0; kh < kernel_size_; ++kh) {
+                        const int ih = ih_base + kh;
+                        if (ih >= 0 && ih < input_height) {
+                            const int in_h_offset = in_c_offset + ih * input_width;
+                            const int filter_h_offset = filter_c_offset + kh * kernel_size_;
 
-                        for (int kw = 0; kw < kernel_size_; ++kw) {
-                            const int iw = iw_base + kw;
-                            if (iw >= 0 && iw < input_width) {
-                                val += input[0][in_h_offset + iw] * filters_[oc][filter_h_offset + kw];
+                            for (int kw = 0; kw < kernel_size_; ++kw) {
+                                const int iw = iw_base + kw;
+                                if (iw >= 0 && iw < input_width) {
+                                    val += input[0][in_h_offset + iw] * filters_[oc][filter_h_offset + kw];
+                                }
                             }
                         }
                     }
                 }
+                output[0][oc_out_offset + ow] = val + bias_val;
             }
-            output[0][oc_out_offset + ow] = val + bias_val;
-        }
-    };
-#ifdef _OPENMP
-    // Estimate multiply-add work without overflowing integer dimensions.
-    const double work = static_cast<double>(output_channels_) * out_h * out_w
-        * input_channels_ * kernel_size_ * kernel_size_;
-    if (work >= 32768.0 && (output_channels_ > 1 || out_h > 1)) {
-        #pragma omp parallel for collapse(2) schedule(static)
-        for (int oc = 0; oc < output_channels_; ++oc) {
-            for (int oh = 0; oh < out_h; ++oh) compute_row(oc, oh);
-        }
-    } else
-#endif
-    {
-        for (int oc = 0; oc < output_channels_; ++oc) {
-            for (int oh = 0; oh < out_h; ++oh) compute_row(oc, oh);
         }
     }
     return output;
