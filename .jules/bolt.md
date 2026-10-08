@@ -1,0 +1,3 @@
+## 2024-05-18 - [Matrix Multiplication CPU Cache Locality]
+**Learning:** In `src/neural_network/neuronet.cpp`, the matrix multiplication within `NeuroNetLayer::CalculateOutput()` suffers from severe CPU cache misses when using the standard `(i, j, k)` loop order due to column-major memory access of `WeightMatrix[k][j]`. Reordering the loops to `(i, k, j)` resolves this by allowing contiguous, row-major access to both `OutputMatrix[i][j]` and `WeightMatrix[k][j]`, which yields substantial performance gains and auto-vectorization benefits.
+**Action:** When implementing matrix multiplication, always consider memory layout and cache locality. Use the `(i, k, j)` loop order for row-major matrices.
