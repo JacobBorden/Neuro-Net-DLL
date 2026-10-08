@@ -1,7 +1,7 @@
 #include "vocabulary.h"
 #include <fstream>      // For std::ifstream
-#include <sstream>      // For std::istringstream (used in split_by_space)
 #include <algorithm>    // For std::transform (used in to_lowercase) and std::max
+#include <cctype>       // For std::tolower
 #include <stdexcept>    // For std::runtime_error
 #include "json/json_exception.hpp" // For JsonParseException
 
@@ -20,13 +20,21 @@ std::string Vocabulary::to_lowercase(const std::string& str) const {
 }
 
 std::vector<std::string> Vocabulary::split_by_space(const std::string& str) const {
+    // Single-pass scanner to avoid std::istringstream buffer allocation overhead
     std::vector<std::string> tokens;
-    std::string token;
-    std::istringstream tokenStream(str);
-    while (std::getline(tokenStream, token, ' ')) {
-        if (!token.empty()) { // Avoid empty tokens if there are multiple spaces
-            tokens.push_back(token);
+    size_t start = 0;
+    size_t len = str.length();
+    while (start < len) {
+        while (start < len && str[start] == ' ') {
+            ++start;
         }
+        if (start >= len) break;
+        size_t end = start + 1;
+        while (end < len && str[end] != ' ') {
+            ++end;
+        }
+        tokens.push_back(str.substr(start, end - start));
+        start = end + 1;
     }
     return tokens;
 }
@@ -133,6 +141,13 @@ bool Vocabulary::load_from_json(const std::string& filepath) {
 }
 
 int Vocabulary::get_token_id(const std::string& word) const {
+    // A direct lookup is valid only when lowercasing cannot change the key.
+    const bool already_lowercase = std::all_of(word.begin(), word.end(),
+        [](unsigned char c) { return std::tolower(c) == c; });
+    if (already_lowercase) {
+        auto it = word_to_token_map.find(word);
+        return it != word_to_token_map.end() ? it->second : unknown_token_id_internal;
+    }
     std::string lower_word = to_lowercase(word);
     auto it = word_to_token_map.find(lower_word);
     if (it != word_to_token_map.end()) {
