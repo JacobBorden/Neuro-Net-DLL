@@ -57,3 +57,37 @@ TEST(Conv2DLayerTest, ForwardPass) {
     EXPECT_EQ(output.rows(), 1);
     EXPECT_EQ(output.cols(), 4); // 2x2 output flattened
 }
+
+#ifdef _OPENMP
+#include <omp.h>
+
+TEST(Conv2DLayerTest, SerialAndParallelWorkloadsAgreeAcrossThreadCounts) {
+    const int saved_threads = omp_get_max_threads();
+    const int saved_dynamic = omp_get_dynamic();
+    omp_set_dynamic(0);
+    // Tiny, padded/strided, and sufficiently large parallel workloads.
+    for (int size : {1, 8, 32}) {
+        for (int stride : {1, 2}) {
+            SCOPED_TRACE(size);
+            SCOPED_TRACE(stride);
+            const int channels = size == 32 ? 4 : 1;
+            Conv2DLayer layer(channels, channels + 1, 3, stride, 1);
+            Matrix::Matrix<float> input(1, channels * size * size);
+            for (size_t j = 0; j < input.cols(); ++j)
+                input[0][j] = (static_cast<int>(j % 19) - 9) / 16.0f;
+            omp_set_num_threads(1);
+            auto serial = layer.Forward(input, size, size);
+            omp_set_num_threads(4);
+            for (int repeat = 0; repeat < 3; ++repeat) {
+                auto parallel = layer.Forward(input, size, size);
+                EXPECT_EQ(parallel.rows(), serial.rows());
+                EXPECT_EQ(parallel.cols(), serial.cols());
+                for (size_t j = 0; j < serial.cols(); ++j)
+                    EXPECT_FLOAT_EQ(parallel[0][j], serial[0][j]);
+            }
+        }
+    }
+    omp_set_num_threads(saved_threads);
+    omp_set_dynamic(saved_dynamic);
+}
+#endif

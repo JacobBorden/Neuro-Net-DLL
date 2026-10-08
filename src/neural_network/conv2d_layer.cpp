@@ -42,7 +42,10 @@ Matrix::Matrix<float> Conv2DLayer::Forward(const Matrix::Matrix<float>& input, i
         throw std::invalid_argument("Invalid input dimensions in Conv2DLayer");
     }
 
-    Matrix::Matrix<float> output(1, output_channels_ * out_h * out_w);
+    // A flattened output has one row; resize avoids the matrix constructor's
+    // unconditional OpenMP team for that single allocation.
+    Matrix::Matrix<float> output;
+    output.resize(1, output_channels_ * out_h * out_w);
 
     // Precalculate spatial dimensions to avoid redundant multiplication in inner loops
     const int input_spatial_size = input_height * input_width;
@@ -51,7 +54,13 @@ Matrix::Matrix<float> Conv2DLayer::Forward(const Matrix::Matrix<float>& input, i
 
     // Optimize performance by parallelizing across output channels and rows,
     // and hoisting invariant spatial stride and channel indexing out of the inner kernel loops.
-    #pragma omp parallel for collapse(2) schedule(static)
+    #ifdef _OPENMP
+    // Avoid starting a team when fork/join overhead dominates the arithmetic.
+    // Use floating point for the estimate to avoid integer-product overflow.
+    const double work = static_cast<double>(output_channels_) * out_h * out_w
+        * input_channels_ * kernel_size_ * kernel_size_;
+    #pragma omp parallel for collapse(2) schedule(static) if(work >= 32768.0 && (output_channels_ > 1 || out_h > 1))
+    #endif
     for (int oc = 0; oc < output_channels_; ++oc) {
         for (int oh = 0; oh < out_h; ++oh) {
             const int ih_base = oh * stride_ - padding_;
