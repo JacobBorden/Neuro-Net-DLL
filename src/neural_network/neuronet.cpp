@@ -10,6 +10,9 @@
  */
 
 #include "neuronet.h"
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 #include <stdexcept> // For std::runtime_error or other exceptions if needed
 #include <cmath>     // For std::exp and std::max
 // #include "pch.h" // Precompiled header (if used, ensure it's appropriate for the project) - REMOVED
@@ -670,8 +673,13 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::CalculateOutput() {
     // Assign disjoint output-column blocks to workers, including for the
     // supported 1xN input. Within each block, visit weights contiguously and
     // retain the original input accumulation order for each output element.
-    constexpr size_t column_block = 256;
     const size_t columns = this->WeightMatrix.cols();
+    // With one worker keep the full contiguous traversal of the original PR.
+    // Blocking then would add repeated input scans without parallel benefit.
+    size_t column_block = std::max(size_t{1}, columns);
+    #ifdef _OPENMP
+    if (omp_get_max_threads() > 1) column_block = 256;
+    #endif
     const size_t blocks = (columns + column_block - 1) / column_block;
     #ifdef _OPENMP
     #pragma omp parallel for collapse(2) schedule(static)
