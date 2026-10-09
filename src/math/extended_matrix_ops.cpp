@@ -12,8 +12,13 @@ Matrix::Matrix<float> gelu(const Matrix::Matrix<float>& input) {
     Matrix::Matrix<float> output(input.rows(), input.cols());
     constexpr float M_SQRT2_OVER_PI = 0.7978845608028654f; // sqrt(2/PI)
 
-    for (size_t i = 0; i < input.rows(); ++i) {
-        for (size_t j = 0; j < input.cols(); ++j) {
+    size_t rows = input.rows();
+    size_t cols = input.cols();
+
+    // Optimization: Parallelize row computation with OpenMP for faster batch processing
+    #pragma omp parallel for
+    for (size_t i = 0; i < rows; ++i) {
+        for (size_t j = 0; j < cols; ++j) {
             float x = input[i][j];
             float x_cubed = x * x * x;
             float inner = M_SQRT2_OVER_PI * (x + 0.044715f * x_cubed);
@@ -38,6 +43,8 @@ Matrix::Matrix<float> softmax(const Matrix::Matrix<float>& input, int axis) {
     Matrix::Matrix<float> output(rows, cols);
 
     if (axis == 1 || axis == -1) { // Row-wise Softmax
+        // Optimization: Parallelize independent row computations across threads
+        #pragma omp parallel for
         for (size_t i = 0; i < rows; ++i) {
             float max_val = input[i][0];
             for (size_t j = 1; j < cols; ++j) {
@@ -66,6 +73,8 @@ Matrix::Matrix<float> softmax(const Matrix::Matrix<float>& input, int axis) {
             }
         }
     } else { // Column-wise Softmax (axis == 0)
+        // Optimization: Parallelize independent column computations across threads
+        #pragma omp parallel for
         for (size_t j = 0; j < cols; ++j) {
             float max_val = input[0][j];
             for (size_t i = 1; i < rows; ++i) {
@@ -104,8 +113,12 @@ Matrix::Matrix<float> layer_norm(const Matrix::Matrix<float>& input, float epsil
     }
 
     Matrix::Matrix<float> output(input.rows(), input.cols());
+    size_t rows = input.rows();
+    size_t cols = input.cols();
 
-    for (size_t i = 0; i < input.rows(); ++i) {
+    // Optimization: Parallelize independent row normalization across threads
+    #pragma omp parallel for
+    for (size_t i = 0; i < rows; ++i) {
         float sum = 0.0f;
         for (size_t j = 0; j < input.cols(); ++j) {
             sum += input[i][j];
