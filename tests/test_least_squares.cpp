@@ -1,6 +1,8 @@
 #include "gtest/gtest.h"
 #include "math/least_squares.h" // This should find solve_least_squares in Math namespace
 #include "math/matrix.h"      // For Matrix::Matrix
+#include <cmath>
+#include <limits>
 
 const double TOLERANCE = 1e-3; // Adjusted tolerance for floating point comparisons
 
@@ -121,4 +123,31 @@ TEST(LeastSquaresTest, ErrorHandling_bEmpty) {
     Matrix::Matrix<double> A = create_matrix({{1,2},{3,4}});
     Matrix::Matrix<double> b = create_matrix({});
     EXPECT_THROW(Math::solve_least_squares(A, b), std::invalid_argument);
+}
+
+TEST(LeastSquaresTest, ErrorHandling_UnderdeterminedSystem) {
+    // A is 2x3 (rows < cols)
+    Matrix::Matrix<double> A = create_matrix({{1, 2, 3}, {4, 5, 6}});
+    Matrix::Matrix<double> b = create_matrix({{1}, {2}});
+    EXPECT_THROW(Math::solve_least_squares(A, b), std::invalid_argument);
+}
+
+TEST(LeastSquaresTest, ErrorHandling_NaNAndInfInputs) {
+    double nan_val = std::numeric_limits<double>::quiet_NaN();
+    double inf_val = std::numeric_limits<double>::infinity();
+
+    Matrix::Matrix<double> A_nan = create_matrix({{1, 2}, {nan_val, 4}});
+    Matrix::Matrix<double> b_valid = create_matrix({{1}, {2}});
+    EXPECT_THROW(Math::solve_least_squares(A_nan, b_valid), std::invalid_argument);
+
+    Matrix::Matrix<double> A_valid = create_matrix({{1, 2}, {3, 4}});
+    Matrix::Matrix<double> b_inf = create_matrix({{1}, {inf_val}});
+    EXPECT_THROW(Math::solve_least_squares(A_valid, b_inf), std::invalid_argument);
+}
+
+TEST(LeastSquaresTest, ErrorHandling_IllConditionedMatrix) {
+    // Nearly singular matrix with extremely small pivot
+    Matrix::Matrix<double> A = create_matrix({{1.0, 1.0}, {1.0, 1.0 + 1e-18}, {1.0, 1.0}});
+    Matrix::Matrix<double> b = create_matrix({{1.0}, {2.0}, {3.0}});
+    EXPECT_THROW(Math::solve_least_squares(A, b), std::runtime_error);
 }

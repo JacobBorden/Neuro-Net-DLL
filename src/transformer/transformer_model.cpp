@@ -177,12 +177,7 @@ static Matrix::Matrix<float> deserialize_matrix_from_json(const JsonValue* matri
 // pointers would leak if not managed.
 // A better JsonValue would handle this with RAII or shared_ptr.
 static void cleanup_serialized_matrix_json(JsonValue& matrix_json) {
-    if (matrix_json.type == JsonValueType::Object) {
-        auto& obj = matrix_json.GetObject();
-        if (obj.count("rows")) { delete obj["rows"]; obj.erase("rows"); }
-        if (obj.count("cols")) { delete obj["cols"]; obj.erase("cols"); }
-        if (obj.count("data")) { delete obj["data"]; obj.erase("data"); } // Data array's elements are copies, not ptrs
-    }
+    // JsonValue RAII automatically cleans up object_value map.
 }
 
 
@@ -245,43 +240,10 @@ bool TransformerModel::save_model(const std::string& filename) const { // Fixed 
     // Write to file
     std::ofstream ofs(filename); // Fixed std::ofstream
     if (!ofs.is_open()) {
-        // Cleanup allocated JsonValues before returning
-        for (auto& pair : root.GetObject()) {
-            if (pair.first == "encoder_layers_weights") {
-                JsonValue* layers_array = pair.second;
-                for (JsonValue& layer_val : layers_array->GetArray()) {
-                    for (auto& layer_prop_pair : layer_val.GetObject()) {
-                        cleanup_serialized_matrix_json(*layer_prop_pair.second); // Cleanup matrix object
-                        delete layer_prop_pair.second; // Delete the JsonValue* itself
-                    }
-                }
-            } else if (pair.first == "embedding_weights") {
-                 cleanup_serialized_matrix_json(*pair.second);
-            }
-            delete pair.second;
-        }
-        root.GetObject().clear();
         return false;
     }
     ofs << root.ToString();
     ofs.close();
-
-    // Cleanup allocated JsonValues
-    for (auto& pair : root.GetObject()) { // Top-level properties of root
-        if (pair.first == "encoder_layers_weights") {
-            JsonValue* layers_array = pair.second; // This is the JsonValue* for the array itself
-            for (JsonValue& layer_val_obj : layers_array->GetArray()) { // layer_val_obj is a copy of an object from the array
-                for (auto& layer_prop_pair : layer_val_obj.GetObject()) { // layer_prop_pair.second is JsonValue* for a matrix
-                    cleanup_serialized_matrix_json(*layer_prop_pair.second); // Cleanup matrix object's internal JsonValue*s
-                    delete layer_prop_pair.second; // Delete the JsonValue* for the matrix object itself
-                }
-            }
-        } else if (pair.first == "embedding_weights") {
-             cleanup_serialized_matrix_json(*pair.second); // Cleanup matrix object's internals
-        }
-        delete pair.second; // Delete the top-level JsonValue* (e.g., for "vocab_size", "embedding_weights" object, "encoder_layers_weights" array)
-    }
-    root.GetObject().clear(); // Clear the map in root
 
     return true;
 }
@@ -365,29 +327,6 @@ TransformerModel TransformerModel::load_model(const std::string& filename) { // 
         model.encoder_layers_[i].get_ffn_module().set_W2(load_sub_matrix("ffn_W2"));
         model.encoder_layers_[i].get_ffn_module().set_b2(load_sub_matrix("ffn_b2"));
     }
-
-    // Cleanup for JsonParser::Parse result (root_json_val)
-    // Similar to NeuroNet::load_model cleanup for its custom Json library
-    if (root_json_val.type == JsonValueType::Object) {
-        for (auto& pair : root_obj) { // pair.first is string, pair.second is JsonValue*
-            if (pair.second->type == JsonValueType::Object) {
-                for (auto& inner_pair : pair.second->GetObject()) delete inner_pair.second; // For matrix objects
-                pair.second->GetObject().clear();
-            } else if (pair.second->type == JsonValueType::Array) {
-                 for (JsonValue& array_item_val : pair.second->GetArray()) { // array_item_val is a copy
-                    if (array_item_val.type == JsonValueType::Object) { // This is for encoder_layers_weights
-                        for (auto& el_pair : array_item_val.GetObject()) delete el_pair.second; // Delete matrix JsonValue*
-                        // array_item_val.GetObject().clear(); // Not needed as array_item_val is a copy
-                    }
-                 }
-                 // pair.second->GetArray().clear(); // Not needed
-            }
-            delete pair.second; // Delete the JsonValue* itself
-        }
-        // root_json_val.GetObject().clear(); // The map in root_json_val will be cleared when it goes out of scope
-                                           // but the pointers it holds need to be deleted.
-    }
-
 
     return model;
 }
