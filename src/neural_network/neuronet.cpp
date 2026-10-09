@@ -667,16 +667,28 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::CalculateOutput() {
     // Optimized to avoid intermediate matrix copies and apply OpenMP directly.
     this->OutputMatrix.resize(this->InputMatrix.rows(), this->WeightMatrix.cols());
 
+    // ⚡ Bolt Optimization:
+    // Matrix multiplication loop order changed to (i, k, j) for contiguous row-major memory access.
+    // This improves CPU cache locality and enables auto-vectorization, significantly boosting performance.
     #ifdef _OPENMP
-    #pragma omp parallel for collapse(2)
+    #pragma omp parallel for
     #endif
     for (size_t i = 0; i < this->InputMatrix.rows(); ++i) {
+        // Initialize output matrix to zero
         for (size_t j = 0; j < this->WeightMatrix.cols(); ++j) {
-            float val = 0.0f;
-            for (size_t k = 0; k < this->InputMatrix.cols(); ++k) {
-                val += this->InputMatrix[i][k] * this->WeightMatrix[k][j];
+            this->OutputMatrix[i][j] = 0.0f;
+        }
+        // Accumulate dot products
+        for (size_t k = 0; k < this->InputMatrix.cols(); ++k) {
+            float val = this->InputMatrix[i][k];
+            for (size_t j = 0; j < this->WeightMatrix.cols(); ++j) {
+                this->OutputMatrix[i][j] += val * this->WeightMatrix[k][j];
             }
-            this->OutputMatrix[i][j] = val + this->BiasMatrix[0][j];
+        }
+        // Add bias at the end to prevent floating point precision loss
+        // during calculation of cancelling products in matrix multiplication
+        for (size_t j = 0; j < this->WeightMatrix.cols(); ++j) {
+            this->OutputMatrix[i][j] += (this->BiasMatrix.cols() > j) ? this->BiasMatrix[0][j] : 0.0f;
         }
     }
 
