@@ -45,7 +45,77 @@ struct JsonValue{
      * @brief Constructs a JsonValue.
      * @param type_ The initial type of the JsonValue. Defaults to JsonValueType::Null.
      */
-	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_){}
+	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_), boolean_value(false), number_value(0.0){}
+
+	~JsonValue() {
+		Clear();
+	}
+
+	JsonValue(const JsonValue& other)
+		: type(other.type),
+		  boolean_value(other.boolean_value),
+		  number_value(other.number_value),
+		  string_value(other.string_value),
+		  array_value(other.array_value) {
+		if (other.type == JsonValueType::Object) {
+			for (const auto& kv : other.object_value) {
+				object_value[kv.first] = kv.second ? new JsonValue(*kv.second) : nullptr;
+			}
+		}
+	}
+
+	JsonValue& operator=(const JsonValue& other) {
+		if (this != &other) {
+			Clear();
+			type = other.type;
+			boolean_value = other.boolean_value;
+			number_value = other.number_value;
+			string_value = other.string_value;
+			array_value = other.array_value;
+			if (other.type == JsonValueType::Object) {
+				for (const auto& kv : other.object_value) {
+					object_value[kv.first] = kv.second ? new JsonValue(*kv.second) : nullptr;
+				}
+			}
+		}
+		return *this;
+	}
+
+	JsonValue(JsonValue&& other) noexcept
+		: type(other.type),
+		  boolean_value(other.boolean_value),
+		  number_value(other.number_value),
+		  string_value(std::move(other.string_value)),
+		  array_value(std::move(other.array_value)),
+		  object_value(std::move(other.object_value)) {
+		other.type = JsonValueType::Null;
+	}
+
+	JsonValue& operator=(JsonValue&& other) noexcept {
+		if (this != &other) {
+			Clear();
+			type = other.type;
+			boolean_value = other.boolean_value;
+			number_value = other.number_value;
+			string_value = std::move(other.string_value);
+			array_value = std::move(other.array_value);
+			object_value = std::move(other.object_value);
+			other.type = JsonValueType::Null;
+		}
+		return *this;
+	}
+
+	void Clear() {
+		if (type == JsonValueType::Object) {
+			for (auto& kv : object_value) {
+				delete kv.second;
+			}
+			object_value.clear();
+		}
+		array_value.clear();
+		string_value.clear();
+		type = JsonValueType::Null;
+	}
 
 	JsonValueType type; ///< The actual type of this JSON value, determining which member field is valid.
 	
@@ -61,11 +131,7 @@ struct JsonValue{
     
     /**
      * @brief Valid and used if `type` is JsonValueType::Object. Stores key-value pairs.
-     * Keys are strings, and values are *pointers* to `JsonValue` objects.
-     * @warning Users of this map are responsible for the memory management of the `JsonValue`
-     * objects pointed to if they are dynamically allocated (e.g., using `new`). The map itself
-     * does not automatically deallocate these pointers upon destruction of the containing `JsonValue`
-     * or when elements are removed from the map.
+     * Keys are strings, and values are pointers to owned `JsonValue` objects.
      */
 	std::unordered_map<std::string, JsonValue* > object_value;
 
@@ -198,7 +264,7 @@ struct JsonValue{
      * `JsonValue*` members, those pointers are NOT deallocated by this call. Memory
      * management of previous object members is the caller's responsibility.
      */
-	void SetObject(){type = JsonValueType::Object; object_value.clear(); } // Ensure it's clean, but doesn't delete pointed-to values
+	void SetObject(){ Clear(); type = JsonValueType::Object; }
     /**
      * @brief Checks if this JsonValue is an Object.
      * @return True if the type is JsonValueType::Object, false otherwise.
@@ -237,7 +303,10 @@ struct JsonValue{
 		if (type != JsonValueType::Object){
 			throw JsonParseException("Cannot insert into a non-object value.");
 		}
-        // Potential memory leak: if object_value[key] previously held a pointer, it's overwritten.
+		auto it = object_value.find(key);
+		if (it != object_value.end() && it->second != value) {
+			delete it->second;
+		}
 		object_value[key] = value;
 	}
 
@@ -307,19 +376,18 @@ class JsonParser{
          *        or if any other parsing error occurs (e.g., unexpected end of input).
          */
 		static JsonValue Parse(const std::string& json_string);
+		static constexpr size_t MAX_RECURSION_DEPTH = 100;
 	private:
         /// @brief Parses a generic JSON value from the input string at the current index.
-		static JsonValue ParseValue(const std::string& json_string, size_t& index);
+		static JsonValue ParseValue(const std::string& json_string, size_t& index, size_t depth = 0);
         /// @brief Parses a JSON string literal (enclosed in double quotes) from the input. Handles basic escape sequences.
 		static std::string ParseString(const std::string& json_string, size_t& index);
         /// @brief Parses a JSON number (integer or floating-point) from the input.
 		static double ParseNumber(const std::string& json_string, size_t& index);
         /// @brief Parses a JSON array from the input string.
-		static std::vector<JsonValue> ParseArray(const std::string& json_string, size_t& index);
+		static std::vector<JsonValue> ParseArray(const std::string& json_string, size_t& index, size_t depth = 0);
         /// @brief Parses a JSON object from the input string.
-        /// @warning Dynamically allocates JsonValue objects for the object's members. The caller (ultimately ParseValue for an object)
-        /// is responsible for ensuring these are correctly managed by the returned JsonValue's object_value map.
-		static std::unordered_map<std::string, JsonValue*> ParseObject(const std::string& json_string, size_t& index);
+		static std::unordered_map<std::string, JsonValue*> ParseObject(const std::string& json_string, size_t& index, size_t depth = 0);
         /// @brief Parses a JSON boolean literal (true or false) from the input.
 		static bool ParseBoolean(const std::string& json_string, size_t& index);
         /// @brief Parses a JSON null literal from the input.

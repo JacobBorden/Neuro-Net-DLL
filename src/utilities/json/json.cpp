@@ -19,7 +19,7 @@ JsonValue JsonParser::Parse(const std::string& json_string)
     }
 
 
-	JsonValue result = ParseValue(json_string, index);
+	JsonValue result = ParseValue(json_string, index, 0);
     
     // After parsing a value, skip any trailing whitespace and comments
     SkipWhitespace(json_string, index);
@@ -34,9 +34,15 @@ JsonValue JsonParser::Parse(const std::string& json_string)
 	return result;
 }
 
-JsonValue JsonParser::ParseValue(const std::string& json_string, size_t& index)
+JsonValue JsonParser::ParseValue(const std::string& json_string, size_t& index, size_t depth)
 {
+	if (depth > MAX_RECURSION_DEPTH) {
+		throw JsonParseException("Exceeded maximum JSON recursion depth limit.");
+	}
 	SkipWhitespace(json_string, index);
+	if (index >= json_string.length()) {
+		throw JsonParseException("Unexpected end of input while parsing value.");
+	}
 	switch(json_string[index])
 	{
 		case 'n':
@@ -61,13 +67,13 @@ JsonValue JsonParser::ParseValue(const std::string& json_string, size_t& index)
 		case '{':
 		{
 			JsonValue value(JsonValueType::Object);
-			value.object_value = ParseObject(json_string, index);
+			value.object_value = ParseObject(json_string, index, depth + 1);
 			return value;
 		}
 		case '[':
 		{
 			JsonValue value(JsonValueType::Array);
-			value.array_value = ParseArray(json_string, index);
+			value.array_value = ParseArray(json_string, index, depth + 1);
 			return value;
 		}
 		// For numbers, check if it starts with a digit or '-'
@@ -206,54 +212,70 @@ std::string JsonParser::ParseString(const std::string& json_string, size_t& inde
 	return result;
 }
 
-std::unordered_map<std::string, JsonValue*> JsonParser::ParseObject(const std::string& json_string, size_t& index)
+std::unordered_map<std::string, JsonValue*> JsonParser::ParseObject(const std::string& json_string, size_t& index, size_t depth)
 {
 	std::unordered_map <std::string, JsonValue*> object;
-	SkipWhitespace(json_string, index);
-	ExpectChar(json_string, index, '{');
-	SkipWhitespace(json_string,index);
-    if (index < json_string.length() && json_string[index] == '}') { // Handle empty object
-        ExpectChar(json_string, index, '}');
-        return object;
-    }
-	while(index < json_string.length() && json_string[index] != '}')
-	{
-		if (index >= json_string.length()) throw JsonParseException("Unexpected end of object definition");
-        std::string key = ParseString(json_string, index);
-		SkipWhitespace(json_string, index);
-		if (index >= json_string.length()) throw JsonParseException("Unexpected end of object definition, missing colon");
-		ExpectChar(json_string, index, ':');
-		SkipWhitespace(json_string, index);
-		if (index >= json_string.length()) throw JsonParseException("Unexpected end of object definition, missing value");
-		JsonValue* val = new JsonValue(ParseValue(json_string,index));
-		object[key] = val;
-		SkipWhitespace(json_string, index);
+	auto cleanup_object = [&object]() {
+		for (auto& pair : object) {
+			delete pair.second;
+		}
+		object.clear();
+	};
 
-		if(index < json_string.length())
+	try {
+		SkipWhitespace(json_string, index);
+		ExpectChar(json_string, index, '{');
+		SkipWhitespace(json_string,index);
+		if (index < json_string.length() && json_string[index] == '}') { // Handle empty object
+			ExpectChar(json_string, index, '}');
+			return object;
+		}
+		while(index < json_string.length() && json_string[index] != '}')
 		{
-			char c = json_string[index];
-			if(c==',')
-			{
-				++index;
-				SkipWhitespace(json_string, index);
-                if (index >= json_string.length() || json_string[index] == '}') // Trailing comma or end after comma
-                    throw JsonParseException("Trailing comma or unexpected end after comma in object");
+			if (index >= json_string.length()) throw JsonParseException("Unexpected end of object definition");
+			std::string key = ParseString(json_string, index);
+			SkipWhitespace(json_string, index);
+			if (index >= json_string.length()) throw JsonParseException("Unexpected end of object definition, missing colon");
+			ExpectChar(json_string, index, ':');
+			SkipWhitespace(json_string, index);
+			if (index >= json_string.length()) throw JsonParseException("Unexpected end of object definition, missing value");
+			JsonValue* val = new JsonValue(ParseValue(json_string, index, depth));
+			auto it = object.find(key);
+			if (it != object.end()) {
+				delete it->second;
 			}
-			else if (c == '}')
-				break;
-			else throw JsonParseException("Expected ',' or '}' while parsing object");
-		} else { // End of string after a value, but no closing brace
-             throw JsonParseException("Unexpected end of object definition, missing '}'");
-        }
+			object[key] = val;
+			SkipWhitespace(json_string, index);
+
+			if(index < json_string.length())
+			{
+				char c = json_string[index];
+				if(c==',')
+				{
+					++index;
+					SkipWhitespace(json_string, index);
+					if (index >= json_string.length() || json_string[index] == '}') // Trailing comma or end after comma
+						throw JsonParseException("Trailing comma or unexpected end after comma in object");
+				}
+				else if (c == '}')
+					break;
+				else throw JsonParseException("Expected ',' or '}' while parsing object");
+			} else { // End of string after a value, but no closing brace
+				 throw JsonParseException("Unexpected end of object definition, missing '}'");
+			}
+		}
+		if (index >= json_string.length() || json_string[index] != '}') { // Check if loop exited due to end of string
+			throw JsonParseException("Unexpected end of object definition or invalid character instead of '}'");
+		}
+		ExpectChar(json_string, index, '}');
+		return object;
+	} catch (...) {
+		cleanup_object();
+		throw;
 	}
-	if (index >= json_string.length() || json_string[index] != '}') { // Check if loop exited due to end of string
-        throw JsonParseException("Unexpected end of object definition or invalid character instead of '}'");
-    }
-	ExpectChar(json_string, index, '}');
-	return object;
 }
 
-std::vector<JsonValue> JsonParser::ParseArray(const std::string& json_string, size_t& index)
+std::vector<JsonValue> JsonParser::ParseArray(const std::string& json_string, size_t& index, size_t depth)
 {
 	std::vector<JsonValue> array;
 	SkipWhitespace(json_string, index);
@@ -266,7 +288,7 @@ std::vector<JsonValue> JsonParser::ParseArray(const std::string& json_string, si
 	while(index < json_string.length() && json_string[index] != ']') // Corrected loop condition
 	{
 		if (index >= json_string.length()) throw JsonParseException("Unexpected end of array definition");
-        JsonValue value = ParseValue(json_string, index);
+        JsonValue value = ParseValue(json_string, index, depth);
 		array.push_back(value);
 		SkipWhitespace(json_string, index);
 
