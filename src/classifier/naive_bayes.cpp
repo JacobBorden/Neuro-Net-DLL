@@ -135,36 +135,46 @@ Matrix::Matrix<double> NaiveBayesClassifier::predict(const Matrix::Matrix<double
 
     Matrix::Matrix<double> predictions(features.rows(), 1);
 
+    struct CachedClassInfo {
+        double label;
+        double log_prior;
+        const std::vector<GaussianDistribution>* feature_distributions;
+    };
+
+    std::vector<CachedClassInfo> cached_classes;
+    cached_classes.reserve(unique_labels_sorted_.size());
+    for (double current_class_label : unique_labels_sorted_) {
+        CachedClassInfo info;
+        info.label = current_class_label;
+        info.log_prior = std::log(class_priors_.at(current_class_label));
+        info.feature_distributions = &class_feature_params_.at(current_class_label);
+        cached_classes.push_back(info);
+    }
+
+    const double eps = std::numeric_limits<double>::epsilon();
+
+    #pragma omp parallel for schedule(static)
     for (size_t i = 0; i < features.rows(); ++i) {
         double max_log_posterior = -std::numeric_limits<double>::infinity();
-        double predicted_class = -1; // Default or error value
+        double predicted_class = cached_classes.empty() ? -1 : cached_classes[0].label;
 
-        if (unique_labels_sorted_.empty()) { // Should be caught by class_priors_.empty() check
-             throw std::runtime_error("No classes available for prediction. Model might be corrupt or not fitted.");
-        }
-        predicted_class = unique_labels_sorted_[0]; // Default to first class if all posteriors are somehow zero/invalid
-
-        for (double current_class_label : unique_labels_sorted_) {
-            // Calculate log posterior: log(P(C_k)) + sum(log(P(x_j | C_k)))
-            double log_prior = std::log(class_priors_.at(current_class_label));
+        for (const auto& cls : cached_classes) {
             double log_likelihood_sum = 0.0;
-
-            const auto& feature_distributions = class_feature_params_.at(current_class_label);
+            const auto& feature_distributions = *cls.feature_distributions;
             for (size_t j = 0; j < num_features_; ++j) {
                 double feature_value = features[i][j];
                 double pdf_val = feature_distributions[j].pdf(feature_value);
-                // Add small epsilon to pdf_val if it's zero to avoid log(0)
-                if (pdf_val < std::numeric_limits<double>::epsilon()) {
-                     pdf_val = std::numeric_limits<double>::epsilon();
+                if (pdf_val < eps) {
+                     pdf_val = eps;
                 }
                 log_likelihood_sum += std::log(pdf_val);
             }
 
-            double current_log_posterior = log_prior + log_likelihood_sum;
+            double current_log_posterior = cls.log_prior + log_likelihood_sum;
 
             if (current_log_posterior > max_log_posterior) {
                 max_log_posterior = current_log_posterior;
-                predicted_class = current_class_label;
+                predicted_class = cls.label;
             }
         }
         predictions[i][0] = predicted_class;
