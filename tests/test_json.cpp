@@ -942,3 +942,12 @@ TEST_F(JsonLibTest, ParseErrorUnterminatedComment) {
     EXPECT_THROW(JsonParser::Parse("/* unterminated comment"), JsonParseException);
     EXPECT_THROW(JsonParser::Parse("{\"key\": \"value\"} /* unclosed comment "), JsonParseException);
 }
+
+TEST_F(JsonLibTest, ParseErrorObjectPartialAllocCleanup) {
+    // Ensure that when an error occurs mid-object, exception is raised cleanly
+    const std::string json_partial_invalid = "{\"valid_key1\": 100, \"valid_key2\": \"hello\", \"invalid_key\": }";
+    EXPECT_THROW(JsonParser::Parse(json_partial_invalid), JsonParseException);
+
+    const std::string json_nested_invalid = "{\"outer\": {\"inner1\": true, \"inner2\": [1, 2, invalid_token]}}";
+    EXPECT_THROW(JsonParser::Parse(json_nested_invalid), JsonParseException);
+}
