@@ -1,5 +1,6 @@
 #include "gtest/gtest.h"
 #include "../src/transformer/transformer_model.h"
+#include "../src/transformer/positional_encoding.h"
 #include "../src/math/matrix.h"
 #include <vector>
 #include <string>
@@ -160,4 +161,34 @@ TEST_F(TransformerModelTest, ForwardPassInputTooLong) {
     // If truncation is the expected behavior, this test needs to be adjusted
     // to check that the output corresponds to a truncated input.
     EXPECT_THROW(model.forward(long_input_sequence, mask), std::invalid_argument);
+}
+
+TEST(PositionalEncodingTest, ForwardOutputCorrectness) {
+    const int max_seq_len = 10;
+    const int emb_dim = 4;
+    NeuroNet::Transformer::PositionalEncoding pe(max_seq_len, emb_dim);
+
+    const int seq_len = 3;
+    Matrix::Matrix<float> input(seq_len, emb_dim);
+    input.assign(1.0f);
+
+    Matrix::Matrix<float> output = pe.forward(input);
+    const auto& pe_table = pe.get_pe_table();
+
+    EXPECT_EQ(output.rows(), static_cast<size_t>(seq_len));
+    EXPECT_EQ(output.cols(), static_cast<size_t>(emb_dim));
+
+    for (size_t i = 0; i < static_cast<size_t>(seq_len); ++i) {
+        for (size_t j = 0; j < static_cast<size_t>(emb_dim); ++j) {
+            EXPECT_FLOAT_EQ(output[i][j], input[i][j] + pe_table[i][j]);
+        }
+    }
+}
+
+TEST(PositionalEncodingTest, ForwardEmptyInput) {
+    NeuroNet::Transformer::PositionalEncoding pe(10, 4);
+    Matrix::Matrix<float> empty_input(0, 4);
+    Matrix::Matrix<float> output = pe.forward(empty_input);
+    EXPECT_EQ(output.rows(), 0u);
+    EXPECT_EQ(output.cols(), 4u);
 }
