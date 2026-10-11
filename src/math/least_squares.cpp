@@ -17,6 +17,22 @@ namespace Math {
         if (b.cols() != 1) {
             throw std::invalid_argument("Matrix b must be a column vector (have only 1 column).");
         }
+        if (A.rows() < A.cols()) {
+            throw std::invalid_argument("Underdetermined system: matrix A must have at least as many rows as columns.");
+        }
+
+        for (size_t i = 0; i < A.rows(); ++i) {
+            for (size_t j = 0; j < A.cols(); ++j) {
+                if (!std::isfinite(A[i][j])) {
+                    throw std::invalid_argument("Matrix A contains non-finite values (NaN or Inf).");
+                }
+            }
+        }
+        for (size_t i = 0; i < b.rows(); ++i) {
+            if (!std::isfinite(b[i][0])) {
+                throw std::invalid_argument("Matrix b contains non-finite values (NaN or Inf).");
+            }
+        }
 
         // Normal equations: (A^T * A) * x = A^T * b
         // Let At = A^T
