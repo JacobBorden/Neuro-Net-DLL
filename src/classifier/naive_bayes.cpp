@@ -153,7 +153,7 @@ Matrix::Matrix<double> NaiveBayesClassifier::predict(const Matrix::Matrix<double
 
     const double eps = std::numeric_limits<double>::epsilon();
 
-    #pragma omp parallel for schedule(static)
+    #pragma omp parallel for schedule(static) if(features.rows() >= 256)
     for (size_t i = 0; i < features.rows(); ++i) {
         double max_log_posterior = -std::numeric_limits<double>::infinity();
         double predicted_class = cached_classes.empty() ? -1 : cached_classes[0].label;
