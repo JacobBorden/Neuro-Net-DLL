@@ -942,3 +942,30 @@ TEST_F(JsonLibTest, ParseErrorUnterminatedComment) {
     EXPECT_THROW(JsonParser::Parse("/* unterminated comment"), JsonParseException);
     EXPECT_THROW(JsonParser::Parse("{\"key\": \"value\"} /* unclosed comment "), JsonParseException);
 }
+
+TEST_F(JsonLibTest, ParseObjectNullPointerSafetyAndDeepCopy) {
+    // Test object serialization with a map containing a nullptr value
+    JsonValue obj;
+    obj.SetObject();
+    obj.GetObject()["null_entry"] = nullptr;
+    EXPECT_EQ(obj.ToString(), "{\"null_entry\": null}");
+
+    // Test copy constructor and move operations preserve structure safely
+    JsonValue parsed = JsonParser::Parse("{\"nested\": {\"a\": 1}}");
+    JsonValue copied = parsed; // Copy constructor
+    EXPECT_EQ(copied.ToString(), "{\"nested\": {\"a\": 1}}");
+
+    JsonValue moved = std::move(copied); // Move constructor
+    EXPECT_EQ(moved.ToString(), "{\"nested\": {\"a\": 1}}");
+}
+
+TEST_F(JsonLibTest, ParseAdversarialDeepNesting) {
+    // Test parsing deeply nested JSON arrays/objects
+    std::string deep_array;
+    for (int i = 0; i < 100; ++i) deep_array += "[";
+    deep_array += "1";
+    for (int i = 0; i < 100; ++i) deep_array += "]";
+
+    JsonValue parsed = JsonParser::Parse(deep_array);
+    ASSERT_TRUE(parsed.IsArray());
+}
