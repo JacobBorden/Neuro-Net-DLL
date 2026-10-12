@@ -942,3 +942,51 @@ TEST_F(JsonLibTest, ParseErrorUnterminatedComment) {
     EXPECT_THROW(JsonParser::Parse("/* unterminated comment"), JsonParseException);
     EXPECT_THROW(JsonParser::Parse("{\"key\": \"value\"} /* unclosed comment "), JsonParseException);
 }
+
+TEST_F(JsonLibTest, JsonValueCopyAndMoveSemantics) {
+    JsonValue root = JsonParser::Parse("{\"key1\": \"value1\", \"key2\": [1, 2, 3]}");
+
+    // Test Copy
+    JsonValue copy_val = root;
+    EXPECT_EQ(copy_val.type, JsonValueType::Object);
+    EXPECT_EQ(copy_val.GetObject().at("key1")->GetString(), "value1");
+    EXPECT_NE(copy_val.GetObject().at("key1"), root.GetObject().at("key1"));
+
+    // Test Copy Assignment
+    JsonValue copy_assign;
+    copy_assign = root;
+    EXPECT_EQ(copy_assign.type, JsonValueType::Object);
+    EXPECT_EQ(copy_assign.GetObject().at("key1")->GetString(), "value1");
+
+    // Test Move
+    JsonValue move_val = std::move(copy_val);
+    EXPECT_EQ(move_val.type, JsonValueType::Object);
+    EXPECT_EQ(move_val.GetObject().at("key1")->GetString(), "value1");
+    EXPECT_EQ(copy_val.type, JsonValueType::Null);
+
+    // Test Move Assignment
+    JsonValue move_assign;
+    move_assign = std::move(copy_assign);
+    EXPECT_EQ(move_assign.type, JsonValueType::Object);
+    EXPECT_EQ(move_assign.GetObject().at("key1")->GetString(), "value1");
+}
+
+TEST_F(JsonLibTest, ObjectInsertionOverwriteAndCleanup) {
+    JsonValue obj;
+    obj.SetObject();
+    JsonValue* val1 = new JsonValue(JsonValueType::Number);
+    val1->SetNumber(42);
+    obj.InsertIntoObject("key", val1);
+    EXPECT_EQ(obj.GetObject().at("key")->GetNumber(), 42.0);
+
+    JsonValue* val2 = new JsonValue(JsonValueType::String);
+    val2->SetString("overwritten");
+    obj.InsertIntoObject("key", val2);
+    EXPECT_EQ(obj.GetObject().at("key")->GetString(), "overwritten");
+}
+
+TEST_F(JsonLibTest, ParseObjectExceptionSafetyNoLeak) {
+    // Malformed JSON that fails mid-object parsing
+    std::string malformed = "{\"valid_key\": 100, \"bad_key\": invalid_val}";
+    EXPECT_THROW(JsonParser::Parse(malformed), JsonParseException);
+}

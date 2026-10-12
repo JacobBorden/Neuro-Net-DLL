@@ -47,6 +47,67 @@ struct JsonValue{
      */
 	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_){}
 
+	~JsonValue() {
+		ClearObjectValue();
+	}
+
+	JsonValue(const JsonValue& other)
+		: type(other.type), boolean_value(other.boolean_value), number_value(other.number_value),
+		  string_value(other.string_value), array_value(other.array_value) {
+		if (other.type == JsonValueType::Object) {
+			for (const auto& pair : other.object_value) {
+				object_value[pair.first] = pair.second ? new JsonValue(*pair.second) : nullptr;
+			}
+		}
+	}
+
+	JsonValue& operator=(const JsonValue& other) {
+		if (this != &other) {
+			ClearObjectValue();
+			type = other.type;
+			boolean_value = other.boolean_value;
+			number_value = other.number_value;
+			string_value = other.string_value;
+			array_value = other.array_value;
+			if (other.type == JsonValueType::Object) {
+				for (const auto& pair : other.object_value) {
+					object_value[pair.first] = pair.second ? new JsonValue(*pair.second) : nullptr;
+				}
+			}
+		}
+		return *this;
+	}
+
+	JsonValue(JsonValue&& other) noexcept
+		: type(other.type), boolean_value(other.boolean_value), number_value(other.number_value),
+		  string_value(std::move(other.string_value)), array_value(std::move(other.array_value)),
+		  object_value(std::move(other.object_value)) {
+		other.type = JsonValueType::Null;
+	}
+
+	JsonValue& operator=(JsonValue&& other) noexcept {
+		if (this != &other) {
+			ClearObjectValue();
+			type = other.type;
+			boolean_value = other.boolean_value;
+			number_value = other.number_value;
+			string_value = std::move(other.string_value);
+			array_value = std::move(other.array_value);
+			object_value = std::move(other.object_value);
+			other.type = JsonValueType::Null;
+		}
+		return *this;
+	}
+
+	void ClearObjectValue() {
+		if (type == JsonValueType::Object) {
+			for (auto& pair : object_value) {
+				delete pair.second;
+			}
+			object_value.clear();
+		}
+	}
+
 	JsonValueType type; ///< The actual type of this JSON value, determining which member field is valid.
 	
 	bool boolean_value;   ///< Valid and used if `type` is JsonValueType::Boolean. Stores the boolean state.
@@ -194,11 +255,8 @@ struct JsonValue{
 
     /**
      * @brief Sets this JsonValue to an Object type. Initializes an empty object.
-     * @warning If this JsonValue previously held an object with dynamically allocated
-     * `JsonValue*` members, those pointers are NOT deallocated by this call. Memory
-     * management of previous object members is the caller's responsibility.
      */
-	void SetObject(){type = JsonValueType::Object; object_value.clear(); } // Ensure it's clean, but doesn't delete pointed-to values
+	void SetObject(){ ClearObjectValue(); type = JsonValueType::Object; }
     /**
      * @brief Checks if this JsonValue is an Object.
      * @return True if the type is JsonValueType::Object, false otherwise.
@@ -237,7 +295,10 @@ struct JsonValue{
 		if (type != JsonValueType::Object){
 			throw JsonParseException("Cannot insert into a non-object value.");
 		}
-        // Potential memory leak: if object_value[key] previously held a pointer, it's overwritten.
+		auto it = object_value.find(key);
+		if (it != object_value.end()) {
+			delete it->second;
+		}
 		object_value[key] = value;
 	}
 
