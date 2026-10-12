@@ -45,8 +45,11 @@ Matrix::Matrix<float> Conv2DLayer::Forward(const Matrix::Matrix<float>& input, i
     Matrix::Matrix<float> output(1, output_channels_ * out_h * out_w);
     output.assign(0.0f);
 
+    long long total_work = static_cast<long long>(output_channels_) * out_h * out_w * input_channels_ * kernel_size_ * kernel_size_;
+
 #ifdef _OPENMP
-    #pragma omp parallel for collapse(2) schedule(static)
+    // Only parallelize if the total amount of work is sufficiently large to offset thread overhead
+    #pragma omp parallel for collapse(2) schedule(static) if(total_work > 100000)
 #endif
     for (int oc = 0; oc < output_channels_; ++oc) {
         for (int oh = 0; oh < out_h; ++oh) {

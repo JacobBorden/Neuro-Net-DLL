@@ -1,3 +1,4 @@
+#include "../src/neural_network/conv2d_layer.h"
 #include "../src/math/matrix.h"
 #include "../src/neural_network/neuronet.h"
 #include "../src/optimization/genetic_algorithm.h"
@@ -140,6 +141,21 @@ int main() {
               << ", cols: " << vector_c.cols() << std::endl;
     std::cout << "------- Finished Benchmark 1b: Matrix-Vector Multiplication -------"
               << std::endl << std::endl;
+
+    // Benchmark 1c: Small-grid Conv2D Forward Pass
+    std::cout << "------- Benchmark 1c: Small-grid Conv2D Forward Pass -------" << std::endl;
+    NeuroNet::Conv2DLayer conv_small(3, 16, 3, 1, 1);
+    // Use a tiny 4x4 input to strictly mimic tiny output grids
+    Matrix::Matrix<float> small_conv_input(1, 3 * 4 * 4);
+    small_conv_input.assign(1.0f);
+    utilities::Timer small_conv_timer;
+    small_conv_timer.start();
+    for (int i = 0; i < 1000; ++i) {
+        conv_small.Forward(small_conv_input, 4, 4);
+    }
+    small_conv_timer.stop();
+    std::cout << "1000 small-grid Conv2D forwards took: " << small_conv_timer.elapsed_milliseconds() << " ms" << std::endl;
+    std::cout << "------- Finished Benchmark 1c: Small-grid Conv2D Forward Pass -------" << std::endl << std::endl;
 
     // Benchmark 2: Neural Network Forward Pass
     std::cout << "------- Benchmark 2: Neural Network Forward Pass -------" << std::endl;
