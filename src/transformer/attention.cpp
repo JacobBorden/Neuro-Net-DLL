@@ -5,8 +5,7 @@
 namespace NeuroNet {
 namespace Transformer {
 
-ScaledDotProductAttention::ScaledDotProductAttention(float dropout_rate)
-    : dropout_rate_(dropout_rate) {
+ScaledDotProductAttention::ScaledDotProductAttention() {
     // Dropout is not implemented in this version.
     // If it were, we might initialize a random number generator or similar here.
 }

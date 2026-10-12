@@ -21,9 +21,7 @@ MultiHeadAttention::MultiHeadAttention(int num_heads, int d_model, float dropout
     Wo_.resize(d_model_, d_model_);
     initialize_weights();
 
-    // attention_module_ is default constructed (dropout_rate can be passed if it's used there)
-    // For this version, ScaledDotProductAttention's dropout is also a placeholder.
-    attention_module_ = ScaledDotProductAttention(dropout_rate_);
+    // attention_module_ is default constructed
 }
 
 void MultiHeadAttention::initialize_weights() {
