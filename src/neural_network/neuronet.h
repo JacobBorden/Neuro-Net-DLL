@@ -23,6 +23,7 @@
 
 // Forward declare GTest class (if it was present immediately after includes)
 class NeuroNetTest_Serialization_Test; 
+class NeuroNetTest_UpdateWeightsOutOfBounds_Test;
 
 namespace NeuroNet
 {
@@ -375,6 +376,7 @@ namespace NeuroNet
 	public:
 		// Friend the specific GTest generated class
 		friend class ::NeuroNetTest_Serialization_Test; // Use :: for global scope
+		friend class ::NeuroNetTest_UpdateWeightsOutOfBounds_Test; // Use :: for global scope
 
 		/**
 		 * @brief Default constructor for NeuroNet.
