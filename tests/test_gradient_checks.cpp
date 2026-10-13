@@ -46,7 +46,7 @@ INSTANTIATE_TEST_SUITE_P(
 TEST_P(DenseGradientCheckTest, NumericalGradientCheckSingleLayer) {
     ActivationFunctionType act_func = GetParam();
 
-    ::NeuroNet::NeuroNet net(1);
+    NeuroNet::NeuroNet net(1);
     net.SetInputSize(3);
     net.ResizeLayer(0, 2);
     net.getLayer(0).SetActivationFunction(act_func);
@@ -137,7 +137,7 @@ TEST_P(DenseGradientCheckTest, NumericalGradientCheckSingleLayer) {
 }
 
 TEST(DenseGradientCheckTest, TwoLayerNetworkGradientCheck) {
-    ::NeuroNet::NeuroNet net(2);
+    NeuroNet::NeuroNet net(2);
     net.SetInputSize(2);
     net.ResizeLayer(0, 3);
     net.ResizeLayer(1, 2);
