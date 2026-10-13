@@ -15,8 +15,9 @@ Matrix::Matrix<float> gelu(const Matrix::Matrix<float>& input) {
     size_t rows = input.rows();
     size_t cols = input.cols();
 
-    // Optimization: Parallelize row computation with OpenMP for faster batch processing
-    #pragma omp parallel for
+    // Optimization: Parallelize row computation with OpenMP for faster batch processing,
+    // gated with an input size threshold to avoid thread overhead on small matrices.
+    #pragma omp parallel for if(rows * cols >= 1024)
     for (size_t i = 0; i < rows; ++i) {
         for (size_t j = 0; j < cols; ++j) {
             float x = input[i][j];
@@ -43,8 +44,9 @@ Matrix::Matrix<float> softmax(const Matrix::Matrix<float>& input, int axis) {
     Matrix::Matrix<float> output(rows, cols);
 
     if (axis == 1 || axis == -1) { // Row-wise Softmax
-        // Optimization: Parallelize independent row computations across threads
-        #pragma omp parallel for
+        // Optimization: Parallelize independent row computations across threads,
+        // gated with an input size threshold to avoid thread overhead on small matrices.
+        #pragma omp parallel for if(rows * cols >= 1024)
         for (size_t i = 0; i < rows; ++i) {
             float max_val = input[i][0];
             for (size_t j = 1; j < cols; ++j) {
@@ -73,8 +75,9 @@ Matrix::Matrix<float> softmax(const Matrix::Matrix<float>& input, int axis) {
             }
         }
     } else { // Column-wise Softmax (axis == 0)
-        // Optimization: Parallelize independent column computations across threads
-        #pragma omp parallel for
+        // Optimization: Parallelize independent column computations across threads,
+        // gated with an input size threshold to avoid thread overhead on small matrices.
+        #pragma omp parallel for if(rows * cols >= 1024)
         for (size_t j = 0; j < cols; ++j) {
             float max_val = input[0][j];
             for (size_t i = 1; i < rows; ++i) {
@@ -116,8 +119,9 @@ Matrix::Matrix<float> layer_norm(const Matrix::Matrix<float>& input, float epsil
     size_t rows = input.rows();
     size_t cols = input.cols();
 
-    // Optimization: Parallelize independent row normalization across threads
-    #pragma omp parallel for
+    // Optimization: Parallelize independent row normalization across threads,
+    // gated with an input size threshold to avoid thread overhead on small matrices.
+    #pragma omp parallel for if(rows * cols >= 1024)
     for (size_t i = 0; i < rows; ++i) {
         float sum = 0.0f;
         for (size_t j = 0; j < input.cols(); ++j) {
