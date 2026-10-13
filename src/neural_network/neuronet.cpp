@@ -671,7 +671,7 @@ Matrix::Matrix<float> NeuroNet::NeuroNetLayer::CalculateOutput() {
     // Matrix multiplication loop order changed to (i, k, j) for contiguous row-major memory access.
     // This improves CPU cache locality and enables auto-vectorization, significantly boosting performance.
     #ifdef _OPENMP
-    #pragma omp parallel for
+    #pragma omp parallel for if (this->InputMatrix.rows() * this->WeightMatrix.cols() * this->InputMatrix.cols() > 100000)
     #endif
     for (size_t i = 0; i < this->InputMatrix.rows(); ++i) {
         // Initialize output matrix to zero
