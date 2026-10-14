@@ -592,26 +592,21 @@ void Optimization::GeneticAlgorithm::export_training_metrics_json(const std::str
     root.SetObject();
     
     // Pointers to dynamically allocated JsonValues for cleanup
-    std::vector<JsonValue*> allocated_values;
-
     auto add_string_to_obj = [&](JsonValue& obj, const std::string& key, const std::string& val_str) {
         JsonValue* str_val = new JsonValue();
         str_val->SetString(val_str);
         obj.InsertIntoObject(key, str_val);
-        allocated_values.push_back(str_val);
     };
 
     auto add_number_to_obj = [&](JsonValue& obj, const std::string& key, double val_num) {
         JsonValue* num_val = new JsonValue();
         num_val->SetNumber(val_num);
         obj.InsertIntoObject(key, num_val);
-        allocated_values.push_back(num_val);
     };
 
     auto add_null_to_obj = [&](JsonValue& obj, const std::string& key) {
         JsonValue* null_val = new JsonValue(JsonValueType::Null);
         obj.InsertIntoObject(key, null_val);
-        allocated_values.push_back(null_val);
     };
     
     add_string_to_obj(root, "start_time", current_run_metrics_.start_time);
@@ -623,7 +618,6 @@ void Optimization::GeneticAlgorithm::export_training_metrics_json(const std::str
     JsonValue* gen_data_array_val = new JsonValue();
     gen_data_array_val->SetArray();
     root.InsertIntoObject("generation_data", gen_data_array_val);
-    allocated_values.push_back(gen_data_array_val);
 
     for (const auto& gen_metric : current_run_metrics_.generation_data) {
         JsonValue gen_metric_obj; // This is a stack object, its members if they are pointers need care
@@ -660,19 +654,6 @@ void Optimization::GeneticAlgorithm::export_training_metrics_json(const std::str
     }
     
     file.close();
-
-    // Cleanup dynamically allocated JsonValues
-    // For JsonValues directly inserted into root or into objects owned by root (like gen_metric_obj fields)
-    for (JsonValue* val_ptr : allocated_values) {
-        delete val_ptr;
-    }
-    // The JsonValue objects themselves within gen_data_array_val->GetArray() are copied by value.
-    // However, the map *within* those JsonValue objects (if they are objects) stores pointers.
-    // The cleanup for allocated_values handles all JsonValues that were new'ed for fields.
-    // The `JsonValue gen_metric_obj` was stack allocated, but its members were heap and added to allocated_values.
-    // When `gen_metric_obj` is pushed into `gen_data_array_val->GetArray()`, a copy is made.
-    // This copy includes copies of the pointers. This is the tricky part of the custom JSON lib.
-    // The current cleanup relies on `allocated_values` tracking all `new` calls.
     // The `root.GetObject().clear()` is not necessary as root is local.
 }
 
