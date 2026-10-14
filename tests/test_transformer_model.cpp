@@ -1,9 +1,12 @@
 #include "gtest/gtest.h"
 #include "../src/transformer/transformer_model.h"
+#include "../src/transformer/attention.h"
+#include "../src/transformer/multi_head_attention.h"
 #include "../src/math/matrix.h"
 #include <vector>
 #include <string>
 #include <stdexcept>
+#include <cmath>
 
 // Test fixture for TransformerModel tests
 class TransformerModelTest : public ::testing::Test {
@@ -160,4 +163,69 @@ TEST_F(TransformerModelTest, ForwardPassInputTooLong) {
     // If truncation is the expected behavior, this test needs to be adjusted
     // to check that the output corresponds to a truncated input.
     EXPECT_THROW(model.forward(long_input_sequence, mask), std::invalid_argument);
+}
+
+TEST_F(TransformerModelTest, ScaledDotProductAttentionReferenceValuesAndMasks) {
+    NeuroNet::Transformer::ScaledDotProductAttention attn(0.0f);
+
+    // Q: (1, 2), K: (2, 2), V: (2, 2)
+    Matrix::Matrix<float> Q(1, 2); Q[0][0] = 1.0f; Q[0][1] = 0.0f;
+    Matrix::Matrix<float> K(2, 2);
+    K[0][0] = 1.0f; K[0][1] = 0.0f;
+    K[1][0] = 0.0f; K[1][1] = 1.0f;
+
+    Matrix::Matrix<float> V(2, 2);
+    V[0][0] = 10.0f; V[0][1] = 20.0f;
+    V[1][0] = 30.0f; V[1][1] = 40.0f;
+
+    // 1. Unmasked Attention
+    auto res_unmasked = attn.forward(Q, K, V);
+    // Score = Q * K^T / sqrt(2) = [1, 0] / sqrt(2) = [1/sqrt(2), 0]
+    float score0 = 1.0f / std::sqrt(2.0f);
+    float score1 = 0.0f;
+    float exp0 = std::exp(score0);
+    float exp1 = std::exp(score1);
+    float p0 = exp0 / (exp0 + exp1);
+    float p1 = exp1 / (exp0 + exp1);
+
+    EXPECT_NEAR(res_unmasked.attention_weights[0][0], p0, 1e-5f);
+    EXPECT_NEAR(res_unmasked.attention_weights[0][1], p1, 1e-5f);
+    EXPECT_NEAR(res_unmasked.output[0][0], p0 * 10.0f + p1 * 30.0f, 1e-5f);
+    EXPECT_NEAR(res_unmasked.output[0][1], p0 * 20.0f + p1 * 40.0f, 1e-5f);
+
+    // 2. Masked Attention: mask out second key (large negative value)
+    Matrix::Matrix<float> mask(1, 2);
+    mask[0][0] = 0.0f; mask[0][1] = -10000.0f;
+
+    auto res_masked = attn.forward(Q, K, V, mask);
+    EXPECT_NEAR(res_masked.attention_weights[0][0], 1.0f, 1e-4f);
+    EXPECT_NEAR(res_masked.attention_weights[0][1], 0.0f, 1e-4f);
+    EXPECT_NEAR(res_masked.output[0][0], 10.0f, 1e-4f);
+    EXPECT_NEAR(res_masked.output[0][1], 20.0f, 1e-4f);
+}
+
+TEST_F(TransformerModelTest, AttentionInvalidAndEmptyShapes) {
+    NeuroNet::Transformer::ScaledDotProductAttention attn;
+
+    Matrix::Matrix<float> valid_q(1, 4), valid_k(2, 4), valid_v(2, 8);
+    valid_q.assign(1.0f); valid_k.assign(1.0f); valid_v.assign(1.0f);
+
+    // Mismatched feature dimensions (d_k)
+    Matrix::Matrix<float> wrong_k(2, 3);
+    EXPECT_THROW(attn.forward(valid_q, wrong_k, valid_v), std::invalid_argument);
+
+    // Mismatched sequence lengths between K and V
+    Matrix::Matrix<float> wrong_v(3, 8);
+    EXPECT_THROW(attn.forward(valid_q, valid_k, wrong_v), std::invalid_argument);
+
+    // Zero d_k feature dimension (1x0 query/key)
+    Matrix::Matrix<float> zero_dk_q(1, 0), zero_dk_k(2, 0);
+    EXPECT_THROW(attn.forward(zero_dk_q, zero_dk_k, valid_v), std::invalid_argument);
+
+    // Mismatched mask dimensions
+    Matrix::Matrix<float> wrong_mask(2, 2); // Expected (1, 2)
+    EXPECT_THROW(attn.forward(valid_q, valid_k, valid_v, wrong_mask), std::invalid_argument);
+
+    // MultiHeadAttention constructor invalid arguments (num_heads not dividing d_model)
+    EXPECT_THROW(NeuroNet::Transformer::MultiHeadAttention(3, 8), std::invalid_argument);
 }

@@ -73,3 +73,65 @@ TEST(RNNLayerTest, ResetState) {
         EXPECT_FLOAT_EQ(state[0][c], 0.0f);
     }
 }
+
+TEST(RNNLayerTest, ForwardPassReferenceValues) {
+    RNNLayer rnn(2, 2);
+
+    // Set deterministic weights and biases
+    rnn.GetW_xh()[0][0] = 0.5f;  rnn.GetW_xh()[0][1] = -0.5f;
+    rnn.GetW_xh()[1][0] = 1.0f;  rnn.GetW_xh()[1][1] = 0.0f;
+
+    rnn.GetW_hh()[0][0] = 0.1f;  rnn.GetW_hh()[0][1] = 0.2f;
+    rnn.GetW_hh()[1][0] = -0.1f; rnn.GetW_hh()[1][1] = 0.3f;
+
+    rnn.Getb_h()[0][0] = 0.1f;   rnn.Getb_h()[0][1] = -0.1f;
+
+    rnn.ResetState();
+
+    // Time step 1: input [1.0, 2.0]
+    Matrix::Matrix<float> input1(1, 2);
+    input1[0][0] = 1.0f; input1[0][1] = 2.0f;
+
+    Matrix::Matrix<float> h1 = rnn.Forward(input1);
+    float expected_z1_0 = 1.0f * 0.5f + 2.0f * 1.0f + 0.1f; // 2.6
+    float expected_z1_1 = 1.0f * (-0.5f) + 2.0f * 0.0f - 0.1f; // -0.6
+
+    EXPECT_NEAR(h1[0][0], std::tanh(expected_z1_0), 1e-5f);
+    EXPECT_NEAR(h1[0][1], std::tanh(expected_z1_1), 1e-5f);
+
+    // Time step 2: input [0.5, -1.0]
+    Matrix::Matrix<float> input2(1, 2);
+    input2[0][0] = 0.5f; input2[0][1] = -1.0f;
+
+    Matrix::Matrix<float> h2 = rnn.Forward(input2);
+
+    float h1_0 = std::tanh(expected_z1_0);
+    float h1_1 = std::tanh(expected_z1_1);
+
+    float expected_z2_0 = (0.5f * 0.5f + (-1.0f) * 1.0f) + (h1_0 * 0.1f + h1_1 * (-0.1f)) + 0.1f;
+    float expected_z2_1 = (0.5f * (-0.5f) + (-1.0f) * 0.0f) + (h1_0 * 0.2f + h1_1 * 0.3f) - 0.1f;
+
+    EXPECT_NEAR(h2[0][0], std::tanh(expected_z2_0), 1e-5f);
+    EXPECT_NEAR(h2[0][1], std::tanh(expected_z2_1), 1e-5f);
+}
+
+TEST(RNNLayerTest, InvalidAndEmptyShapes) {
+    RNNLayer rnn(5, 10);
+
+    // Empty input matrices (0x0, 0x5, 1x0)
+    Matrix::Matrix<float> empty_0x0(0, 0);
+    EXPECT_THROW(rnn.Forward(empty_0x0), std::invalid_argument);
+
+    Matrix::Matrix<float> empty_0x5(0, 5);
+    EXPECT_THROW(rnn.Forward(empty_0x5), std::invalid_argument);
+
+    Matrix::Matrix<float> empty_1x0(1, 0);
+    EXPECT_THROW(rnn.Forward(empty_1x0), std::invalid_argument);
+
+    // Mismatched row count (> 1) or col count != input_size
+    Matrix::Matrix<float> multi_row_input(2, 5);
+    EXPECT_THROW(rnn.Forward(multi_row_input), std::invalid_argument);
+
+    Matrix::Matrix<float> wrong_col_input(1, 4);
+    EXPECT_THROW(rnn.Forward(wrong_col_input), std::invalid_argument);
+}
