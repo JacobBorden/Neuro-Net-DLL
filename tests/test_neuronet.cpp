@@ -1523,3 +1523,206 @@ TEST(NeuroNetJSONTest, GetOutputJSON_NoLayers) {
         output_json_val.GetObject().clear(); // Clear map
     }
 }
+
+// --- Numerical Gradient Checks for Dense Losses and Activations ---
+
+TEST(NumericalGradientCheckTest, ActivationsFiniteDifference) {
+    NeuroNet::NeuroNetLayer layer;
+    const float h = 1e-3f;
+
+    // Test Sigmoid derivative
+    {
+        Matrix::Matrix<float> x(1, 3);
+        x[0][0] = -1.5f; x[0][1] = 0.0f; x[0][2] = 2.0f;
+        auto sigmoid = [](float v) { return 1.0f / (1.0f + std::exp(-v)); };
+        Matrix::Matrix<float> activated(1, 3);
+        for (size_t c = 0; c < 3; ++c) activated[0][c] = sigmoid(x[0][c]);
+
+        Matrix::Matrix<float> analytical_deriv = layer.DerivativeSigmoid(activated);
+        for (size_t c = 0; c < 3; ++c) {
+            float f_plus = sigmoid(x[0][c] + h);
+            float f_minus = sigmoid(x[0][c] - h);
+            float num_deriv = (f_plus - f_minus) / (2.0f * h);
+            EXPECT_NEAR(analytical_deriv[0][c], num_deriv, 1e-3f);
+        }
+    }
+
+    // Test Tanh derivative
+    {
+        Matrix::Matrix<float> x(1, 3);
+        x[0][0] = -1.0f; x[0][1] = 0.5f; x[0][2] = 1.5f;
+        Matrix::Matrix<float> activated(1, 3);
+        for (size_t c = 0; c < 3; ++c) activated[0][c] = std::tanh(x[0][c]);
+
+        Matrix::Matrix<float> analytical_deriv = layer.DerivativeTanh(activated);
+        for (size_t c = 0; c < 3; ++c) {
+            float f_plus = std::tanh(x[0][c] + h);
+            float f_minus = std::tanh(x[0][c] - h);
+            float num_deriv = (f_plus - f_minus) / (2.0f * h);
+            EXPECT_NEAR(analytical_deriv[0][c], num_deriv, 1e-3f);
+        }
+    }
+
+    // Test Swish derivative
+    {
+        NeuroNet::NeuroNetLayer swish_layer;
+        swish_layer.ResizeLayer(3, 3);
+        // Identity weights and zero biases so pre-activation Z == input x
+        NeuroNet::LayerWeights lw; lw.WeightCount = 9;
+        lw.WeightsVector = {1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
+        swish_layer.SetWeights(lw);
+        NeuroNet::LayerBiases lb; lb.BiasCount = 3;
+        lb.BiasVector = {0.0f, 0.0f, 0.0f};
+        swish_layer.SetBiases(lb);
+
+        Matrix::Matrix<float> x(1, 3);
+        x[0][0] = -2.0f; x[0][1] = 0.2f; x[0][2] = 1.0f;
+        swish_layer.SetInput(x);
+
+        auto swish = [](float v) { return v / (1.0f + std::exp(-v)); };
+        Matrix::Matrix<float> activated(1, 3);
+        for (size_t c = 0; c < 3; ++c) activated[0][c] = swish(x[0][c]);
+
+        Matrix::Matrix<float> analytical_deriv = swish_layer.DerivativeSwish(activated);
+        for (size_t c = 0; c < 3; ++c) {
+            float f_plus = swish(x[0][c] + h);
+            float f_minus = swish(x[0][c] - h);
+            float num_deriv = (f_plus - f_minus) / (2.0f * h);
+            EXPECT_NEAR(analytical_deriv[0][c], num_deriv, 1e-3f);
+        }
+    }
+
+    // Test LeakyReLU derivative
+    {
+        Matrix::Matrix<float> x(1, 3);
+        x[0][0] = -2.0f; x[0][1] = 0.5f; x[0][2] = 3.0f;
+        const float alpha = 0.01f;
+        auto leaky_relu = [alpha](float v) { return v > 0.0f ? v : alpha * v; };
+        Matrix::Matrix<float> activated(1, 3);
+        for (size_t c = 0; c < 3; ++c) activated[0][c] = leaky_relu(x[0][c]);
+
+        Matrix::Matrix<float> analytical_deriv = layer.DerivativeLeakyReLU(activated);
+        for (size_t c = 0; c < 3; ++c) {
+            float f_plus = leaky_relu(x[0][c] + h);
+            float f_minus = leaky_relu(x[0][c] - h);
+            float num_deriv = (f_plus - f_minus) / (2.0f * h);
+            EXPECT_NEAR(analytical_deriv[0][c], num_deriv, 1e-3f);
+        }
+    }
+
+    // Test ELU derivative
+    {
+        Matrix::Matrix<float> x(1, 3);
+        x[0][0] = -1.5f; x[0][1] = 0.5f; x[0][2] = 2.0f;
+        const float alpha = 1.0f;
+        auto elu = [alpha](float v) { return v > 0.0f ? v : alpha * (std::exp(v) - 1.0f); };
+        Matrix::Matrix<float> activated(1, 3);
+        for (size_t c = 0; c < 3; ++c) activated[0][c] = elu(x[0][c]);
+
+        Matrix::Matrix<float> analytical_deriv = layer.DerivativeELU(activated);
+        for (size_t c = 0; c < 3; ++c) {
+            float f_plus = elu(x[0][c] + h);
+            float f_minus = elu(x[0][c] - h);
+            float num_deriv = (f_plus - f_minus) / (2.0f * h);
+            EXPECT_NEAR(analytical_deriv[0][c], num_deriv, 1e-3f);
+        }
+    }
+}
+
+TEST(NumericalGradientCheckTest, DenseLayerMSELossGradients) {
+    const int in_dim = 2, out_dim = 3;
+    NeuroNet::NeuroNetLayer layer;
+    layer.ResizeLayer(in_dim, out_dim);
+    layer.SetActivationFunction(NeuroNet::ActivationFunctionType::Sigmoid);
+
+    NeuroNet::LayerWeights lw; lw.WeightCount = in_dim * out_dim;
+    lw.WeightsVector = {0.2f, -0.3f, 0.5f, -0.1f, 0.4f, -0.2f};
+    layer.SetWeights(lw);
+
+    NeuroNet::LayerBiases lb; lb.BiasCount = out_dim;
+    lb.BiasVector = {0.1f, -0.2f, 0.05f};
+    layer.SetBiases(lb);
+
+    Matrix::Matrix<float> input(1, in_dim);
+    input[0][0] = 0.8f; input[0][1] = -0.5f;
+    layer.SetInput(input);
+
+    Matrix::Matrix<float> output = layer.CalculateOutput();
+    Matrix::Matrix<float> target(1, out_dim);
+    target[0][0] = 1.0f; target[0][1] = 0.0f; target[0][2] = 0.5f;
+
+    // Loss L = 0.5 * sum((output - target)^2)
+    // dL/dOutput = output - target
+    Matrix::Matrix<float> dLdOutput = output - target;
+
+    // Compute analytical gradients via BackwardPass
+    Matrix::Matrix<float> dLdInput_analytical = layer.BackwardPass(dLdOutput, input, false);
+    Matrix::Matrix<float> dLdW_analytical = layer.get_dLdW();
+    Matrix::Matrix<float> dLdB_analytical = layer.get_dLdB();
+
+    // Helper lambda to compute Loss for given (weights, biases, input)
+    auto compute_loss = [&](const std::vector<float>& weights_vec, const std::vector<float>& biases_vec, const Matrix::Matrix<float>& in_mat) {
+        NeuroNet::NeuroNetLayer eval_layer;
+        eval_layer.ResizeLayer(in_dim, out_dim);
+        eval_layer.SetActivationFunction(NeuroNet::ActivationFunctionType::Sigmoid);
+
+        NeuroNet::LayerWeights w; w.WeightCount = in_dim * out_dim; w.WeightsVector = weights_vec;
+        eval_layer.SetWeights(w);
+
+        NeuroNet::LayerBiases b; b.BiasCount = out_dim; b.BiasVector = biases_vec;
+        eval_layer.SetBiases(b);
+
+        eval_layer.SetInput(in_mat);
+        Matrix::Matrix<float> out = eval_layer.CalculateOutput();
+
+        float loss = 0.0f;
+        for (size_t c = 0; c < out_dim; ++c) {
+            float diff = out[0][c] - target[0][c];
+            loss += 0.5f * diff * diff;
+        }
+        return loss;
+    };
+
+    const float h = 1e-3f;
+
+    // Numerical gradient w.r.t weights
+    std::vector<float> base_w = lw.WeightsVector;
+    std::vector<float> base_b = lb.BiasVector;
+
+    for (size_t i = 0; i < base_w.size(); ++i) {
+        auto w_plus = base_w; w_plus[i] += h;
+        auto w_minus = base_w; w_minus[i] -= h;
+
+        float loss_plus = compute_loss(w_plus, base_b, input);
+        float loss_minus = compute_loss(w_minus, base_b, input);
+        float num_grad = (loss_plus - loss_minus) / (2.0f * h);
+
+        size_t r = i / out_dim;
+        size_t c = i % out_dim;
+        EXPECT_NEAR(dLdW_analytical[r][c], num_grad, 1e-2f);
+    }
+
+    // Numerical gradient w.r.t biases
+    for (size_t i = 0; i < base_b.size(); ++i) {
+        auto b_plus = base_b; b_plus[i] += h;
+        auto b_minus = base_b; b_minus[i] -= h;
+
+        float loss_plus = compute_loss(base_w, b_plus, input);
+        float loss_minus = compute_loss(base_w, b_minus, input);
+        float num_grad = (loss_plus - loss_minus) / (2.0f * h);
+
+        EXPECT_NEAR(dLdB_analytical[0][i], num_grad, 1e-2f);
+    }
+
+    // Numerical gradient w.r.t input
+    for (size_t c = 0; c < in_dim; ++c) {
+        Matrix::Matrix<float> in_plus = input; in_plus[0][c] += h;
+        Matrix::Matrix<float> in_minus = input; in_minus[0][c] -= h;
+
+        float loss_plus = compute_loss(base_w, base_b, in_plus);
+        float loss_minus = compute_loss(base_w, base_b, in_minus);
+        float num_grad = (loss_plus - loss_minus) / (2.0f * h);
+
+        EXPECT_NEAR(dLdInput_analytical[0][c], num_grad, 1e-2f);
+    }
+}
