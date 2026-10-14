@@ -942,3 +942,60 @@ TEST_F(JsonLibTest, ParseErrorUnterminatedComment) {
     EXPECT_THROW(JsonParser::Parse("/* unterminated comment"), JsonParseException);
     EXPECT_THROW(JsonParser::Parse("{\"key\": \"value\"} /* unclosed comment "), JsonParseException);
 }
+
+// --- JSON Ownership, Copy/Move, and Depth Limit Tests ---
+
+TEST_F(JsonLibTest, JsonOwnershipAndCopyMoveSemantics) {
+    JsonValue root = JsonParser::Parse("{\"a\": 123, \"b\": {\"nested\": \"val\"}}");
+    ASSERT_EQ(root.type, JsonValueType::Object);
+
+    // Deep Copy Constructor
+    JsonValue copy_constructed(root);
+    EXPECT_EQ(copy_constructed.type, JsonValueType::Object);
+    EXPECT_DOUBLE_EQ(copy_constructed.GetObject().at("a")->GetNumber(), 123.0);
+    EXPECT_EQ(copy_constructed.GetObject().at("b")->GetObject().at("nested")->GetString(), "val");
+
+    // Modify copy's member pointer and verify independence
+    copy_constructed.GetObject().at("a")->SetNumber(999.0);
+    EXPECT_DOUBLE_EQ(root.GetObject().at("a")->GetNumber(), 123.0);
+    EXPECT_DOUBLE_EQ(copy_constructed.GetObject().at("a")->GetNumber(), 999.0);
+
+    // Deep Copy Assignment
+    JsonValue copy_assigned;
+    copy_assigned = root;
+    EXPECT_EQ(copy_assigned.type, JsonValueType::Object);
+    EXPECT_DOUBLE_EQ(copy_assigned.GetObject().at("a")->GetNumber(), 123.0);
+
+    // Overwriting object key using InsertIntoObject
+    JsonValue* new_val = new JsonValue(JsonValueType::Number);
+    new_val->SetNumber(456.0);
+    root.InsertIntoObject("a", new_val);
+    EXPECT_DOUBLE_EQ(root.GetObject().at("a")->GetNumber(), 456.0);
+
+    // Move Constructor
+    JsonValue moved_constructed(std::move(copy_constructed));
+    EXPECT_EQ(moved_constructed.type, JsonValueType::Object);
+    EXPECT_DOUBLE_EQ(moved_constructed.GetObject().at("a")->GetNumber(), 999.0);
+
+    // Move Assignment
+    JsonValue moved_assigned;
+    moved_assigned = std::move(copy_assigned);
+    EXPECT_EQ(moved_assigned.type, JsonValueType::Object);
+    EXPECT_DOUBLE_EQ(moved_assigned.GetObject().at("a")->GetNumber(), 123.0);
+}
+
+TEST_F(JsonLibTest, JsonDeepNestingExceedsDepthLimit) {
+    std::string deep_json;
+    for (int i = 0; i < 110; ++i) {
+        deep_json += "[";
+    }
+    for (int i = 0; i < 110; ++i) {
+        deep_json += "]";
+    }
+    try {
+        JsonParser::Parse(deep_json);
+        FAIL() << "Expected JsonParseException for deep recursion";
+    } catch (const JsonParseException& e) {
+        EXPECT_STREQ(e.what(), "Exceeded maximum JSON recursion depth limit.");
+    }
+}
