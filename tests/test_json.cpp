@@ -942,3 +942,27 @@ TEST_F(JsonLibTest, ParseErrorUnterminatedComment) {
     EXPECT_THROW(JsonParser::Parse("/* unterminated comment"), JsonParseException);
     EXPECT_THROW(JsonParser::Parse("{\"key\": \"value\"} /* unclosed comment "), JsonParseException);
 }
+
+TEST_F(JsonLibTest, ParseObjectMemorySafetyOnException) {
+    // Malformed JSON object where first key/value parses fine but second fails
+    EXPECT_THROW(JsonParser::Parse("{\"a\": 123, \"b\": invalid_val}"), JsonParseException);
+    EXPECT_THROW(JsonParser::Parse("{\"a\": \"valid\", \"b\": [1, 2}"), JsonParseException);
+}
+
+TEST_F(JsonLibTest, InsertIntoObjectKeyOverwriteMemorySafety) {
+    JsonValue obj(JsonValueType::Object);
+    JsonValue* val1 = new JsonValue();
+    val1->SetNumber(10.0);
+    obj.InsertIntoObject("key", val1);
+
+    JsonValue* val2 = new JsonValue();
+    val2->SetNumber(20.0);
+    // Overwriting "key" should delete val1 safely without leaking memory
+    obj.InsertIntoObject("key", val2);
+
+    ASSERT_EQ(obj.GetObject()["key"]->GetNumber(), 20.0);
+
+    // Clean up val2
+    delete val2;
+    obj.GetObject().clear();
+}
