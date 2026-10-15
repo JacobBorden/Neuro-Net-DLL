@@ -237,7 +237,10 @@ struct JsonValue{
 		if (type != JsonValueType::Object){
 			throw JsonParseException("Cannot insert into a non-object value.");
 		}
-        // Potential memory leak: if object_value[key] previously held a pointer, it's overwritten.
+		auto it = object_value.find(key);
+		if (it != object_value.end() && it->second != value) {
+			delete it->second;
+		}
 		object_value[key] = value;
 	}
 
