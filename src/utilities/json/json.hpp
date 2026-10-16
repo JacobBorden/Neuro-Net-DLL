@@ -69,6 +69,70 @@ struct JsonValue{
      */
 	std::unordered_map<std::string, JsonValue* > object_value;
 
+	~JsonValue() {
+	    if (type == JsonValueType::Object) {
+	        for (auto& pair : object_value) {
+	            delete pair.second;
+	        }
+            object_value.clear();
+	    }
+	}
+
+	JsonValue(const JsonValue& other) : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(other.string_value), array_value(other.array_value) {
+	    if (type == JsonValueType::Object) {
+	        for (const auto& pair : other.object_value) {
+	            object_value[pair.first] = pair.second ? new JsonValue(*pair.second) : nullptr;
+	        }
+	    }
+	}
+
+	JsonValue& operator=(const JsonValue& other) {
+	    if (this != &other) {
+	        if (type == JsonValueType::Object) {
+	            for (auto& pair : object_value) {
+	                delete pair.second;
+	            }
+	            object_value.clear();
+	        }
+	        type = other.type;
+	        boolean_value = other.boolean_value;
+	        number_value = other.number_value;
+	        string_value = other.string_value;
+	        array_value = other.array_value;
+	        if (type == JsonValueType::Object) {
+	            for (const auto& pair : other.object_value) {
+	                object_value[pair.first] = pair.second ? new JsonValue(*pair.second) : nullptr;
+	            }
+	        } else {
+	            object_value.clear();
+	        }
+	    }
+	    return *this;
+	}
+
+	JsonValue(JsonValue&& other) noexcept : type(other.type), boolean_value(other.boolean_value), number_value(other.number_value), string_value(std::move(other.string_value)), array_value(std::move(other.array_value)), object_value(std::move(other.object_value)) {
+	    other.type = JsonValueType::Null;
+	}
+
+	JsonValue& operator=(JsonValue&& other) noexcept {
+	    if (this != &other) {
+	        if (type == JsonValueType::Object) {
+	            for (auto& pair : object_value) {
+	                delete pair.second;
+	            }
+	            object_value.clear();
+	        }
+	        type = other.type;
+	        boolean_value = other.boolean_value;
+	        number_value = other.number_value;
+	        string_value = std::move(other.string_value);
+	        array_value = std::move(other.array_value);
+	        object_value = std::move(other.object_value);
+	        other.type = JsonValueType::Null;
+	    }
+	    return *this;
+	}
+
     /**
      * @brief Serializes the JsonValue to its JSON string representation.
      * For Array and Object types, this method recursively calls ToString() on their elements.
@@ -173,52 +237,38 @@ struct JsonValue{
     /**
      * @brief Sets this JsonValue to an Array type. Initializes an empty array.
      */
-	void SetArray(){type = JsonValueType::Array; array_value.clear(); } // Ensure it's clean
-    /**
-     * @brief Checks if this JsonValue is an Array.
-     * @return True if the type is JsonValueType::Array, false otherwise.
-     */
+	void SetArray(){
+	    if (type == JsonValueType::Object) {
+	        for (auto& pair : object_value) {
+	            delete pair.second;
+	        }
+	        object_value.clear();
+	    }
+	    type = JsonValueType::Array;
+	    array_value.clear();
+	} // Ensure it's clean
+
 	bool IsArray() const { return type == JsonValueType::Array;}
-    /**
-     * @brief Gets the underlying std::vector<JsonValue> for an Array type (non-const version).
-     * @pre The JsonValue must be of type JsonValueType::Array. Behavior is undefined otherwise.
-     * @return A reference to the vector of JsonValues.
-     */
+
 	std::vector<JsonValue>& GetArray(){ return array_value;}
-    /**
-     * @brief Gets the underlying std::vector<JsonValue> for an Array type (const version).
-     * @pre The JsonValue must be of type JsonValueType::Array. Behavior is undefined otherwise.
-     * @return A const reference to the vector of JsonValues.
-     */
+
 	const std::vector<JsonValue>& GetArray() const{return array_value;}
 
-    /**
-     * @brief Sets this JsonValue to an Object type. Initializes an empty object.
-     * @warning If this JsonValue previously held an object with dynamically allocated
-     * `JsonValue*` members, those pointers are NOT deallocated by this call. Memory
-     * management of previous object members is the caller's responsibility.
-     */
-	void SetObject(){type = JsonValueType::Object; object_value.clear(); } // Ensure it's clean, but doesn't delete pointed-to values
-    /**
-     * @brief Checks if this JsonValue is an Object.
-     * @return True if the type is JsonValueType::Object, false otherwise.
-     */
+	void SetObject(){
+	    if (type == JsonValueType::Object) {
+	        for (auto& pair : object_value) {
+	            delete pair.second;
+	        }
+	        object_value.clear();
+	    }
+	    type = JsonValueType::Object;
+	    object_value.clear();
+	} // Ensure it's clean
+
 	bool IsObject() const { return type == JsonValueType::Object;}
-    /**
-     * @brief Gets the underlying std::unordered_map<std::string, JsonValue*> for an Object type (non-const version).
-     * @pre The JsonValue must be of type JsonValueType::Object. Behavior is undefined otherwise.
-     * @return A reference to the map.
-     * @warning The map stores raw pointers (`JsonValue*`). Callers are responsible for memory management
-     * of these pointed-to `JsonValue` objects if they were dynamically allocated.
-     */
+
 	std::unordered_map<std::string, JsonValue*>& GetObject(){return object_value;} // Typo fixed: GetObJect -> GetObject
-    /**
-     * @brief Gets the underlying std::unordered_map<std::string, JsonValue*> for an Object type (const version).
-     * @pre The JsonValue must be of type JsonValueType::Object. Behavior is undefined otherwise.
-     * @return A const reference to the map.
-     * @warning The map stores raw pointers (`JsonValue*`). Callers are responsible for memory management
-     * of these pointed-to `JsonValue` objects if they were dynamically allocated.
-     */
+
 	const std::unordered_map<std::string, JsonValue*> &GetObject() const {return object_value;}
     
     /**
@@ -237,7 +287,10 @@ struct JsonValue{
 		if (type != JsonValueType::Object){
 			throw JsonParseException("Cannot insert into a non-object value.");
 		}
-        // Potential memory leak: if object_value[key] previously held a pointer, it's overwritten.
+		auto it = object_value.find(key);
+		if (it != object_value.end()) {
+		    delete it->second;
+		}
 		object_value[key] = value;
 	}
 
