@@ -31,6 +31,22 @@ int Conv2DLayer::GetOutputWidth(int input_width) const {
     return (effective_width - kernel_size_) / stride_ + 1;
 }
 
+Matrix::Matrix<float>& Conv2DLayer::GetFilters() {
+    return filters_;
+}
+
+const Matrix::Matrix<float>& Conv2DLayer::GetFilters() const {
+    return filters_;
+}
+
+Matrix::Matrix<float>& Conv2DLayer::GetBiases() {
+    return biases_;
+}
+
+const Matrix::Matrix<float>& Conv2DLayer::GetBiases() const {
+    return biases_;
+}
+
 Matrix::Matrix<float> Conv2DLayer::Forward(const Matrix::Matrix<float>& input, int input_height, int input_width) {
     int out_h = GetOutputHeight(input_height);
     int out_w = GetOutputWidth(input_width);

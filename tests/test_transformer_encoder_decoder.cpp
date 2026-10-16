@@ -107,4 +107,11 @@ TEST_F(TransformerEncoderDecoderTest, InvalidInputHandling) {
     Matrix::Matrix<float> invalid_src_input(2, 5); // Should be 1 row
     Matrix::Matrix<float> tgt_input(1, 6);
     EXPECT_THROW(model.forward(invalid_src_input, tgt_input), std::invalid_argument);
+
+    Matrix::Matrix<float> empty_src(0, 0);
+    EXPECT_THROW(model.forward(empty_src, tgt_input), std::invalid_argument);
+
+    Matrix::Matrix<float> valid_src(1, 5);
+    Matrix::Matrix<float> empty_tgt(0, 0);
+    EXPECT_THROW(model.forward(valid_src, empty_tgt), std::invalid_argument);
 }

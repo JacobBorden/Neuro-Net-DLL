@@ -1,5 +1,6 @@
 #include "gtest/gtest.h"
 #include "../src/transformer/transformer_model.h"
+#include "../src/transformer/attention.h"
 #include "../src/math/matrix.h"
 #include <vector>
 #include <string>
@@ -160,4 +161,48 @@ TEST_F(TransformerModelTest, ForwardPassInputTooLong) {
     // If truncation is the expected behavior, this test needs to be adjusted
     // to check that the output corresponds to a truncated input.
     EXPECT_THROW(model.forward(long_input_sequence, mask), std::invalid_argument);
+}
+
+TEST_F(TransformerModelTest, AttentionMaskMismatchedShape) {
+    NeuroNet::Transformer::TransformerModel model(50, 10, 32, 1, 2, 64, 0.0f, 0.0f);
+
+    Matrix::Matrix<float> input(1, 5); // seq_len = 5
+    for (int j = 0; j < 5; ++j) input[0][j] = static_cast<float>(j + 1);
+
+    Matrix::Matrix<float> invalid_mask(3, 3); // Shape 3x3 instead of 5x5
+    invalid_mask.assign(0.0f);
+
+    EXPECT_THROW(model.forward(input, invalid_mask), std::invalid_argument);
+}
+
+TEST_F(TransformerModelTest, ScaledDotProductAttentionMaskReferenceValues) {
+    NeuroNet::Transformer::ScaledDotProductAttention attn(0.0f);
+
+    // Q (2x2), K (2x2), V (2x2)
+    Matrix::Matrix<float> Q(2, 2);
+    Q[0][0] = 1.0f; Q[0][1] = 0.0f;
+    Q[1][0] = 0.0f; Q[1][1] = 1.0f;
+
+    Matrix::Matrix<float> K(2, 2);
+    K[0][0] = 1.0f; K[0][1] = 0.0f;
+    K[1][0] = 0.0f; K[1][1] = 1.0f;
+
+    Matrix::Matrix<float> V(2, 2);
+    V[0][0] = 10.0f; V[0][1] = 20.0f;
+    V[1][0] = 30.0f; V[1][1] = 40.0f;
+
+    // Mask (2x2): Row 0 masks out key 1 (-1e9f)
+    Matrix::Matrix<float> mask(2, 2);
+    mask[0][0] = 0.0f; mask[0][1] = -1e9f;
+    mask[1][0] = 0.0f; mask[1][1] = 0.0f;
+
+    auto result = attn.forward(Q, K, V, mask);
+
+    // Attention weights for row 0 should be [1.0, 0.0]
+    EXPECT_FLOAT_EQ(result.attention_weights[0][0], 1.0f);
+    EXPECT_FLOAT_EQ(result.attention_weights[0][1], 0.0f);
+
+    // Output for row 0 should be V[0] = [10.0, 20.0]
+    EXPECT_FLOAT_EQ(result.output[0][0], 10.0f);
+    EXPECT_FLOAT_EQ(result.output[0][1], 20.0f);
 }

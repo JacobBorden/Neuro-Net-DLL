@@ -1523,3 +1523,147 @@ TEST(NeuroNetJSONTest, GetOutputJSON_NoLayers) {
         output_json_val.GetObject().clear(); // Clear map
     }
 }
+
+// --- Numerical Gradient Check Tests for Dense Losses and Activations ---
+TEST(NeuroNetNumericalGradientCheckTest, AllDenseActivations) {
+    const float eps = 1e-3f;
+    const float rel_tol = 0.02f; // 2% relative tolerance for float finite differences
+
+    std::vector<NeuroNet::ActivationFunctionType> activations = {
+        NeuroNet::ActivationFunctionType::None,
+        NeuroNet::ActivationFunctionType::ReLU,
+        NeuroNet::ActivationFunctionType::LeakyReLU,
+        NeuroNet::ActivationFunctionType::ELU,
+        NeuroNet::ActivationFunctionType::Sigmoid,
+        NeuroNet::ActivationFunctionType::Tanh,
+        NeuroNet::ActivationFunctionType::Swish,
+        NeuroNet::ActivationFunctionType::Softmax
+    };
+
+    const int in_s = 3;
+    const int out_s = 4;
+
+    for (auto act : activations) {
+        NeuroNet::NeuroNetLayer layer;
+        layer.ResizeLayer(in_s, out_s);
+        layer.SetActivationFunction(act);
+
+        NeuroNet::LayerWeights lw;
+        lw.WeightCount = in_s * out_s;
+        lw.WeightsVector = {0.25f, -0.35f, 0.45f, -0.15f,
+                            0.15f, 0.55f, -0.25f, 0.35f,
+                            -0.45f, 0.05f, 0.65f, -0.55f};
+        layer.SetWeights(lw);
+
+        NeuroNet::LayerBiases lb;
+        lb.BiasCount = out_s;
+        lb.BiasVector = {0.1f, -0.2f, 0.05f, 0.15f};
+        layer.SetBiases(lb);
+
+        Matrix::Matrix<float> X(1, in_s);
+        X[0][0] = 0.8f; X[0][1] = -0.6f; X[0][2] = 0.4f;
+
+        Matrix::Matrix<float> Y(1, out_s);
+        if (act == NeuroNet::ActivationFunctionType::Softmax) {
+            // Normalized probability target for Softmax with Cross-Entropy Loss
+            Y[0][0] = 0.1f; Y[0][1] = 0.5f; Y[0][2] = 0.2f; Y[0][3] = 0.2f;
+        } else {
+            Y[0][0] = 0.2f; Y[0][1] = 0.7f; Y[0][2] = 0.3f; Y[0][3] = 0.5f;
+        }
+
+        // Forward pass
+        layer.SetInput(X);
+        Matrix::Matrix<float> A = layer.CalculateOutput();
+
+        // Upstream gradient for MSE Loss L = 0.5 * sum((A - Y)^2)
+        Matrix::Matrix<float> dLdA(1, out_s);
+        for (int j = 0; j < out_s; ++j) {
+            dLdA[0][j] = A[0][j] - Y[0][j];
+        }
+
+        bool is_last = (act == NeuroNet::ActivationFunctionType::Softmax);
+        if (is_last) {
+            // For Softmax on last layer, Backpropagate seeds dLdA with (A - Y)
+        }
+
+        Matrix::Matrix<float> dLdX_analytical = layer.BackwardPass(dLdA, X, is_last);
+        Matrix::Matrix<float> dLdW_analytical = layer.get_dLdW();
+        Matrix::Matrix<float> dLdB_analytical = layer.get_dLdB();
+
+        auto eval_loss = [&](const Matrix::Matrix<float>& input_x, const NeuroNet::LayerWeights& weights, const NeuroNet::LayerBiases& biases) -> float {
+            NeuroNet::NeuroNetLayer temp_layer;
+            temp_layer.ResizeLayer(in_s, out_s);
+            temp_layer.SetActivationFunction(act);
+            temp_layer.SetWeights(weights);
+            temp_layer.SetBiases(biases);
+            temp_layer.SetInput(input_x);
+            Matrix::Matrix<float> out_A = temp_layer.CalculateOutput();
+
+            float loss = 0.0f;
+            if (act == NeuroNet::ActivationFunctionType::Softmax) {
+                // Cross entropy loss L = - sum(Y * log(A + 1e-7))
+                for (int j = 0; j < out_s; ++j) {
+                    loss -= Y[0][j] * std::log(out_A[0][j] + 1e-7f);
+                }
+            } else {
+                // MSE loss L = 0.5 * sum((out_A - Y)^2)
+                for (int j = 0; j < out_s; ++j) {
+                    float diff = out_A[0][j] - Y[0][j];
+                    loss += 0.5f * diff * diff;
+                }
+            }
+            return loss;
+        };
+
+        // Check dLdW
+        for (int r = 0; r < in_s; ++r) {
+            for (int c = 0; c < out_s; ++c) {
+                int idx = r * out_s + c;
+                NeuroNet::LayerWeights lw_plus = lw;
+                lw_plus.WeightsVector[idx] += eps;
+                float loss_plus = eval_loss(X, lw_plus, lb);
+
+                NeuroNet::LayerWeights lw_minus = lw;
+                lw_minus.WeightsVector[idx] -= eps;
+                float loss_minus = eval_loss(X, lw_minus, lb);
+
+                float num_grad = (loss_plus - loss_minus) / (2.0f * eps);
+                float ana_grad = dLdW_analytical[r][c];
+                float rel_err = std::abs(num_grad - ana_grad) / (std::max(std::abs(num_grad), std::abs(ana_grad)) + 1e-5f);
+                EXPECT_LT(rel_err, rel_tol) << "dLdW mismatch for activation " << layer.get_activation_function_name() << " at (" << r << "," << c << ")";
+            }
+        }
+
+        // Check dLdB
+        for (int c = 0; c < out_s; ++c) {
+            NeuroNet::LayerBiases lb_plus = lb;
+            lb_plus.BiasVector[c] += eps;
+            float loss_plus = eval_loss(X, lw, lb_plus);
+
+            NeuroNet::LayerBiases lb_minus = lb;
+            lb_minus.BiasVector[c] -= eps;
+            float loss_minus = eval_loss(X, lw, lb_minus);
+
+            float num_grad = (loss_plus - loss_minus) / (2.0f * eps);
+            float ana_grad = dLdB_analytical[0][c];
+            float rel_err = std::abs(num_grad - ana_grad) / (std::max(std::abs(num_grad), std::abs(ana_grad)) + 1e-5f);
+            EXPECT_LT(rel_err, rel_tol) << "dLdB mismatch for activation " << layer.get_activation_function_name() << " at (0," << c << ")";
+        }
+
+        // Check dLdX
+        for (int r = 0; r < in_s; ++r) {
+            Matrix::Matrix<float> X_plus = X;
+            X_plus[0][r] += eps;
+            float loss_plus = eval_loss(X_plus, lw, lb);
+
+            Matrix::Matrix<float> X_minus = X;
+            X_minus[0][r] -= eps;
+            float loss_minus = eval_loss(X_minus, lw, lb);
+
+            float num_grad = (loss_plus - loss_minus) / (2.0f * eps);
+            float ana_grad = dLdX_analytical[0][r];
+            float rel_err = std::abs(num_grad - ana_grad) / (std::max(std::abs(num_grad), std::abs(ana_grad)) + 1e-5f);
+            EXPECT_LT(rel_err, rel_tol) << "dLdX mismatch for activation " << layer.get_activation_function_name() << " at (0," << r << ")";
+        }
+    }
+}
