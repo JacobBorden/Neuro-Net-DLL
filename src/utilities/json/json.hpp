@@ -42,10 +42,76 @@ enum class JsonValueType{
 struct JsonValue{
 
     /**
+     * @brief Clears object pointers if type is JsonValueType::Object.
+     */
+	void ClearObject() {
+		if (type == JsonValueType::Object) {
+			for (auto& pair : object_value) {
+				delete pair.second;
+			}
+			object_value.clear();
+		}
+	}
+
+    /**
      * @brief Constructs a JsonValue.
      * @param type_ The initial type of the JsonValue. Defaults to JsonValueType::Null.
      */
 	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_){}
+
+	~JsonValue() {
+		ClearObject();
+	}
+
+	JsonValue(const JsonValue& other)
+		: type(other.type), boolean_value(other.boolean_value), number_value(other.number_value),
+		  string_value(other.string_value), array_value(other.array_value) {
+		if (other.type == JsonValueType::Object) {
+			for (const auto& pair : other.object_value) {
+				object_value[pair.first] = pair.second ? new JsonValue(*pair.second) : nullptr;
+			}
+		}
+	}
+
+	JsonValue& operator=(const JsonValue& other) {
+		if (this != &other) {
+			ClearObject();
+			type = other.type;
+			boolean_value = other.boolean_value;
+			number_value = other.number_value;
+			string_value = other.string_value;
+			array_value = other.array_value;
+			if (other.type == JsonValueType::Object) {
+				for (const auto& pair : other.object_value) {
+					object_value[pair.first] = pair.second ? new JsonValue(*pair.second) : nullptr;
+				}
+			}
+		}
+		return *this;
+	}
+
+	JsonValue(JsonValue&& other) noexcept
+		: type(other.type), boolean_value(other.boolean_value), number_value(other.number_value),
+		  string_value(std::move(other.string_value)), array_value(std::move(other.array_value)),
+		  object_value(std::move(other.object_value)) {
+		other.type = JsonValueType::Null;
+		other.object_value.clear();
+	}
+
+	JsonValue& operator=(JsonValue&& other) noexcept {
+		if (this != &other) {
+			ClearObject();
+			type = other.type;
+			boolean_value = other.boolean_value;
+			number_value = other.number_value;
+			string_value = std::move(other.string_value);
+			array_value = std::move(other.array_value);
+			object_value = std::move(other.object_value);
+			other.type = JsonValueType::Null;
+			other.object_value.clear();
+		}
+		return *this;
+	}
 
 	JsonValueType type; ///< The actual type of this JSON value, determining which member field is valid.
 	
@@ -61,11 +127,7 @@ struct JsonValue{
     
     /**
      * @brief Valid and used if `type` is JsonValueType::Object. Stores key-value pairs.
-     * Keys are strings, and values are *pointers* to `JsonValue` objects.
-     * @warning Users of this map are responsible for the memory management of the `JsonValue`
-     * objects pointed to if they are dynamically allocated (e.g., using `new`). The map itself
-     * does not automatically deallocate these pointers upon destruction of the containing `JsonValue`
-     * or when elements are removed from the map.
+     * Keys are strings, and values are *pointers* to `JsonValue` objects owned by this JsonValue.
      */
 	std::unordered_map<std::string, JsonValue* > object_value;
 
@@ -131,7 +193,7 @@ struct JsonValue{
      * @brief Sets this JsonValue to a boolean type and assigns the given value.
      * @param value The boolean value to set.
      */
-	void SetBoolean(bool value){type = JsonValueType::Boolean; boolean_value = value;}
+	void SetBoolean(bool value){ ClearObject(); type = JsonValueType::Boolean; boolean_value = value;}
     /**
      * @brief Gets the boolean value.
      * @pre The JsonValue must be of type JsonValueType::Boolean. Behavior is undefined otherwise.
@@ -144,7 +206,7 @@ struct JsonValue{
      * All numbers are stored internally as double.
      * @param value The double value to set.
      */
-	void SetNumber(double value){type = JsonValueType::Number; number_value = value;}
+	void SetNumber(double value){ ClearObject(); type = JsonValueType::Number; number_value = value;}
     /**
      * @brief Gets the number value.
      * @pre The JsonValue must be of type JsonValueType::Number. Behavior is undefined otherwise.
@@ -156,7 +218,7 @@ struct JsonValue{
      * @brief Sets this JsonValue to a string type and assigns the given value.
      * @param value The string value to set.
      */
-	void SetString(const std::string& value){ type = JsonValueType::String; string_value = value;}
+	void SetString(const std::string& value){ ClearObject(); type = JsonValueType::String; string_value = value;}
     /**
      * @brief Gets the string value (const version).
      * @pre The JsonValue must be of type JsonValueType::String. Behavior is undefined otherwise.
@@ -173,7 +235,7 @@ struct JsonValue{
     /**
      * @brief Sets this JsonValue to an Array type. Initializes an empty array.
      */
-	void SetArray(){type = JsonValueType::Array; array_value.clear(); } // Ensure it's clean
+	void SetArray(){ ClearObject(); type = JsonValueType::Array; array_value.clear(); } // Ensure it's clean
     /**
      * @brief Checks if this JsonValue is an Array.
      * @return True if the type is JsonValueType::Array, false otherwise.
@@ -194,11 +256,8 @@ struct JsonValue{
 
     /**
      * @brief Sets this JsonValue to an Object type. Initializes an empty object.
-     * @warning If this JsonValue previously held an object with dynamically allocated
-     * `JsonValue*` members, those pointers are NOT deallocated by this call. Memory
-     * management of previous object members is the caller's responsibility.
      */
-	void SetObject(){type = JsonValueType::Object; object_value.clear(); } // Ensure it's clean, but doesn't delete pointed-to values
+	void SetObject(){ ClearObject(); type = JsonValueType::Object; }
     /**
      * @brief Checks if this JsonValue is an Object.
      * @return True if the type is JsonValueType::Object, false otherwise.
@@ -237,7 +296,12 @@ struct JsonValue{
 		if (type != JsonValueType::Object){
 			throw JsonParseException("Cannot insert into a non-object value.");
 		}
-        // Potential memory leak: if object_value[key] previously held a pointer, it's overwritten.
+		auto it = object_value.find(key);
+		if (it != object_value.end()) {
+			if (it->second != value) {
+				delete it->second;
+			}
+		}
 		object_value[key] = value;
 	}
 

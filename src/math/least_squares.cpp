@@ -1,6 +1,7 @@
 #include "least_squares.h"
 #include "matrix.h" // Defines Matrix::Matrix
 #include <stdexcept> // For std::runtime_error
+#include <cmath>     // For std::isnan, std::isinf
 
 namespace Math {
 
@@ -16,6 +17,25 @@ namespace Math {
         }
         if (b.cols() != 1) {
             throw std::invalid_argument("Matrix b must be a column vector (have only 1 column).");
+        }
+        if (A.rows() < A.cols()) {
+            throw std::invalid_argument("Matrix A must have at least as many rows as columns for least squares.");
+        }
+
+        for (size_t i = 0; i < A.rows(); ++i) {
+            for (size_t j = 0; j < A.cols(); ++j) {
+                if (std::isnan(A[i][j]) || std::isinf(A[i][j])) {
+                    throw std::invalid_argument("Input matrix A contains NaN or Inf values.");
+                }
+            }
+        }
+
+        for (size_t i = 0; i < b.rows(); ++i) {
+            for (size_t j = 0; j < b.cols(); ++j) {
+                if (std::isnan(b[i][j]) || std::isinf(b[i][j])) {
+                    throw std::invalid_argument("Input matrix b contains NaN or Inf values.");
+                }
+            }
         }
 
         // Normal equations: (A^T * A) * x = A^T * b

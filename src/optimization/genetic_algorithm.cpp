@@ -539,8 +539,6 @@ void Optimization::GeneticAlgorithm::run_evolution(int num_generations, const st
         error_msg->SetString("Best individual was not properly configured or found.");
         error_json.InsertIntoObject("error", error_msg);
         this->current_run_metrics_.best_model_architecture_params_custom_json_string = error_json.ToString();
-        // Cleanup for error_json, as InsertIntoObject doesn't mean root owns it in terms of deletion by destructor
-        delete error_msg; 
     }
     this->current_run_metrics_.overall_best_fitness = this->best_fitness_score_;
 }
@@ -661,11 +659,6 @@ void Optimization::GeneticAlgorithm::export_training_metrics_json(const std::str
     
     file.close();
 
-    // Cleanup dynamically allocated JsonValues
-    // For JsonValues directly inserted into root or into objects owned by root (like gen_metric_obj fields)
-    for (JsonValue* val_ptr : allocated_values) {
-        delete val_ptr;
-    }
     // The JsonValue objects themselves within gen_data_array_val->GetArray() are copied by value.
     // However, the map *within* those JsonValue objects (if they are objects) stores pointers.
     // The cleanup for allocated_values handles all JsonValues that were new'ed for fields.

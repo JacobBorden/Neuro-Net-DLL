@@ -942,3 +942,74 @@ TEST_F(JsonLibTest, ParseErrorUnterminatedComment) {
     EXPECT_THROW(JsonParser::Parse("/* unterminated comment"), JsonParseException);
     EXPECT_THROW(JsonParser::Parse("{\"key\": \"value\"} /* unclosed comment "), JsonParseException);
 }
+
+// --- JSON Memory Management, Ownership & RAII Tests ---
+
+TEST_F(JsonLibTest, JsonValueCopyAndMoveSemantics) {
+    JsonValue original = JsonParser::Parse("{\"a\": 10, \"b\": \"hello\", \"nested\": {\"x\": true}}");
+    ASSERT_EQ(original.type, JsonValueType::Object);
+
+    // Deep copy constructor
+    JsonValue copy_constructed(original);
+    ASSERT_EQ(copy_constructed.type, JsonValueType::Object);
+    EXPECT_NE(copy_constructed.GetObject().at("a"), original.GetObject().at("a"));
+    EXPECT_DOUBLE_EQ(copy_constructed.GetObject().at("a")->GetNumber(), 10.0);
+    EXPECT_TRUE(copy_constructed.GetObject().at("nested")->GetObject().at("x")->GetBoolean());
+
+    // Deep copy assignment
+    JsonValue copy_assigned;
+    copy_assigned = original;
+    ASSERT_EQ(copy_assigned.type, JsonValueType::Object);
+    EXPECT_NE(copy_assigned.GetObject().at("a"), original.GetObject().at("a"));
+    EXPECT_DOUBLE_EQ(copy_assigned.GetObject().at("a")->GetNumber(), 10.0);
+
+    // Move constructor
+    JsonValue move_constructed(std::move(copy_constructed));
+    ASSERT_EQ(move_constructed.type, JsonValueType::Object);
+    EXPECT_DOUBLE_EQ(move_constructed.GetObject().at("a")->GetNumber(), 10.0);
+    EXPECT_EQ(copy_constructed.type, JsonValueType::Null);
+
+    // Move assignment
+    JsonValue move_assigned;
+    move_assigned = std::move(copy_constructed); // Move from null
+    EXPECT_EQ(move_assigned.type, JsonValueType::Null);
+
+    move_assigned = std::move(move_constructed);
+    ASSERT_EQ(move_assigned.type, JsonValueType::Object);
+    EXPECT_DOUBLE_EQ(move_assigned.GetObject().at("a")->GetNumber(), 10.0);
+    EXPECT_EQ(move_constructed.type, JsonValueType::Null);
+}
+
+TEST_F(JsonLibTest, InsertIntoObjectKeyOverwrite) {
+    JsonValue obj;
+    obj.SetObject();
+    JsonValue* val1 = new JsonValue(JsonValueType::Number);
+    val1->SetNumber(100.0);
+    obj.InsertIntoObject("key", val1);
+    EXPECT_DOUBLE_EQ(obj.GetObject().at("key")->GetNumber(), 100.0);
+
+    JsonValue* val2 = new JsonValue(JsonValueType::String);
+    val2->SetString("overwritten");
+    obj.InsertIntoObject("key", val2);
+    EXPECT_EQ(obj.GetObject().at("key")->GetString(), "overwritten");
+}
+
+TEST_F(JsonLibTest, SetTypeClearsPreviousObjectPointers) {
+    JsonValue obj = JsonParser::Parse("{\"x\": 1, \"y\": 2}");
+    ASSERT_EQ(obj.type, JsonValueType::Object);
+
+    // Switching type should clean up object pointers without leak
+    obj.SetNumber(42.0);
+    EXPECT_EQ(obj.type, JsonValueType::Number);
+    EXPECT_DOUBLE_EQ(obj.GetNumber(), 42.0);
+
+    obj.SetString("reset");
+    EXPECT_EQ(obj.type, JsonValueType::String);
+    EXPECT_EQ(obj.GetString(), "reset");
+}
+
+TEST_F(JsonLibTest, ParseObjectExceptionSafetyOnMalformedInput) {
+    // Malformed object with valid first key-value pair followed by invalid syntax
+    EXPECT_THROW(JsonParser::Parse("{\"valid_key\": 123, \"broken\": }"), JsonParseException);
+    EXPECT_THROW(JsonParser::Parse("{\"k1\": \"v1\", \"k2\": "), JsonParseException);
+}
