@@ -122,3 +122,38 @@ TEST(LeastSquaresTest, ErrorHandling_bEmpty) {
     Matrix::Matrix<double> b = create_matrix({});
     EXPECT_THROW(Math::solve_least_squares(A, b), std::invalid_argument);
 }
+
+TEST(LeastSquaresTest, ErrorHandling_Underdetermined) {
+    // A has 2 rows and 3 columns (rows < cols)
+    Matrix::Matrix<double> A = create_matrix({{1, 2, 3}, {4, 5, 6}});
+    Matrix::Matrix<double> b = create_matrix({{1}, {2}});
+    EXPECT_THROW(Math::solve_least_squares(A, b), std::invalid_argument);
+}
+
+TEST(LeastSquaresTest, ErrorHandling_NaNInA) {
+    double nan_val = std::numeric_limits<double>::quiet_NaN();
+    Matrix::Matrix<double> A = create_matrix({{1, 2}, {nan_val, 4}, {5, 6}});
+    Matrix::Matrix<double> b = create_matrix({{1}, {2}, {3}});
+    EXPECT_THROW(Math::solve_least_squares(A, b), std::invalid_argument);
+}
+
+TEST(LeastSquaresTest, ErrorHandling_InfInA) {
+    double inf_val = std::numeric_limits<double>::infinity();
+    Matrix::Matrix<double> A = create_matrix({{1, 2}, {inf_val, 4}, {5, 6}});
+    Matrix::Matrix<double> b = create_matrix({{1}, {2}, {3}});
+    EXPECT_THROW(Math::solve_least_squares(A, b), std::invalid_argument);
+}
+
+TEST(LeastSquaresTest, ErrorHandling_NaNInb) {
+    double nan_val = std::numeric_limits<double>::quiet_NaN();
+    Matrix::Matrix<double> A = create_matrix({{1, 2}, {3, 4}, {5, 6}});
+    Matrix::Matrix<double> b = create_matrix({{1}, {nan_val}, {3}});
+    EXPECT_THROW(Math::solve_least_squares(A, b), std::invalid_argument);
+}
+
+TEST(LeastSquaresTest, ErrorHandling_InfInb) {
+    double inf_val = std::numeric_limits<double>::infinity();
+    Matrix::Matrix<double> A = create_matrix({{1, 2}, {3, 4}, {5, 6}});
+    Matrix::Matrix<double> b = create_matrix({{1}, {inf_val}, {3}});
+    EXPECT_THROW(Math::solve_least_squares(A, b), std::invalid_argument);
+}
