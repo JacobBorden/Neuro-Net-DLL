@@ -107,69 +107,61 @@ void NaiveBayesClassifier::fit(const Matrix::Matrix<double>& features, const Mat
 // Note: <sstream> was moved to the top of the file.
 
 Matrix::Matrix<double> NaiveBayesClassifier::predict(const Matrix::Matrix<double>& features) const {
-    // bool priors_empty = class_priors_.empty(); // For debugging
-    // bool params_empty = class_feature_params_.empty(); // For debugging
-    // bool labels_sorted_empty = unique_labels_sorted_.empty(); // For debugging
-
     if (class_priors_.empty() || class_feature_params_.empty() || unique_labels_sorted_.empty()) {
-        // std::ostringstream error_msg; // For debugging
-        // error_msg << "Classifier has not been fitted. Call fit() first. "
-        //           << "States: priors_empty=" << priors_empty
-        //           << ", params_empty=" << params_empty
-        //           << ", labels_sorted_empty=" << labels_sorted_empty;
-        // throw std::runtime_error(error_msg.str());
         throw std::runtime_error("Classifier has not been fitted. Call fit() first.");
     }
 
     if (features.cols() != num_features_) {
-        // std::ostringstream error_msg; // For debugging
-        // error_msg << "Number of features in test data does not match training data. "
-        //           << "Features.cols=" << features.cols()
-        //           << ", num_features_=" << num_features_
-        //           << ". Prior states: priors_empty=" << priors_empty
-        //           << ", params_empty=" << params_empty
-        //           << ", labels_sorted_empty=" << labels_sorted_empty;
-        // throw std::invalid_argument(error_msg.str());
         throw std::invalid_argument("Number of features in test data does not match training data.");
     }
 
     Matrix::Matrix<double> predictions(features.rows(), 1);
 
+    // Pre-calculate log priors and cache feature distributions
+    struct ClassData {
+        double label;
+        double log_prior;
+        const std::vector<GaussianDistribution>* distributions;
+    };
+    std::vector<ClassData> class_data;
+    class_data.reserve(unique_labels_sorted_.size());
+    for (double current_class_label : unique_labels_sorted_) {
+        class_data.push_back({
+            current_class_label,
+            std::log(class_priors_.at(current_class_label)),
+            &class_feature_params_.at(current_class_label)
+        });
+    }
+
+    #pragma omp parallel for
     for (size_t i = 0; i < features.rows(); ++i) {
         double max_log_posterior = -std::numeric_limits<double>::infinity();
-        double predicted_class = -1; // Default or error value
+        double predicted_class = unique_labels_sorted_[0];
 
-        if (unique_labels_sorted_.empty()) { // Should be caught by class_priors_.empty() check
-             throw std::runtime_error("No classes available for prediction. Model might be corrupt or not fitted.");
-        }
-        predicted_class = unique_labels_sorted_[0]; // Default to first class if all posteriors are somehow zero/invalid
-
-        for (double current_class_label : unique_labels_sorted_) {
-            // Calculate log posterior: log(P(C_k)) + sum(log(P(x_j | C_k)))
-            double log_prior = std::log(class_priors_.at(current_class_label));
+        for (const auto& cd : class_data) {
             double log_likelihood_sum = 0.0;
+            const auto& feature_distributions = *(cd.distributions);
 
-            const auto& feature_distributions = class_feature_params_.at(current_class_label);
             for (size_t j = 0; j < num_features_; ++j) {
                 double feature_value = features[i][j];
                 double pdf_val = feature_distributions[j].pdf(feature_value);
-                // Add small epsilon to pdf_val if it's zero to avoid log(0)
                 if (pdf_val < std::numeric_limits<double>::epsilon()) {
                      pdf_val = std::numeric_limits<double>::epsilon();
                 }
                 log_likelihood_sum += std::log(pdf_val);
             }
 
-            double current_log_posterior = log_prior + log_likelihood_sum;
+            double current_log_posterior = cd.log_prior + log_likelihood_sum;
 
             if (current_log_posterior > max_log_posterior) {
                 max_log_posterior = current_log_posterior;
-                predicted_class = current_class_label;
+                predicted_class = cd.label;
             }
         }
         predictions[i][0] = predicted_class;
     }
     return predictions;
 }
+ // namespace Classifier
 
 } // namespace Classifier
