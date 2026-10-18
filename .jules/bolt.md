@@ -1,0 +1,3 @@
+## 2024-05-18 - [Transformer Positional Encoding Memory Optimization]
+**Learning:** In `PositionalEncoding::forward()`, a temporary matrix `relevant_pe` was being allocated and populated to slice the positional encoding table (`pe_table_`) to match the input sequence length before performing element-wise addition with `input_embeddings`. This redundant matrix allocation and copying can be eliminated by directly computing the element-wise addition of `input_embeddings` and `pe_table_` and storing the result in the newly allocated `output` matrix.
+**Action:** Always look for opportunities to fuse operations that perform redundant intermediate array/matrix allocations. Direct element-wise computation can avoid unnecessary memory allocations and copying.
