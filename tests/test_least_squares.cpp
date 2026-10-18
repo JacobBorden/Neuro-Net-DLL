@@ -122,3 +122,39 @@ TEST(LeastSquaresTest, ErrorHandling_bEmpty) {
     Matrix::Matrix<double> b = create_matrix({});
     EXPECT_THROW(Math::solve_least_squares(A, b), std::invalid_argument);
 }
+
+TEST(LeastSquaresTest, ErrorHandling_UnderdeterminedSystem) {
+    // A has 2 rows and 3 columns (underdetermined system)
+    Matrix::Matrix<double> A = create_matrix({{1, 2, 3}, {4, 5, 6}});
+    Matrix::Matrix<double> b = create_matrix({{1}, {2}});
+    EXPECT_THROW(Math::solve_least_squares(A, b), std::invalid_argument);
+}
+
+TEST(LeastSquaresTest, ErrorHandling_NaNOrInfInput) {
+    double nan_val = std::numeric_limits<double>::quiet_NaN();
+    double inf_val = std::numeric_limits<double>::infinity();
+
+    Matrix::Matrix<double> A_nan = create_matrix({{1, nan_val}, {3, 4}});
+    Matrix::Matrix<double> b_valid = create_matrix({{1}, {2}});
+    EXPECT_THROW(Math::solve_least_squares(A_nan, b_valid), std::invalid_argument);
+
+    Matrix::Matrix<double> A_valid = create_matrix({{1, 2}, {3, 4}});
+    Matrix::Matrix<double> b_inf = create_matrix({{1}, {inf_val}});
+    EXPECT_THROW(Math::solve_least_squares(A_valid, b_inf), std::invalid_argument);
+}
+
+TEST(LeastSquaresTest, NumericalConditioning_NearSingular) {
+    // Nearly singular matrix with small epsilon perturbation
+    double eps = 1e-12;
+    Matrix::Matrix<double> A = create_matrix({{1.0, 1.0}, {1.0, 1.0 + eps}});
+    Matrix::Matrix<double> b = create_matrix({{2.0}, {2.0 + eps}});
+
+    // Should either solve accurately or throw runtime_error if inverted matrix condition fails
+    try {
+        Matrix::Matrix<double> x = Math::solve_least_squares(A, b);
+        EXPECT_NEAR(x[0][0], 1.0, 1e-2);
+        EXPECT_NEAR(x[1][0], 1.0, 1e-2);
+    } catch (const std::runtime_error& e) {
+        SUCCEED();
+    }
+}
