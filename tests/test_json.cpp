@@ -942,3 +942,16 @@ TEST_F(JsonLibTest, ParseErrorUnterminatedComment) {
     EXPECT_THROW(JsonParser::Parse("/* unterminated comment"), JsonParseException);
     EXPECT_THROW(JsonParser::Parse("{\"key\": \"value\"} /* unclosed comment "), JsonParseException);
 }
+
+TEST_F(JsonLibTest, DeeplyNestedStructuresAndOwnership) {
+    // Test parsing deeply nested structure to ensure no stack overflow or memory leaks
+    std::string deeply_nested = "";
+    for (int i = 0; i < 50; ++i) deeply_nested += "{\"level\": ";
+    deeply_nested += "42";
+    for (int i = 0; i < 50; ++i) deeply_nested += "}";
+
+    EXPECT_NO_THROW({
+        JsonValue val = JsonParser::Parse(deeply_nested);
+        EXPECT_EQ(val.type, JsonValueType::Object);
+    });
+}
