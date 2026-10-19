@@ -1094,6 +1094,9 @@ namespace Matrix
 		#pragma omp parallel for
 #endif
 		for (size_t i = 0; i < m_Rows; i++) {
+            for (size_t k = 0; k < b.m_Cols; k++) {
+                c.m_Data[i][k] = T(0);
+            }
 			for (size_t j = 0; j < m_Cols; j++) {
                 T a_val = m_Data[i][j];
 				for (size_t k = 0; k < b.m_Cols; k++) {
