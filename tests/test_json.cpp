@@ -846,6 +846,14 @@ TEST_F(JsonLibTest, ParseErrorUnexpectedEndObject) {
     }
 }
 
+TEST_F(JsonLibTest, ParseErrorMidObjectMemoryCleanup) {
+    // Test parsing object with multiple valid keys followed by malformed syntax mid-object.
+    // Verifies that allocated keys are properly cleaned up when JsonParseException is thrown.
+    EXPECT_THROW(JsonParser::Parse("{\"k1\": 10, \"k2\": \"valid\", \"k3\": [1,2,3], \"k4\": invalid}"), JsonParseException);
+    EXPECT_THROW(JsonParser::Parse("{\"a\": 1, \"b\": 2, \"c\": {"), JsonParseException);
+    EXPECT_THROW(JsonParser::Parse("{\"first\": \"ok\", \"second\": 123,}"), JsonParseException);
+}
+
 TEST_F(JsonLibTest, ParseErrorIncompleteArray) {
     // Missing closing bracket
     EXPECT_THROW(JsonParser::Parse("[1, 2, 3"), JsonParseException);
