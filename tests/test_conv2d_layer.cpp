@@ -57,3 +57,64 @@ TEST(Conv2DLayerTest, ForwardPass) {
     EXPECT_EQ(output.rows(), 1);
     EXPECT_EQ(output.cols(), 4); // 2x2 output flattened
 }
+
+TEST(Conv2DLayerTest, ExactNumericalReferenceSingleChannel) {
+    // 1 in_channel, 1 out_channel, 2x2 kernel, stride 1, padding 0
+    Conv2DLayer layer(1, 1, 2, 1, 0);
+
+    // Filter 2x2: [1, 0, 0, -1]
+    layer.GetFilters()[0][0] = 1.0f;
+    layer.GetFilters()[0][1] = 0.0f;
+    layer.GetFilters()[0][2] = 0.0f;
+    layer.GetFilters()[0][3] = -1.0f;
+    layer.GetBiases()[0][0] = 0.5f;
+
+    // Input 3x3 flattened
+    Matrix::Matrix<float> input(1, 9);
+    float input_vals[9] = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f};
+    for (int i = 0; i < 9; ++i) input[0][i] = input_vals[i];
+
+    Matrix::Matrix<float> output = layer.Forward(input, 3, 3);
+    EXPECT_EQ(output.rows(), 1);
+    EXPECT_EQ(output.cols(), 4);
+
+    EXPECT_FLOAT_EQ(output[0][0], -3.5f);
+    EXPECT_FLOAT_EQ(output[0][1], -3.5f);
+    EXPECT_FLOAT_EQ(output[0][2], -3.5f);
+    EXPECT_FLOAT_EQ(output[0][3], -3.5f);
+}
+
+TEST(Conv2DLayerTest, ExactNumericalReferenceMultiChannel) {
+    // 2 in_channels, 1 out_channel, 2x2 kernel, stride 1, padding 0
+    Conv2DLayer layer(2, 1, 2, 1, 0);
+
+    // Filter for Ch0: [1, 1, 1, 1], Ch1: [2, 0, 0, -1]
+    float f_vals[8] = {1.0f, 1.0f, 1.0f, 1.0f, 2.0f, 0.0f, 0.0f, -1.0f};
+    for (int i = 0; i < 8; ++i) layer.GetFilters()[0][i] = f_vals[i];
+    layer.GetBiases()[0][0] = 1.0f;
+
+    // Input: 2 channels of 2x2 image = 8 elements total
+    Matrix::Matrix<float> input(1, 8);
+    float in_vals[8] = {1.0f, 2.0f, 3.0f, 4.0f, 0.5f, 1.0f, 1.5f, 2.0f};
+    for (int i = 0; i < 8; ++i) input[0][i] = in_vals[i];
+
+    Matrix::Matrix<float> output = layer.Forward(input, 2, 2);
+    EXPECT_EQ(output.rows(), 1);
+    EXPECT_EQ(output.cols(), 1);
+    EXPECT_FLOAT_EQ(output[0][0], 10.0f);
+}
+
+TEST(Conv2DLayerTest, InvalidAndEmptyShapeErrors) {
+    Conv2DLayer layer(1, 1, 3, 1, 0);
+
+    Matrix::Matrix<float> empty_input(0, 0);
+    EXPECT_THROW(layer.Forward(empty_input, 3, 3), std::invalid_argument);
+
+    Matrix::Matrix<float> invalid_size_input(1, 8); // Expected 1x9 for 1x3x3
+    EXPECT_THROW(layer.Forward(invalid_size_input, 3, 3), std::invalid_argument);
+
+    Matrix::Matrix<float> input(1, 9);
+    EXPECT_THROW(layer.Forward(input, 0, 3), std::invalid_argument);
+    EXPECT_THROW(layer.Forward(input, 3, 0), std::invalid_argument);
+    EXPECT_THROW(layer.Forward(input, -1, 3), std::invalid_argument);
+}
