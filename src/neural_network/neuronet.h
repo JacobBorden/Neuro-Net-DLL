@@ -118,13 +118,13 @@ namespace NeuroNet
 		 * @brief Gets the total number of weights in this layer.
 		 * @return int The count of weights.
 		 */
-		int WeightCount();
+		int WeightCount() const;
 
 		/**
 		 * @brief Gets the total number of biases in this layer.
 		 * @return int The count of biases.
 		 */
-		int BiasCount();
+		int BiasCount() const;
 
 		/**
 		 * @brief Gets the size of this layer (number of neurons).

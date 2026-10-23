@@ -318,6 +318,7 @@ std::vector<NeuroNet::NeuroNet> Optimization::GeneticAlgorithm::crossover(const 
     NeuroNet::NeuroNet offspring2 = template_network_;
 
     // Crossover for weights
+    // Optimized: move/swap in-place rather than allocating separate o1_weights and o2_weights copies
     std::vector<float> p1_weights = parent1.get_all_weights_flat();
     std::vector<float> p2_weights = parent2.get_all_weights_flat();
     
@@ -325,15 +326,11 @@ std::vector<NeuroNet::NeuroNet> Optimization::GeneticAlgorithm::crossover(const 
         std::uniform_int_distribution<int> dist(0, p1_weights.size() - 1); // Crossover point index
         int crossover_point = dist(random_engine_);
 
-        std::vector<float> o1_weights = p1_weights; // Start with parent1's weights
-        std::vector<float> o2_weights = p2_weights; // Start with parent2's weights
+        // Swap genetic material in-place after the crossover point between p1_weights and p2_weights
+        std::swap_ranges(p1_weights.begin() + crossover_point, p1_weights.end(), p2_weights.begin() + crossover_point);
 
-        // Swap genetic material after the crossover point
-        for (size_t i = crossover_point; i < p1_weights.size(); ++i) {
-            std::swap(o1_weights[i], o2_weights[i]);
-        }
-        offspring1.set_all_weights_flat(o1_weights);
-        offspring2.set_all_weights_flat(o2_weights);
+        offspring1.set_all_weights_flat(p1_weights);
+        offspring2.set_all_weights_flat(p2_weights);
     } else { 
         // Fallback: If sizes mismatch or weights are empty (shouldn't happen with proper template use),
         // offspring are effectively clones of parents in terms of weights.
@@ -349,14 +346,11 @@ std::vector<NeuroNet::NeuroNet> Optimization::GeneticAlgorithm::crossover(const 
         std::uniform_int_distribution<int> dist(0, p1_biases.size() - 1);
         int crossover_point = dist(random_engine_);
         
-        std::vector<float> o1_biases = p1_biases;
-        std::vector<float> o2_biases = p2_biases;
+        // Swap genetic material in-place after the crossover point between p1_biases and p2_biases
+        std::swap_ranges(p1_biases.begin() + crossover_point, p1_biases.end(), p2_biases.begin() + crossover_point);
 
-        for (size_t i = crossover_point; i < p1_biases.size(); ++i) {
-            std::swap(o1_biases[i], o2_biases[i]);
-        }
-        offspring1.set_all_biases_flat(o1_biases);
-        offspring2.set_all_biases_flat(o2_biases);
+        offspring1.set_all_biases_flat(p1_biases);
+        offspring2.set_all_biases_flat(p2_biases);
     } else {
         offspring1.set_all_biases_flat(p1_biases);
         offspring2.set_all_biases_flat(p2_biases);

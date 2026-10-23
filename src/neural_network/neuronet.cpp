@@ -1032,11 +1032,11 @@ bool NeuroNet::NeuroNet::save_model(const std::string& filename) const
     return true;
 }
 
-int NeuroNet::NeuroNetLayer::WeightCount() {
+int NeuroNet::NeuroNetLayer::WeightCount() const {
 	return this->Weights.WeightCount;
 }
 
-int NeuroNet::NeuroNetLayer::BiasCount() {
+int NeuroNet::NeuroNetLayer::BiasCount() const {
 	return this->Biases.BiasCount;
 }
 
@@ -1611,6 +1611,11 @@ bool NeuroNet::NeuroNet::set_all_layer_biases(const std::vector<LayerBiases>& al
 
 std::vector<float> NeuroNet::NeuroNet::get_all_weights_flat() const {
 	std::vector<float> flat_weights;
+	size_t total_weights = 0;
+	for (const auto& layer : this->NeuroNetVector) {
+		total_weights += static_cast<size_t>(layer.WeightCount());
+	}
+	flat_weights.reserve(total_weights);
 	for (const auto& layer : this->NeuroNetVector) {
 		LayerWeights lw = layer.get_weights();
 		if (lw.WeightCount > 0 && !lw.WeightsVector.empty()) {
@@ -1658,6 +1663,11 @@ bool NeuroNet::NeuroNet::set_all_weights_flat(const std::vector<float>& all_weig
 
 std::vector<float> NeuroNet::NeuroNet::get_all_biases_flat() const {
 	std::vector<float> flat_biases;
+	size_t total_biases = 0;
+	for (const auto& layer : this->NeuroNetVector) {
+		total_biases += static_cast<size_t>(layer.BiasCount());
+	}
+	flat_biases.reserve(total_biases);
 	for (const auto& layer : this->NeuroNetVector) {
 		LayerBiases lb = layer.get_biases();
 		if (lb.BiasCount > 0 && !lb.BiasVector.empty()) {
