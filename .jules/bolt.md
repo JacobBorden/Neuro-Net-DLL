@@ -1,0 +1,3 @@
+## 2024-05-23 - Avoid redundant matrix allocation in PositionalEncoding
+**Learning:** In `src/transformer/positional_encoding.cpp`, `PositionalEncoding::forward` creates a temporary `relevant_pe` matrix to copy a slice of the precomputed `pe_table_` and then adds it to `input_embeddings`. The `relevant_pe` matrix allocation and initialization is redundant. We can simply add the relevant entries of `pe_table_` directly to a copied output matrix or directly to `input_embeddings` without an intermediate `relevant_pe` matrix.
+**Action:** Always look for ways to eliminate redundant matrix copies/allocations in tight loops/functions.
