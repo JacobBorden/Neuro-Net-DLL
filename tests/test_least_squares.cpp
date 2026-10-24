@@ -122,3 +122,23 @@ TEST(LeastSquaresTest, ErrorHandling_bEmpty) {
     Matrix::Matrix<double> b = create_matrix({});
     EXPECT_THROW(Math::solve_least_squares(A, b), std::invalid_argument);
 }
+
+TEST(LeastSquaresTest, ErrorHandling_Underdetermined) {
+    // A has 1 row and 2 columns (rows < cols)
+    Matrix::Matrix<double> A = create_matrix({{1, 2}});
+    Matrix::Matrix<double> b = create_matrix({{3}});
+    EXPECT_THROW(Math::solve_least_squares(A, b), std::invalid_argument);
+}
+
+TEST(LeastSquaresTest, ErrorHandling_NaNAndInf) {
+    double nan_val = std::numeric_limits<double>::quiet_NaN();
+    double inf_val = std::numeric_limits<double>::infinity();
+
+    Matrix::Matrix<double> A_nan = create_matrix({{1, nan_val}, {3, 4}});
+    Matrix::Matrix<double> b_valid = create_matrix({{1}, {2}});
+    EXPECT_THROW(Math::solve_least_squares(A_nan, b_valid), std::invalid_argument);
+
+    Matrix::Matrix<double> A_valid = create_matrix({{1, 2}, {3, 4}});
+    Matrix::Matrix<double> b_inf = create_matrix({{1}, {inf_val}});
+    EXPECT_THROW(Math::solve_least_squares(A_valid, b_inf), std::invalid_argument);
+}

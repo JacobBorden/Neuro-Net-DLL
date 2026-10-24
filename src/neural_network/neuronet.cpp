@@ -834,33 +834,6 @@ std::string NeuroNet::NeuroNet::to_custom_json_string() const {
 
     std::string result_string = root.ToString();
 
-    // IMPORTANT: Clean up dynamically allocated JsonValue objects.
-    for (auto& pair : root.GetObject()) { 
-        if (pair.first == "layers") {
-            JsonValue* layers_array = pair.second;
-            for (JsonValue& layer_val : layers_array->GetArray()) { 
-                for (auto& layer_prop_pair : layer_val.GetObject()) {
-                    if (layer_prop_pair.first == "weights" || layer_prop_pair.first == "biases") {
-                        JsonValue* wb_object = layer_prop_pair.second; 
-                        for (auto& wb_prop_pair : wb_object->GetObject()) { 
-                             delete wb_prop_pair.second; 
-                        }
-                    }
-                    delete layer_prop_pair.second; 
-                }
-            }
-        } else if (pair.first == "vocabulary_config") {
-            JsonValue* vocab_config_object = pair.second;
-            for (auto& vocab_prop_pair : vocab_config_object->GetObject()) {
-                delete vocab_prop_pair.second;
-            }
-        }
-        delete pair.second; 
-    }
-    // Clear the root object's map to prevent double deletion if root itself is destroyed later by a caller that manages it.
-    // However, since root is a local stack variable, its map will be cleared upon exiting scope.
-    // The pointers in the map are what need deletion.
-    root.GetObject().clear(); 
 
 
     return result_string;
@@ -1272,8 +1245,6 @@ std::string NeuroNet::NeuroNet::GetOutputJSON() {
     // but does not delete the pointed-to objects.
     // JsonValue::InsertIntoObject also doesn't manage memory of previous value if key existed.
     // The `save_model` function had manual cleanup. We need similar here.
-    delete matrix_data_json_ptr; // matrix_data_json_ptr itself
-    root_json.GetObject().clear(); // Clear the map to remove the dangling pointer entry
 
     return output_json_string;
 }
@@ -1301,7 +1272,6 @@ bool NeuroNet::NeuroNet::SetStringsInput(const std::string& json_string_input, i
     if (parsed_json_input.type != JsonValueType::Object) {
         // Cleanup for parsed_json_input if it allocated anything
         if (parsed_json_input.type == JsonValueType::Object) {
-            for(auto& pair : parsed_json_input.GetObject()) delete pair.second;
             parsed_json_input.GetObject().clear();
         } else if (parsed_json_input.type == JsonValueType::Array) {
             // If it was an array of objects/arrays, deeper cleanup might be needed
@@ -1313,7 +1283,6 @@ bool NeuroNet::NeuroNet::SetStringsInput(const std::string& json_string_input, i
 
     const auto& root_obj = parsed_json_input.GetObject();
     if (root_obj.find("input_batch") == root_obj.end() || root_obj.at("input_batch")->type != JsonValueType::Array) {
-        for(auto& pair : root_obj) delete pair.second;
         parsed_json_input.GetObject().clear();
         throw std::runtime_error("JSON input must be an object with an 'input_batch' key, and its value must be an array of strings.");
     }
@@ -1324,7 +1293,6 @@ bool NeuroNet::NeuroNet::SetStringsInput(const std::string& json_string_input, i
 
     for (const JsonValue& str_val : string_json_array) {
         if (str_val.type != JsonValueType::String) {
-            for(auto& pair : root_obj) delete pair.second;
             parsed_json_input.GetObject().clear();
             throw std::runtime_error("All elements in 'input_batch' array must be strings.");
         }
@@ -1339,7 +1307,6 @@ bool NeuroNet::NeuroNet::SetStringsInput(const std::string& json_string_input, i
         // The JsonValue destructor for the array should handle its own vector of JsonValues.
         // If JsonValue stored JsonValue* in its array_value, then deeper cleanup would be needed here.
         // Given current Vocabulary::load_from_json cleanup, this seems consistent.
-        delete pair.second;
     }
     parsed_json_input.GetObject().clear();
 
