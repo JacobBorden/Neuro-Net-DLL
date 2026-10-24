@@ -942,3 +942,48 @@ TEST_F(JsonLibTest, ParseErrorUnterminatedComment) {
     EXPECT_THROW(JsonParser::Parse("/* unterminated comment"), JsonParseException);
     EXPECT_THROW(JsonParser::Parse("{\"key\": \"value\"} /* unclosed comment "), JsonParseException);
 }
+
+// --- JsonValue RAII and Copy/Move Semantics Tests ---
+
+TEST_F(JsonLibTest, JsonValueCopySemantics) {
+    JsonValue orig = JsonParser::Parse("{\"a\": 123, \"b\": \"hello\"}");
+    JsonValue copy = orig; // Copy constructor
+
+    EXPECT_EQ(copy.type, JsonValueType::Object);
+    EXPECT_EQ(copy.GetObject().size(), 2u);
+    EXPECT_DOUBLE_EQ(copy.GetObject().at("a")->GetNumber(), 123.0);
+    EXPECT_EQ(copy.GetObject().at("b")->GetString(), "hello");
+
+    // Ensure deep copy: pointers are different
+    EXPECT_NE(orig.GetObject().at("a"), copy.GetObject().at("a"));
+    EXPECT_NE(orig.GetObject().at("b"), copy.GetObject().at("b"));
+
+    JsonValue copy_assign;
+    copy_assign = orig; // Copy assignment operator
+    EXPECT_EQ(copy_assign.type, JsonValueType::Object);
+    EXPECT_EQ(copy_assign.GetObject().size(), 2u);
+    EXPECT_NE(orig.GetObject().at("a"), copy_assign.GetObject().at("a"));
+}
+
+TEST_F(JsonLibTest, JsonValueMoveSemantics) {
+    JsonValue orig = JsonParser::Parse("{\"a\": 123, \"b\": \"hello\"}");
+    JsonValue* a_ptr = orig.GetObject().at("a");
+
+    JsonValue moved(std::move(orig)); // Move constructor
+    EXPECT_EQ(moved.type, JsonValueType::Object);
+    EXPECT_EQ(moved.GetObject().size(), 2u);
+    EXPECT_EQ(moved.GetObject().at("a"), a_ptr);
+    EXPECT_EQ(orig.type, JsonValueType::Null);
+
+    JsonValue moved_assign;
+    moved_assign = std::move(moved); // Move assignment operator
+    EXPECT_EQ(moved_assign.type, JsonValueType::Object);
+    EXPECT_EQ(moved_assign.GetObject().at("a"), a_ptr);
+    EXPECT_EQ(moved.type, JsonValueType::Null);
+}
+
+TEST_F(JsonLibTest, ParseObjectExceptionCleanup) {
+    // Malformed JSON object (missing value after "b":) causing exception during ParseObject
+    const std::string malformed_json = "{\"a\": 123, \"b\": }";
+    EXPECT_THROW(JsonParser::Parse(malformed_json), JsonParseException);
+}
