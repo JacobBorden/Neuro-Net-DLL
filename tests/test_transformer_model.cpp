@@ -161,3 +161,61 @@ TEST_F(TransformerModelTest, ForwardPassInputTooLong) {
     // to check that the output corresponds to a truncated input.
     EXPECT_THROW(model.forward(long_input_sequence, mask), std::invalid_argument);
 }
+
+TEST_F(TransformerModelTest, AttentionMaskDimensionMismatch) {
+    NeuroNet::Transformer::TransformerModel model(50, 10, 32, 1, 2, 64, 0.0f, 0.0f);
+
+    const int seq_len = 4;
+    Matrix::Matrix<float> input_sequence(1, seq_len);
+    for (int j = 0; j < seq_len; ++j) {
+        input_sequence[0][j] = static_cast<float>(j + 1);
+    }
+
+    // Invalid mask shape (seq_len x seq_len+2) instead of (seq_len x seq_len)
+    Matrix::Matrix<float> invalid_mask(seq_len, seq_len + 2);
+    invalid_mask.assign(0.0f);
+
+    EXPECT_THROW(model.forward(input_sequence, invalid_mask), std::invalid_argument);
+}
+
+TEST_F(TransformerModelTest, AttentionMaskCausalMaskingReferenceValues) {
+    NeuroNet::Transformer::ScaledDotProductAttention attn(0.0f);
+
+    const size_t seq_len = 3;
+    const size_t d_k = 2;
+
+    Matrix::Matrix<float> Q(seq_len, d_k);
+    Matrix::Matrix<float> K(seq_len, d_k);
+    Matrix::Matrix<float> V(seq_len, d_k);
+
+    Q.assign(1.0f);
+    K.assign(1.0f);
+    V.assign(2.0f);
+
+    // Causal mask: 0 for position <= j, -1e9 for future position j > i
+    Matrix::Matrix<float> causal_mask(seq_len, seq_len);
+    for (size_t i = 0; i < seq_len; ++i) {
+        for (size_t j = 0; j < seq_len; ++j) {
+            if (j > i) {
+                causal_mask[i][j] = -1e9f;
+            } else {
+                causal_mask[i][j] = 0.0f;
+            }
+        }
+    }
+
+    auto result = attn.forward(Q, K, V, causal_mask);
+    const Matrix::Matrix<float>& weights = result.attention_weights;
+
+    ASSERT_EQ(weights.rows(), seq_len);
+    ASSERT_EQ(weights.cols(), seq_len);
+
+    // Position (0, 1) and (0, 2) should be 0 because future tokens are masked
+    EXPECT_NEAR(weights[0][1], 0.0f, 1e-5f);
+    EXPECT_NEAR(weights[0][2], 0.0f, 1e-5f);
+    EXPECT_NEAR(weights[0][0], 1.0f, 1e-5f); // 100% attention to position 0
+
+    // Position (1, 2) should be 0
+    EXPECT_NEAR(weights[1][2], 0.0f, 1e-5f);
+    EXPECT_NEAR(weights[1][0] + weights[1][1], 1.0f, 1e-5f);
+}

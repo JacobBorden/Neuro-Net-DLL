@@ -39,9 +39,42 @@ TEST(LSTMLayerTest, RejectsInvalidInputShape) {
     LSTMLayer lstm(5, 10);
     Matrix::Matrix<float> wrong_columns(1, 4);
     Matrix::Matrix<float> wrong_rows(2, 5);
+    Matrix::Matrix<float> empty_matrix(0, 0);
 
     EXPECT_THROW(lstm.Forward(wrong_columns), std::invalid_argument);
     EXPECT_THROW(lstm.Forward(wrong_rows), std::invalid_argument);
+    EXPECT_THROW(lstm.Forward(empty_matrix), std::invalid_argument);
+}
+
+TEST(LSTMLayerTest, ReferenceValues) {
+    LSTMLayer lstm(1, 1);
+
+    // Set weights and biases for 1x1 input/hidden
+    lstm.GetW_xf()[0][0] = 0.5f; lstm.GetW_hf()[0][0] = 0.1f; lstm.Getb_f()[0][0] = 0.0f;
+    lstm.GetW_xi()[0][0] = 0.2f; lstm.GetW_hi()[0][0] = 0.3f; lstm.Getb_i()[0][0] = 0.1f;
+    lstm.GetW_xc()[0][0] = 0.8f; lstm.GetW_hc()[0][0] = 0.2f; lstm.Getb_c()[0][0] = 0.0f;
+    lstm.GetW_xo()[0][0] = 0.4f; lstm.GetW_ho()[0][0] = 0.5f; lstm.Getb_o()[0][0] = -0.1f;
+
+    lstm.ResetState();
+
+    Matrix::Matrix<float> x1(1, 1);
+    x1[0][0] = 1.0f;
+
+    Matrix::Matrix<float> h1 = lstm.Forward(x1);
+    ASSERT_EQ(h1.rows(), 1);
+    ASSERT_EQ(h1.cols(), 1);
+
+    auto sig = [](float x) { return 1.0f / (1.0f + std::exp(-x)); };
+
+    float f1 = sig(1.0f * 0.5f);
+    float i1 = sig(1.0f * 0.2f + 0.1f);
+    float c_tilde1 = std::tanh(1.0f * 0.8f);
+    float o1 = sig(1.0f * 0.4f - 0.1f);
+    float exp_c1 = f1 * 0.0f + i1 * c_tilde1;
+    float exp_h1 = o1 * std::tanh(exp_c1);
+
+    EXPECT_NEAR(h1[0][0], exp_h1, 1e-5f);
+    EXPECT_NEAR(lstm.GetCellState()[0][0], exp_c1, 1e-5f);
 }
 
 TEST(LSTMLayerTest, ResetState) {
