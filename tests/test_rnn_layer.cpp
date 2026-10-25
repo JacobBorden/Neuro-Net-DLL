@@ -37,9 +37,52 @@ TEST(RNNLayerTest, RejectsInvalidInputShape) {
     RNNLayer rnn(5, 10);
     Matrix::Matrix<float> wrong_columns(1, 4);
     Matrix::Matrix<float> wrong_rows(2, 5);
+    Matrix::Matrix<float> empty_matrix(0, 0);
 
     EXPECT_THROW(rnn.Forward(wrong_columns), std::invalid_argument);
     EXPECT_THROW(rnn.Forward(wrong_rows), std::invalid_argument);
+    EXPECT_THROW(rnn.Forward(empty_matrix), std::invalid_argument);
+}
+
+TEST(RNNLayerTest, ReferenceValues) {
+    RNNLayer rnn(2, 2);
+
+    // Set explicit weights and bias
+    rnn.GetW_xh()[0][0] = 0.5f; rnn.GetW_xh()[0][1] = 0.2f;
+    rnn.GetW_xh()[1][0] = 0.1f; rnn.GetW_xh()[1][1] = 0.4f;
+
+    rnn.GetW_hh()[0][0] = 0.3f; rnn.GetW_hh()[0][1] = 0.1f;
+    rnn.GetW_hh()[1][0] = 0.2f; rnn.GetW_hh()[1][1] = 0.5f;
+
+    rnn.Getb_h()[0][0] = 0.1f; rnn.Getb_h()[0][1] = 0.2f;
+
+    // Reset initial state to zero
+    rnn.ResetState();
+
+    // Step 1 input
+    Matrix::Matrix<float> x1(1, 2);
+    x1[0][0] = 1.0f; x1[0][1] = 2.0f;
+
+    Matrix::Matrix<float> h1 = rnn.Forward(x1);
+    ASSERT_EQ(h1.rows(), 1);
+    ASSERT_EQ(h1.cols(), 2);
+
+    float exp_h1_0 = std::tanh(1.0f * 0.5f + 2.0f * 0.1f + 0.1f); // tanh(0.8)
+    float exp_h1_1 = std::tanh(1.0f * 0.2f + 2.0f * 0.4f + 0.2f); // tanh(1.2)
+
+    EXPECT_NEAR(h1[0][0], exp_h1_0, 1e-5f);
+    EXPECT_NEAR(h1[0][1], exp_h1_1, 1e-5f);
+
+    // Step 2 input
+    Matrix::Matrix<float> x2(1, 2);
+    x2[0][0] = 0.5f; x2[0][1] = 1.0f;
+
+    Matrix::Matrix<float> h2 = rnn.Forward(x2);
+    float z2_0 = 0.5f * 0.5f + 1.0f * 0.1f + exp_h1_0 * 0.3f + exp_h1_1 * 0.2f + 0.1f;
+    float z2_1 = 0.5f * 0.2f + 1.0f * 0.4f + exp_h1_0 * 0.1f + exp_h1_1 * 0.5f + 0.2f;
+
+    EXPECT_NEAR(h2[0][0], std::tanh(z2_0), 1e-5f);
+    EXPECT_NEAR(h2[0][1], std::tanh(z2_1), 1e-5f);
 }
 
 TEST(RNNLayerTest, ResetState) {

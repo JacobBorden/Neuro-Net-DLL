@@ -1523,3 +1523,162 @@ TEST(NeuroNetJSONTest, GetOutputJSON_NoLayers) {
         output_json_val.GetObject().clear(); // Clear map
     }
 }
+
+// --- Numerical Gradient Checks for Dense Activations and Backpropagation ---
+
+TEST(NeuroNetNumericalGradientCheckTest, ActivationDerivativesFiniteDifference) {
+    const float eps = 1e-4f;
+    NeuroNet::NeuroNetLayer layer;
+
+    // Test Sigmoid derivative
+    float z_sig = 0.5f;
+    float sig_plus = 1.0f / (1.0f + std::exp(-(z_sig + eps)));
+    float sig_minus = 1.0f / (1.0f + std::exp(-(z_sig - eps)));
+    float num_sig_grad = (sig_plus - sig_minus) / (2.0f * eps);
+
+    float sig_val = 1.0f / (1.0f + std::exp(-z_sig));
+    Matrix::Matrix<float> sig_mat(1, 1);
+    sig_mat[0][0] = sig_val;
+    Matrix::Matrix<float> ana_sig_grad = layer.DerivativeSigmoid(sig_mat);
+    EXPECT_NEAR(ana_sig_grad[0][0], num_sig_grad, 1e-3f);
+
+    // Test Tanh derivative
+    float z_tanh = 0.8f;
+    float tanh_plus = std::tanh(z_tanh + eps);
+    float tanh_minus = std::tanh(z_tanh - eps);
+    float num_tanh_grad = (tanh_plus - tanh_minus) / (2.0f * eps);
+
+    float tanh_val = std::tanh(z_tanh);
+    Matrix::Matrix<float> tanh_mat(1, 1);
+    tanh_mat[0][0] = tanh_val;
+    Matrix::Matrix<float> ana_tanh_grad = layer.DerivativeTanh(tanh_mat);
+    EXPECT_NEAR(ana_tanh_grad[0][0], num_tanh_grad, 1e-3f);
+
+    // Test Swish derivative
+    NeuroNet::NeuroNetLayer swish_layer;
+    swish_layer.ResizeLayer(1, 1);
+    NeuroNet::LayerWeights swish_w; swish_w.WeightCount = 1; swish_w.WeightsVector = {1.0f};
+    swish_layer.SetWeights(swish_w);
+    NeuroNet::LayerBiases swish_b; swish_b.BiasCount = 1; swish_b.BiasVector = {0.0f};
+    swish_layer.SetBiases(swish_b);
+
+    auto swish_fn = [](float x) { return x / (1.0f + std::exp(-x)); };
+    float z_swish = 0.3f;
+    float swish_plus = swish_fn(z_swish + eps);
+    float swish_minus = swish_fn(z_swish - eps);
+    float num_swish_grad = (swish_plus - swish_minus) / (2.0f * eps);
+
+    Matrix::Matrix<float> swish_in(1, 1);
+    swish_in[0][0] = z_swish;
+    swish_layer.SetInput(swish_in);
+
+    float swish_val = swish_fn(z_swish);
+    Matrix::Matrix<float> swish_mat(1, 1);
+    swish_mat[0][0] = swish_val;
+    Matrix::Matrix<float> ana_swish_grad = swish_layer.DerivativeSwish(swish_mat);
+    EXPECT_NEAR(ana_swish_grad[0][0], num_swish_grad, 1e-3f);
+}
+
+TEST(NeuroNetNumericalGradientCheckTest, NetworkBackpropWeightAndBiasGradients) {
+    // Construct a 2-layer network (input size 2, hidden size 3, output size 2)
+    NeuroNet::NeuroNet net(2);
+    net.SetInputSize(2);
+    net.ResizeLayer(0, 3);
+    net.getLayer(0).SetActivationFunction(NeuroNet::ActivationFunctionType::Sigmoid);
+    net.ResizeLayer(1, 2);
+    net.getLayer(1).SetActivationFunction(NeuroNet::ActivationFunctionType::Sigmoid);
+
+    // Set fixed weights and biases
+    NeuroNet::LayerWeights w0;
+    w0.WeightCount = 6;
+    w0.WeightsVector = {0.15f, 0.20f, 0.25f, 0.30f, 0.35f, 0.40f};
+    net.getLayer(0).SetWeights(w0);
+
+    NeuroNet::LayerBiases b0;
+    b0.BiasCount = 3;
+    b0.BiasVector = {0.35f, 0.35f, 0.35f};
+    net.getLayer(0).SetBiases(b0);
+
+    NeuroNet::LayerWeights w1;
+    w1.WeightCount = 6;
+    w1.WeightsVector = {0.40f, 0.45f, 0.50f, 0.55f, 0.60f, 0.65f};
+    net.getLayer(1).SetWeights(w1);
+
+    NeuroNet::LayerBiases b1;
+    b1.BiasCount = 2;
+    b1.BiasVector = {0.60f, 0.60f};
+    net.getLayer(1).SetBiases(b1);
+
+    // Input and Target
+    Matrix::Matrix<float> input(1, 2);
+    input[0][0] = 0.05f; input[0][1] = 0.10f;
+    net.SetInput(input);
+
+    Matrix::Matrix<float> target(1, 2);
+    target[0][0] = 0.01f; target[0][1] = 0.99f;
+
+    // Perform forward pass and backprop
+    Matrix::Matrix<float> actual_output = net.GetOutput();
+    net.Backpropagate(actual_output, target);
+
+    // Helper lambda to compute current loss: 0.5 * sum((y_k - t_k)^2)
+    auto compute_loss = [&]() -> float {
+        Matrix::Matrix<float> out = net.GetOutput();
+        float loss = 0.0f;
+        for (size_t col = 0; col < out.cols(); ++col) {
+            float diff = out[0][col] - target[0][col];
+            loss += 0.5f * diff * diff;
+        }
+        return loss;
+    };
+
+    const float eps = 1e-3f;
+
+    // Check layer 1 (output layer) weight gradients
+    NeuroNet::NeuroNetLayer& layer1 = net.getLayer(1);
+    Matrix::Matrix<float> ana_dLdW1 = layer1.get_dLdW();
+
+    NeuroNet::LayerWeights orig_w1 = layer1.get_weights();
+    for (size_t idx = 0; idx < orig_w1.WeightsVector.size(); ++idx) {
+        NeuroNet::LayerWeights w_plus = orig_w1;
+        w_plus.WeightsVector[idx] += eps;
+        layer1.SetWeights(w_plus);
+        float loss_plus = compute_loss();
+
+        NeuroNet::LayerWeights w_minus = orig_w1;
+        w_minus.WeightsVector[idx] -= eps;
+        layer1.SetWeights(w_minus);
+        float loss_minus = compute_loss();
+
+        layer1.SetWeights(orig_w1); // restore
+
+        float num_grad = (loss_plus - loss_minus) / (2.0f * eps);
+        size_t row = idx / 2;
+        size_t col = idx % 2;
+        EXPECT_NEAR(ana_dLdW1[row][col], num_grad, 1e-3f);
+    }
+
+    // Check layer 0 (hidden layer) weight gradients
+    NeuroNet::NeuroNetLayer& layer0 = net.getLayer(0);
+    Matrix::Matrix<float> ana_dLdW0 = layer0.get_dLdW();
+
+    NeuroNet::LayerWeights orig_w0 = layer0.get_weights();
+    for (size_t idx = 0; idx < orig_w0.WeightsVector.size(); ++idx) {
+        NeuroNet::LayerWeights w_plus = orig_w0;
+        w_plus.WeightsVector[idx] += eps;
+        layer0.SetWeights(w_plus);
+        float loss_plus = compute_loss();
+
+        NeuroNet::LayerWeights w_minus = orig_w0;
+        w_minus.WeightsVector[idx] -= eps;
+        layer0.SetWeights(w_minus);
+        float loss_minus = compute_loss();
+
+        layer0.SetWeights(orig_w0); // restore
+
+        float num_grad = (loss_plus - loss_minus) / (2.0f * eps);
+        size_t row = idx / 3;
+        size_t col = idx % 3;
+        EXPECT_NEAR(ana_dLdW0[row][col], num_grad, 1e-3f);
+    }
+}
