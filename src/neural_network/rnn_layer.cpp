@@ -30,8 +30,10 @@ Matrix::Matrix<float> RNNLayer::Forward(const Matrix::Matrix<float>& input) {
         throw std::invalid_argument("Input size mismatch in RNNLayer.");
     }
 
-    // h_t = tanh(W_xh * x_t + W_hh * h_{t-1} + b_h)
-    Matrix::Matrix<float> h_t = (input * W_xh) + (h_prev * W_hh) + b_h;
+    // Accumulate linear transformation in-place to avoid temporary Matrix allocations
+    Matrix::Matrix<float> h_t = input * W_xh;
+    h_t += h_prev * W_hh;
+    h_t += b_h;
 
     // Apply tanh activation manually (since it's a basic implementation)
     for (size_t r = 0; r < h_t.rows(); ++r) {

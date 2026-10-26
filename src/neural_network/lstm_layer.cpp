@@ -1,6 +1,7 @@
 #include "lstm_layer.h"
 #include <cmath> // For std::tanh, std::exp
 #include <stdexcept>
+#include <utility>
 
 namespace NeuroNet {
 
@@ -44,26 +45,36 @@ Matrix::Matrix<float> LSTMLayer::Forward(const Matrix::Matrix<float>& input) {
         throw std::invalid_argument("Input size mismatch in LSTMLayer.");
     }
 
+    // Accumulate gate transformations in-place to avoid temporary Matrix allocations
+
     // 1. Forget Gate: f_t = sigmoid(W_xf * x_t + W_hf * h_{t-1} + b_f)
-    Matrix::Matrix<float> f_t = (input * W_xf) + (h_prev * W_hf) + b_f;
+    Matrix::Matrix<float> f_t = input * W_xf;
+    f_t += h_prev * W_hf;
+    f_t += b_f;
     for (size_t c = 0; c < f_t.cols(); ++c) {
         f_t[0][c] = sigmoid(f_t[0][c]);
     }
 
     // 2. Input Gate: i_t = sigmoid(W_xi * x_t + W_hi * h_{t-1} + b_i)
-    Matrix::Matrix<float> i_t = (input * W_xi) + (h_prev * W_hi) + b_i;
+    Matrix::Matrix<float> i_t = input * W_xi;
+    i_t += h_prev * W_hi;
+    i_t += b_i;
     for (size_t c = 0; c < i_t.cols(); ++c) {
         i_t[0][c] = sigmoid(i_t[0][c]);
     }
 
     // 3. Cell Gate (Candidate): c_tilde_t = tanh(W_xc * x_t + W_hc * h_{t-1} + b_c)
-    Matrix::Matrix<float> c_tilde_t = (input * W_xc) + (h_prev * W_hc) + b_c;
+    Matrix::Matrix<float> c_tilde_t = input * W_xc;
+    c_tilde_t += h_prev * W_hc;
+    c_tilde_t += b_c;
     for (size_t c = 0; c < c_tilde_t.cols(); ++c) {
         c_tilde_t[0][c] = std::tanh(c_tilde_t[0][c]);
     }
 
     // 4. Output Gate: o_t = sigmoid(W_xo * x_t + W_ho * h_{t-1} + b_o)
-    Matrix::Matrix<float> o_t = (input * W_xo) + (h_prev * W_ho) + b_o;
+    Matrix::Matrix<float> o_t = input * W_xo;
+    o_t += h_prev * W_ho;
+    o_t += b_o;
     for (size_t c = 0; c < o_t.cols(); ++c) {
         o_t[0][c] = sigmoid(o_t[0][c]);
     }
@@ -81,7 +92,7 @@ Matrix::Matrix<float> LSTMLayer::Forward(const Matrix::Matrix<float>& input) {
     }
 
     // Save states for next step
-    c_prev = c_t;
+    c_prev = std::move(c_t);
     h_prev = h_t;
 
     return h_t;
