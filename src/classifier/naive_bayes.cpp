@@ -133,23 +133,22 @@ Matrix::Matrix<double> NaiveBayesClassifier::predict(const Matrix::Matrix<double
         throw std::invalid_argument("Number of features in test data does not match training data.");
     }
 
-    if (unique_labels_sorted_.empty()) { // Should be caught by class_priors_.empty() check
-         throw std::runtime_error("No classes available for prediction. Model might be corrupt or not fitted.");
-    }
-
     Matrix::Matrix<double> predictions(features.rows(), 1);
 
-    // Pre-calculate class log-priors and cache distribution pointers
+    if (unique_labels_sorted_.empty()) {
+        throw std::runtime_error("No classes available for prediction. Model might be corrupt or not fitted.");
+    }
+
+    // Pre-calculate log priors and cache distribution pointers
     struct ClassData {
         double label;
         double log_prior;
-        const std::vector<GaussianDistribution>* distributions;
+        const std::vector<GaussianDistribution>* dists;
     };
-
-    std::vector<ClassData> class_data;
-    class_data.reserve(unique_labels_sorted_.size());
+    std::vector<ClassData> cached_class_data;
+    cached_class_data.reserve(unique_labels_sorted_.size());
     for (double label : unique_labels_sorted_) {
-        class_data.push_back({
+        cached_class_data.push_back({
             label,
             std::log(class_priors_.at(label)),
             &class_feature_params_.at(label)
@@ -157,30 +156,33 @@ Matrix::Matrix<double> NaiveBayesClassifier::predict(const Matrix::Matrix<double
     }
 
 #ifdef _OPENMP
-    #pragma omp parallel for
+    // Only parallelize if the total amount of work (samples * features * classes) is large enough
+    // to overcome OpenMP thread creation overhead. Codex benchmarking showed that single row
+    // predictions degrade in performance due to parallel overhead (e.g. 26->56us with 4 threads).
+    #pragma omp parallel for schedule(static) if(features.rows() * num_features_ * unique_labels_sorted_.size() > 10000)
 #endif
     for (size_t i = 0; i < features.rows(); ++i) {
         double max_log_posterior = -std::numeric_limits<double>::infinity();
-        double predicted_class = unique_labels_sorted_[0]; // Default to first class if all posteriors are somehow zero/invalid
+        double predicted_class = unique_labels_sorted_[0];
 
-        for (const auto& cd : class_data) {
+        for (const auto& cdata : cached_class_data) {
             double log_likelihood_sum = 0.0;
+            const auto& feature_distributions = *(cdata.dists);
 
             for (size_t j = 0; j < num_features_; ++j) {
                 double feature_value = features[i][j];
-                double pdf_val = (*cd.distributions)[j].pdf(feature_value);
-                // Add small epsilon to pdf_val if it's zero to avoid log(0)
+                double pdf_val = feature_distributions[j].pdf(feature_value);
                 if (pdf_val < std::numeric_limits<double>::epsilon()) {
                      pdf_val = std::numeric_limits<double>::epsilon();
                 }
                 log_likelihood_sum += std::log(pdf_val);
             }
 
-            double current_log_posterior = cd.log_prior + log_likelihood_sum;
+            double current_log_posterior = cdata.log_prior + log_likelihood_sum;
 
             if (current_log_posterior > max_log_posterior) {
                 max_log_posterior = current_log_posterior;
-                predicted_class = cd.label;
+                predicted_class = cdata.label;
             }
         }
         predictions[i][0] = predicted_class;
