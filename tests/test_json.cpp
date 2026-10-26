@@ -942,3 +942,63 @@ TEST_F(JsonLibTest, ParseErrorUnterminatedComment) {
     EXPECT_THROW(JsonParser::Parse("/* unterminated comment"), JsonParseException);
     EXPECT_THROW(JsonParser::Parse("{\"key\": \"value\"} /* unclosed comment "), JsonParseException);
 }
+
+TEST_F(JsonLibTest, JsonValueRAIIDeepCopyAndMove) {
+    JsonValue root;
+    root.SetObject();
+    JsonValue* child = new JsonValue();
+    child->SetString("child_val");
+    root.InsertIntoObject("child", child);
+
+    // Deep copy
+    JsonValue copy = root;
+    EXPECT_EQ(copy.type, JsonValueType::Object);
+    ASSERT_GT(copy.GetObject().count("child"), 0u);
+    EXPECT_EQ(copy.GetObject().at("child")->GetString(), "child_val");
+    // Ensure separate pointer addresses
+    EXPECT_NE(copy.GetObject().at("child"), root.GetObject().at("child"));
+
+    // Copy assignment
+    JsonValue assigned;
+    assigned = root;
+    EXPECT_EQ(assigned.type, JsonValueType::Object);
+    ASSERT_GT(assigned.GetObject().count("child"), 0u);
+    EXPECT_EQ(assigned.GetObject().at("child")->GetString(), "child_val");
+    EXPECT_NE(assigned.GetObject().at("child"), root.GetObject().at("child"));
+
+    // Move constructor
+    JsonValue moved(std::move(copy));
+    EXPECT_EQ(moved.type, JsonValueType::Object);
+    ASSERT_GT(moved.GetObject().count("child"), 0u);
+    EXPECT_EQ(moved.GetObject().at("child")->GetString(), "child_val");
+    EXPECT_EQ(copy.type, JsonValueType::Null);
+
+    // Move assignment
+    JsonValue moved_assigned;
+    moved_assigned = std::move(assigned);
+    EXPECT_EQ(moved_assigned.type, JsonValueType::Object);
+    ASSERT_GT(moved_assigned.GetObject().count("child"), 0u);
+    EXPECT_EQ(moved_assigned.GetObject().at("child")->GetString(), "child_val");
+    EXPECT_EQ(assigned.type, JsonValueType::Null);
+}
+
+TEST_F(JsonLibTest, InsertIntoObjectOverwriteKey) {
+    JsonValue root;
+    root.SetObject();
+    JsonValue* val1 = new JsonValue();
+    val1->SetNumber(100);
+    root.InsertIntoObject("key", val1);
+
+    JsonValue* val2 = new JsonValue();
+    val2->SetNumber(200);
+    root.InsertIntoObject("key", val2); // Replaces val1 without memory leak
+
+    EXPECT_EQ(root.GetObject().size(), 1u);
+    EXPECT_DOUBLE_EQ(root.GetObject().at("key")->GetNumber(), 200.0);
+}
+
+TEST_F(JsonLibTest, ParseObjectExceptionSafetyNoLeak) {
+    // Malformed JSON object where initial key-value pairs are valid but later part throws
+    std::string malformed_json = R"({"valid_key1": "val1", "valid_key2": 123, "broken_key": })";
+    EXPECT_THROW(JsonParser::Parse(malformed_json), JsonParseException);
+}
