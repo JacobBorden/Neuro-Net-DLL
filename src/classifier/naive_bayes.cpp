@@ -150,6 +150,14 @@ Matrix::Matrix<double> NaiveBayesClassifier::predict(const Matrix::Matrix<double
         });
     }
 
+    // Pre-validate feature rows to maintain catchable std::out_of_range exceptions
+    // before entering the OpenMP parallel region, preventing thread aborts.
+    for (size_t i = 0; i < features.rows(); ++i) {
+        if (num_features_ > 0) {
+            volatile double _ = features[i][num_features_ - 1]; // Triggers out_of_range if row is too short
+        }
+    }
+
 #ifdef _OPENMP
     #pragma omp parallel for
 #endif
