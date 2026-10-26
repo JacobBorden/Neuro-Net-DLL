@@ -47,6 +47,62 @@ struct JsonValue{
      */
 	JsonValue(JsonValueType type_ = JsonValueType::Null) : type(type_){}
 
+	~JsonValue() {
+		ClearObjectPointers();
+	}
+
+	JsonValue(const JsonValue& other)
+		: type(other.type),
+		  boolean_value(other.boolean_value),
+		  number_value(other.number_value),
+		  string_value(other.string_value),
+		  array_value(other.array_value) {
+		for (const auto& kv : other.object_value) {
+			object_value[kv.first] = kv.second ? new JsonValue(*kv.second) : nullptr;
+		}
+	}
+
+	JsonValue(JsonValue&& other) noexcept
+		: type(other.type),
+		  boolean_value(other.boolean_value),
+		  number_value(other.number_value),
+		  string_value(std::move(other.string_value)),
+		  array_value(std::move(other.array_value)),
+		  object_value(std::move(other.object_value)) {
+		other.object_value.clear();
+		other.type = JsonValueType::Null;
+	}
+
+	JsonValue& operator=(const JsonValue& other) {
+		if (this != &other) {
+			ClearObjectPointers();
+			type = other.type;
+			boolean_value = other.boolean_value;
+			number_value = other.number_value;
+			string_value = other.string_value;
+			array_value = other.array_value;
+			for (const auto& kv : other.object_value) {
+				object_value[kv.first] = kv.second ? new JsonValue(*kv.second) : nullptr;
+			}
+		}
+		return *this;
+	}
+
+	JsonValue& operator=(JsonValue&& other) noexcept {
+		if (this != &other) {
+			ClearObjectPointers();
+			type = other.type;
+			boolean_value = other.boolean_value;
+			number_value = other.number_value;
+			string_value = std::move(other.string_value);
+			array_value = std::move(other.array_value);
+			object_value = std::move(other.object_value);
+			other.object_value.clear();
+			other.type = JsonValueType::Null;
+		}
+		return *this;
+	}
+
 	JsonValueType type; ///< The actual type of this JSON value, determining which member field is valid.
 	
 	bool boolean_value;   ///< Valid and used if `type` is JsonValueType::Boolean. Stores the boolean state.
@@ -61,11 +117,7 @@ struct JsonValue{
     
     /**
      * @brief Valid and used if `type` is JsonValueType::Object. Stores key-value pairs.
-     * Keys are strings, and values are *pointers* to `JsonValue` objects.
-     * @warning Users of this map are responsible for the memory management of the `JsonValue`
-     * objects pointed to if they are dynamically allocated (e.g., using `new`). The map itself
-     * does not automatically deallocate these pointers upon destruction of the containing `JsonValue`
-     * or when elements are removed from the map.
+     * Keys are strings, and values are pointers to `JsonValue` objects, owned and managed by this JsonValue.
      */
 	std::unordered_map<std::string, JsonValue* > object_value;
 
@@ -194,11 +246,12 @@ struct JsonValue{
 
     /**
      * @brief Sets this JsonValue to an Object type. Initializes an empty object.
-     * @warning If this JsonValue previously held an object with dynamically allocated
-     * `JsonValue*` members, those pointers are NOT deallocated by this call. Memory
-     * management of previous object members is the caller's responsibility.
+     * Deallocates any previous object members.
      */
-	void SetObject(){type = JsonValueType::Object; object_value.clear(); } // Ensure it's clean, but doesn't delete pointed-to values
+	void SetObject(){
+		ClearObjectPointers();
+		type = JsonValueType::Object;
+	}
     /**
      * @brief Checks if this JsonValue is an Object.
      * @return True if the type is JsonValueType::Object, false otherwise.
@@ -223,27 +276,32 @@ struct JsonValue{
     
     /**
      * @brief Inserts a key-value pair into this JsonValue, assuming it's an Object.
-     * If a key already exists, its associated `JsonValue*` is overwritten.
+     * If a key already exists, its associated `JsonValue*` is deleted and overwritten.
      * @param key The string key for the member to insert.
      * @param value A pointer to the JsonValue to be associated with the key.
      * @throw JsonParseException if this JsonValue is not of type JsonValueType::Object.
-     * @warning This JsonValue (the object) takes ownership of the key string, but NOT the
-     * `JsonValue` pointed to by `value`. If `value` was dynamically allocated (e.g., `new JsonValue()`),
-     * the caller is responsible for ensuring its lifetime is managed correctly. If the key
-     * previously existed, the old `JsonValue*` is overwritten and NOT deallocated by this method,
-     * potentially leading to memory leaks if not handled by the caller.
      */
 	void InsertIntoObject(const std::string& key , JsonValue* value){
 		if (type != JsonValueType::Object){
 			throw JsonParseException("Cannot insert into a non-object value.");
 		}
-        // Potential memory leak: if object_value[key] previously held a pointer, it's overwritten.
+		auto it = object_value.find(key);
+		if (it != object_value.end()) {
+			delete it->second;
+		}
 		object_value[key] = value;
 	}
 
 
  
 	private:
+
+	void ClearObjectPointers() {
+		for (auto& kv : object_value) {
+			delete kv.second;
+		}
+		object_value.clear();
+	}
 	
     /**
      * @brief Helper function to convert a vector of JsonValues to its JSON string representation.
