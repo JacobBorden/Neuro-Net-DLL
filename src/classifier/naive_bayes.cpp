@@ -135,21 +135,38 @@ Matrix::Matrix<double> NaiveBayesClassifier::predict(const Matrix::Matrix<double
 
     Matrix::Matrix<double> predictions(features.rows(), 1);
 
+    if (unique_labels_sorted_.empty()) { // Should be caught by class_priors_.empty() check
+         throw std::runtime_error("No classes available for prediction. Model might be corrupt or not fitted.");
+    }
+
+    struct ClassData {
+        double label;
+        double log_prior;
+        const std::vector<GaussianDistribution>* distributions;
+    };
+
+    std::vector<ClassData> cached_class_data;
+    cached_class_data.reserve(unique_labels_sorted_.size());
+    for (double label : unique_labels_sorted_) {
+        cached_class_data.push_back({
+            label,
+            std::log(class_priors_.at(label)),
+            &class_feature_params_.at(label)
+        });
+    }
+
+    #if defined(_OPENMP)
+    #pragma omp parallel for if(features.rows() > 64)
+    #endif
     for (size_t i = 0; i < features.rows(); ++i) {
         double max_log_posterior = -std::numeric_limits<double>::infinity();
-        double predicted_class = -1; // Default or error value
+        double predicted_class = unique_labels_sorted_[0]; // Default to first class if all posteriors are somehow zero/invalid
 
-        if (unique_labels_sorted_.empty()) { // Should be caught by class_priors_.empty() check
-             throw std::runtime_error("No classes available for prediction. Model might be corrupt or not fitted.");
-        }
-        predicted_class = unique_labels_sorted_[0]; // Default to first class if all posteriors are somehow zero/invalid
-
-        for (double current_class_label : unique_labels_sorted_) {
-            // Calculate log posterior: log(P(C_k)) + sum(log(P(x_j | C_k)))
-            double log_prior = std::log(class_priors_.at(current_class_label));
+        for (const auto& class_data : cached_class_data) {
+            double log_prior = class_data.log_prior;
             double log_likelihood_sum = 0.0;
 
-            const auto& feature_distributions = class_feature_params_.at(current_class_label);
+            const auto& feature_distributions = *(class_data.distributions);
             for (size_t j = 0; j < num_features_; ++j) {
                 double feature_value = features[i][j];
                 double pdf_val = feature_distributions[j].pdf(feature_value);
@@ -164,7 +181,7 @@ Matrix::Matrix<double> NaiveBayesClassifier::predict(const Matrix::Matrix<double
 
             if (current_log_posterior > max_log_posterior) {
                 max_log_posterior = current_log_posterior;
-                predicted_class = current_class_label;
+                predicted_class = class_data.label;
             }
         }
         predictions[i][0] = predicted_class;
