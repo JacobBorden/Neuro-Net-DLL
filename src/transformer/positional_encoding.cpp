@@ -45,17 +45,13 @@ Matrix::Matrix<float> PositionalEncoding::forward(const Matrix::Matrix<float>& i
         return Matrix::Matrix<float>(0, embedding_dim_);
     }
 
-    // Create a slice of pe_table_ matching the input sequence length
-    Matrix::Matrix<float> relevant_pe(seq_len, embedding_dim_);
-    for(size_t i = 0; i < seq_len; ++i) {
-        for(size_t j = 0; j < emb_dim; ++j) {
-            relevant_pe[i][j] = pe_table_[i][j];
+    // Compute positional encoding output directly to avoid intermediate matrix allocations
+    Matrix::Matrix<float> output(seq_len, emb_dim);
+    for (size_t i = 0; i < seq_len; ++i) {
+        for (size_t j = 0; j < emb_dim; ++j) {
+            output[i][j] = input_embeddings[i][j] + pe_table_[i][j];
         }
     }
-
-    // Add positional encodings to input embeddings
-    // Assumes Matrix class supports element-wise addition via operator+
-    Matrix::Matrix<float> output = input_embeddings + relevant_pe;
     return output;
 }
 
