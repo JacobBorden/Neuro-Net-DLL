@@ -1493,13 +1493,6 @@ TEST(NeuroNetJSONTest, GetOutputJSON_Basic) {
     ASSERT_EQ(cell_val.type, JsonValueType::Number);
     EXPECT_FLOAT_EQ(static_cast<float>(cell_val.GetNumber()), 6.5f);
 
-    // Cleanup for parsed JSON object
-    if (output_json_val.type == JsonValueType::Object) {
-        for (auto& pair : output_json_val.GetObject()) {
-            delete pair.second; // Delete the JsonValue*
-        }
-        output_json_val.GetObject().clear(); // Clear map to remove dangling pointers
-    }
 }
 
 TEST(NeuroNetJSONTest, GetOutputJSON_NoLayers) {
@@ -1515,11 +1508,4 @@ TEST(NeuroNetJSONTest, GetOutputJSON_NoLayers) {
     ASSERT_EQ(matrix_val->type, JsonValueType::Array);
     ASSERT_TRUE(matrix_val->GetArray().empty()); // Expect empty array for data
 
-    // Cleanup for parsed JSON object
-    if (output_json_val.type == JsonValueType::Object) {
-        for (auto& pair : output_json_val.GetObject()) {
-            delete pair.second;
-        }
-        output_json_val.GetObject().clear(); // Clear map
-    }
 }

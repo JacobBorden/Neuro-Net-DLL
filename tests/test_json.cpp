@@ -942,3 +942,47 @@ TEST_F(JsonLibTest, ParseErrorUnterminatedComment) {
     EXPECT_THROW(JsonParser::Parse("/* unterminated comment"), JsonParseException);
     EXPECT_THROW(JsonParser::Parse("{\"key\": \"value\"} /* unclosed comment "), JsonParseException);
 }
+
+// --- RAII, Copy, Move, and Exception Safety Tests ---
+
+TEST_F(JsonLibTest, JsonValueCopyAndMoveSemantics) {
+    JsonValue orig = JsonParser::Parse("{\"a\": 10, \"b\": {\"c\": \"nested\"}}");
+    ASSERT_TRUE(orig.IsObject());
+
+    // Deep Copy
+    JsonValue copy_constructed(orig);
+    EXPECT_TRUE(copy_constructed.IsObject());
+    EXPECT_DOUBLE_EQ(copy_constructed.GetObject().at("a")->GetNumber(), 10.0);
+    EXPECT_NE(copy_constructed.GetObject().at("a"), orig.GetObject().at("a"));
+
+    JsonValue copy_assigned;
+    copy_assigned = orig;
+    EXPECT_TRUE(copy_assigned.IsObject());
+    EXPECT_DOUBLE_EQ(copy_assigned.GetObject().at("a")->GetNumber(), 10.0);
+    EXPECT_NE(copy_assigned.GetObject().at("a"), orig.GetObject().at("a"));
+
+    // Move
+    JsonValue move_constructed(std::move(copy_constructed));
+    EXPECT_TRUE(move_constructed.IsObject());
+    EXPECT_DOUBLE_EQ(move_constructed.GetObject().at("a")->GetNumber(), 10.0);
+    EXPECT_EQ(copy_constructed.type, JsonValueType::Null);
+
+    JsonValue move_assigned;
+    move_assigned = std::move(copy_assigned);
+    EXPECT_TRUE(move_assigned.IsObject());
+    EXPECT_DOUBLE_EQ(move_assigned.GetObject().at("a")->GetNumber(), 10.0);
+    EXPECT_EQ(copy_assigned.type, JsonValueType::Null);
+}
+
+TEST_F(JsonLibTest, JsonValueTypeChangeClearsMemory) {
+    JsonValue val = JsonParser::Parse("{\"key\": \"val\"}");
+    ASSERT_TRUE(val.IsObject());
+    val.SetNumber(42.0); // Should safely delete object map entries
+    EXPECT_EQ(val.type, JsonValueType::Number);
+    EXPECT_DOUBLE_EQ(val.GetNumber(), 42.0);
+}
+
+TEST_F(JsonLibTest, JsonParserObjectExceptionSafety) {
+    // Exception mid-object parsing should clean up previously allocated pointers
+    EXPECT_THROW(JsonParser::Parse("{\"valid_key\": \"valid_value\", \"malformed\": }"), JsonParseException);
+}
