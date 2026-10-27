@@ -156,7 +156,7 @@ Matrix::Matrix<double> NaiveBayesClassifier::predict(const Matrix::Matrix<double
     }
 
     #if defined(_OPENMP)
-    #pragma omp parallel for
+    #pragma omp parallel for if(features.rows() > 64)
     #endif
     for (size_t i = 0; i < features.rows(); ++i) {
         double max_log_posterior = -std::numeric_limits<double>::infinity();
