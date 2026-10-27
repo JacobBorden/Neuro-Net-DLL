@@ -125,3 +125,25 @@ The `NeuroNet` class supports saving its current state (architecture, weights, b
 Refer to the main `README.md` for details on the JSON format.
 
 (This is a starting point. More details on specific functionalities or advanced usage can be added.)
+
+### 5. Specialized Layers
+
+The module also provides standalone implementations for advanced architectures. Note that these are currently forward-pass primitives and do not yet support integrated training or backpropagation within `NeuroNet`.
+
+*   **`Conv2DLayer`**: A single-sample 2D convolution layer for flattened image inputs. Supports configurable channels, kernel size, stride, and padding.
+    *   **Source:** `src/neural_network/conv2d_layer.h`
+*   **`RNNLayer`**: A basic recurrent layer with tanh hidden-state updates, processing one time step at a time.
+    *   **Source:** `src/neural_network/rnn_layer.h`
+*   **`LSTMLayer`**: A Long Short-Term Memory (LSTM) recurrent layer, maintaining both hidden and cell states across time steps.
+    *   **Source:** `src/neural_network/lstm_layer.h`
+
+### 6. Dense Backpropagation
+The standard `NeuroNetLayer` (Dense/Fully Connected Layer) fully supports backpropagation through the `BackwardPass` function, which computes the gradients of the loss with respect to the weights (`dLdW`) and biases (`dLdB`), allowing the network to be trained via gradient descent (using `UpdateWeights`). Note that backpropagation for the specialized layers (CNN, RNN, LSTM) is currently experimental and not yet integrated into the training pipeline.
+
+### 7. Build and Dependency Requirements
+The project uses CMake for building and has the following dependencies:
+*   **C++17 Compiler**: Required for standard language features.
+*   **CMake (>= 3.15)**: Required for building the project.
+*   **OpenMP (Optional)**: Automatically discovered and linked if available for CPU parallelization, significantly improving performance for larger models.
+*   **GoogleTest (Optional)**: Used for running the unit tests (downloaded automatically by CMake if tests are enabled).
+*   **Pybind11 (Optional)**: Used for Python bindings (downloaded automatically by CMake).

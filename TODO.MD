@@ -54,7 +54,7 @@ acceptance evidence exists; a proposed PR is not a delivered feature.
   verify the resulting TGZ contents.
 - [ ] Verify DEB/RPM metadata and clean installation before claiming supported
   binary distributions (#128).
-- [ ] Update module docs for the implemented decoder, CNN/RNN/LSTM primitives,
+- [x] Update module docs for the implemented decoder, CNN/RNN/LSTM primitives,
   dense backpropagation, and current build/dependency requirements.
 - [ ] Specify train/eval and dropout behavior, encoder-decoder serialization, and
   one sequence training path; keep forward-only components marked experimental.
