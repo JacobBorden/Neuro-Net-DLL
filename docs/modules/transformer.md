@@ -1,10 +1,10 @@
 # Transformer Module
 
-This document provides an overview of the Transformer module components, which together form an encoder-only Transformer model. This architecture is suitable for tasks like text classification, feature extraction, or language modeling where a full encoder-decoder setup is not required.
+This document provides an overview of the Transformer module components, which together form Transformer architectures. This architecture is suitable for tasks like text classification, feature extraction, or language modeling including both encoder-only and encoder-decoder setups.
 
 ## Overview
 
-The Transformer module implements key building blocks of the Transformer architecture, as introduced in "Attention Is All You Need" by Vaswani et al. This implementation focuses on the encoder part.
+The Transformer module implements key building blocks of the Transformer architecture, as introduced in "Attention Is All You Need" by Vaswani et al. This implementation includes both encoder and decoder parts.
 
 The main components include:
 *   Input Embedding
@@ -160,3 +160,17 @@ int main() {
 This example demonstrates basic initialization and a forward pass. For actual use, the model's weights (embeddings, projection matrices in attention, FFN layers) would need to be trained on a specific task.
 
 (Further details on specific layer configurations, masking strategies, or training considerations can be added.)
+
+### 8. `TransformerDecoderLayer`
+
+*   **Purpose:** A single layer in the Transformer decoder stack.
+*   **Mechanism:** Combines masked self-attention (to prevent looking ahead in the target sequence), encoder-decoder attention (to attend to the encoder's output), and a position-wise feed-forward network. Both attention mechanisms use residual connections and layer normalization.
+*   **Usage:** Process the target sequence embeddings, incorporating context from the encoder's output.
+*   **Source:** `src/transformer/transformer_decoder_layer.h`
+
+### 9. `TransformerEncoderDecoderModel`
+
+*   **Purpose:** A full sequence-to-sequence Transformer model.
+*   **Mechanism:** Composed of an encoder stack (`TransformerModel` can be reused or similar structure) and a decoder stack, along with embedding and positional encoding layers for both source and target sequences.
+*   **Usage:** For tasks requiring sequence generation based on an input sequence, such as translation.
+*   **Source:** `src/transformer/transformer_encoder_decoder_model.h`
