@@ -145,5 +145,5 @@ The project uses CMake for building and has the following dependencies:
 *   **C++17 Compiler**: Required for standard language features.
 *   **CMake (>= 3.15)**: Required for building the project.
 *   **OpenMP (Optional)**: Automatically discovered and linked if available for CPU parallelization, significantly improving performance for larger models.
-*   **GoogleTest (Optional)**: Used for running the unit tests (downloaded automatically by CMake if tests are enabled).
-*   **Pybind11 (Optional)**: Used for Python bindings (downloaded automatically by CMake).
+*   **GoogleTest**: Used for running the unit tests (downloaded automatically by CMake).
+*   **Pybind11**: Used for Python bindings (downloaded automatically by CMake).
