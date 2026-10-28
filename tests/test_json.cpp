@@ -942,3 +942,10 @@ TEST_F(JsonLibTest, ParseErrorUnterminatedComment) {
     EXPECT_THROW(JsonParser::Parse("/* unterminated comment"), JsonParseException);
     EXPECT_THROW(JsonParser::Parse("{\"key\": \"value\"} /* unclosed comment "), JsonParseException);
 }
+
+TEST_F(JsonLibTest, ParseObjectPartialFailureCleanup) {
+    // Object parsing fails mid-way after allocating the first key-value pair ("a": 1).
+    // The try-catch block in ParseObject should clean up allocated pointers without memory leaks.
+    EXPECT_THROW(JsonParser::Parse("{\"a\": 1, \"b\": invalid_val}"), JsonParseException);
+    EXPECT_THROW(JsonParser::Parse("{\"a\": 1, \"b\": [1, 2, }"), JsonParseException);
+}
