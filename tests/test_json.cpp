@@ -986,3 +986,29 @@ TEST_F(JsonLibTest, JsonParserObjectExceptionSafety) {
     // Exception mid-object parsing should clean up previously allocated pointers
     EXPECT_THROW(JsonParser::Parse("{\"valid_key\": \"valid_value\", \"malformed\": }"), JsonParseException);
 }
+
+TEST_F(JsonLibTest, JsonValueChildToParentAssignment) {
+    // Child-to-parent copy assignment
+    {
+        JsonValue root = JsonParser::Parse("{\"child\": {\"inner_key\": \"inner_val\"}}");
+        ASSERT_TRUE(root.IsObject());
+        ASSERT_TRUE(root.GetObject().count("child") > 0);
+
+        root = *root.GetObject().at("child"); // Copy assign child to parent
+        EXPECT_TRUE(root.IsObject());
+        ASSERT_TRUE(root.GetObject().count("inner_key") > 0);
+        EXPECT_EQ(root.GetObject().at("inner_key")->GetString(), "inner_val");
+    }
+
+    // Child-to-parent move assignment
+    {
+        JsonValue root = JsonParser::Parse("{\"child\": {\"inner_key\": \"inner_val\"}}");
+        ASSERT_TRUE(root.IsObject());
+        ASSERT_TRUE(root.GetObject().count("child") > 0);
+
+        root = std::move(*root.GetObject().at("child")); // Move assign child to parent
+        EXPECT_TRUE(root.IsObject());
+        ASSERT_TRUE(root.GetObject().count("inner_key") > 0);
+        EXPECT_EQ(root.GetObject().at("inner_key")->GetString(), "inner_val");
+    }
+}

@@ -71,32 +71,24 @@ struct JsonValue{
 
 	JsonValue& operator=(const JsonValue& other) {
 		if (this != &other) {
-			ClearObject();
-			type = other.type;
-			boolean_value = other.boolean_value;
-			number_value = other.number_value;
-			string_value = other.string_value;
-			array_value = other.array_value;
-			if (type == JsonValueType::Object) {
-				for (const auto& kv : other.object_value) {
-					object_value[kv.first] = kv.second ? new JsonValue(*kv.second) : nullptr;
-				}
-			}
+			JsonValue tmp(other);
+			*this = std::move(tmp);
 		}
 		return *this;
 	}
 
 	JsonValue& operator=(JsonValue&& other) noexcept {
 		if (this != &other) {
+			JsonValue tmp(std::move(other));
 			ClearObject();
-			type = other.type;
-			boolean_value = other.boolean_value;
-			number_value = other.number_value;
-			string_value = std::move(other.string_value);
-			array_value = std::move(other.array_value);
-			object_value = std::move(other.object_value);
-			other.type = JsonValueType::Null;
-			other.object_value.clear();
+			type = tmp.type;
+			boolean_value = tmp.boolean_value;
+			number_value = tmp.number_value;
+			string_value = std::move(tmp.string_value);
+			array_value = std::move(tmp.array_value);
+			object_value = std::move(tmp.object_value);
+			tmp.type = JsonValueType::Null;
+			tmp.object_value.clear();
 		}
 		return *this;
 	}
