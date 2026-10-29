@@ -47,8 +47,11 @@ Matrix::Matrix<float> PositionalEncoding::forward(const Matrix::Matrix<float>& i
 
     // Optimize: Directly add positional encodings from pe_table_ to input_embeddings in output matrix.
     // This avoids creating a temporary relevant_pe slice and invoking Matrix::operator+,
-    // eliminating 2 intermediate matrix allocations and redundant copy passes.
+    // eliminating 2 intermediate matrix allocations and redundant copy passes while preserving OpenMP parallel execution.
     Matrix::Matrix<float> output(seq_len, emb_dim);
+#ifdef _OPENMP
+#pragma omp parallel for collapse(2)
+#endif
     for (size_t i = 0; i < seq_len; ++i) {
         for (size_t j = 0; j < emb_dim; ++j) {
             output[i][j] = input_embeddings[i][j] + pe_table_[i][j];
