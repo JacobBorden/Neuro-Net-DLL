@@ -45,17 +45,18 @@ Matrix::Matrix<float> PositionalEncoding::forward(const Matrix::Matrix<float>& i
         return Matrix::Matrix<float>(0, embedding_dim_);
     }
 
-    // Create a slice of pe_table_ matching the input sequence length
-    Matrix::Matrix<float> relevant_pe(seq_len, embedding_dim_);
-    for(size_t i = 0; i < seq_len; ++i) {
-        for(size_t j = 0; j < emb_dim; ++j) {
-            relevant_pe[i][j] = pe_table_[i][j];
+    // Optimize: Directly add positional encodings from pe_table_ to input_embeddings in output matrix.
+    // This avoids creating a temporary relevant_pe slice and invoking Matrix::operator+,
+    // eliminating 2 intermediate matrix allocations and redundant copy passes while preserving OpenMP parallel execution.
+    Matrix::Matrix<float> output(seq_len, emb_dim);
+#ifdef _OPENMP
+#pragma omp parallel for collapse(2)
+#endif
+    for (size_t i = 0; i < seq_len; ++i) {
+        for (size_t j = 0; j < emb_dim; ++j) {
+            output[i][j] = input_embeddings[i][j] + pe_table_[i][j];
         }
     }
-
-    // Add positional encodings to input embeddings
-    // Assumes Matrix class supports element-wise addition via operator+
-    Matrix::Matrix<float> output = input_embeddings + relevant_pe;
     return output;
 }
 
