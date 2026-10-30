@@ -1523,3 +1523,165 @@ TEST(NeuroNetJSONTest, GetOutputJSON_NoLayers) {
         output_json_val.GetObject().clear(); // Clear map
     }
 }
+
+// --- Dense Numerical Gradient Checks ---
+
+TEST(NeuroNetNumericalGradientTest, DenseLayerActivationsNumericalGradient) {
+    const float eps = 1e-3f;
+    const float tol = 1e-2f;
+
+    std::vector<NeuroNet::ActivationFunctionType> activations = {
+        NeuroNet::ActivationFunctionType::None,
+        NeuroNet::ActivationFunctionType::ReLU,
+        NeuroNet::ActivationFunctionType::LeakyReLU,
+        NeuroNet::ActivationFunctionType::ELU,
+        NeuroNet::ActivationFunctionType::Sigmoid,
+        NeuroNet::ActivationFunctionType::Tanh,
+        NeuroNet::ActivationFunctionType::Swish,
+        NeuroNet::ActivationFunctionType::Softmax
+    };
+
+    const int input_s = 2;
+    const int layer_s = 3;
+
+    Matrix::Matrix<float> X(1, input_s);
+    X[0][0] = 0.5f; X[0][1] = -0.3f;
+
+    Matrix::Matrix<float> Y(1, layer_s);
+    Y[0][0] = 0.2f; Y[0][1] = 0.8f; Y[0][2] = 0.1f;
+
+    NeuroNet::LayerWeights initial_weights;
+    initial_weights.WeightCount = input_s * layer_s;
+    initial_weights.WeightsVector = {0.2f, -0.4f, 0.6f, -0.1f, 0.5f, -0.3f};
+
+    NeuroNet::LayerBiases initial_biases;
+    initial_biases.BiasCount = layer_s;
+    initial_biases.BiasVector = {0.1f, -0.2f, 0.05f};
+
+    auto compute_loss = [&](NeuroNet::NeuroNetLayer& l, const Matrix::Matrix<float>& inp) {
+        l.SetInput(inp);
+        Matrix::Matrix<float> A = l.CalculateOutput();
+        float loss = 0.0f;
+        for (size_t c = 0; c < layer_s; ++c) {
+            float diff = A[0][c] - Y[0][c];
+            loss += 0.5f * diff * diff;
+        }
+        return loss;
+    };
+
+    for (auto act : activations) {
+        NeuroNet::NeuroNetLayer layer;
+        layer.ResizeLayer(input_s, layer_s);
+        layer.SetActivationFunction(act);
+        layer.SetWeights(initial_weights);
+        layer.SetBiases(initial_biases);
+
+        layer.SetInput(X);
+        Matrix::Matrix<float> A = layer.CalculateOutput();
+
+        Matrix::Matrix<float> dLdA(1, layer_s);
+        for (size_t c = 0; c < layer_s; ++c) {
+            dLdA[0][c] = A[0][c] - Y[0][c];
+        }
+
+        // For MSE loss tests with numerical gradient, pass is_last = false so Softmax computes dLdZ via its Jacobian.
+        bool is_last = false;
+        Matrix::Matrix<float> dLdX_analytical = layer.BackwardPass(dLdA, X, is_last);
+        Matrix::Matrix<float> dLdW_analytical = layer.get_dLdW();
+        Matrix::Matrix<float> dLdB_analytical = layer.get_dLdB();
+
+        // 1. Check weight gradients numerically
+        for (int r = 0; r < input_s; ++r) {
+            for (int c = 0; c < layer_s; ++c) {
+                int flat_idx = r * layer_s + c;
+
+                NeuroNet::LayerWeights w_plus = initial_weights;
+                w_plus.WeightsVector[flat_idx] += eps;
+                layer.SetWeights(w_plus);
+                float loss_plus = compute_loss(layer, X);
+
+                NeuroNet::LayerWeights w_minus = initial_weights;
+                w_minus.WeightsVector[flat_idx] -= eps;
+                layer.SetWeights(w_minus);
+                float loss_minus = compute_loss(layer, X);
+
+                float num_grad = (loss_plus - loss_minus) / (2.0f * eps);
+                float ana_grad = dLdW_analytical[r][c];
+                EXPECT_NEAR(ana_grad, num_grad, tol)
+                    << "Weight grad mismatch for activation " << layer.get_activation_function_name()
+                    << " at W(" << r << "," << c << ")";
+            }
+        }
+        layer.SetWeights(initial_weights);
+
+        // 2. Check bias gradients numerically
+        for (int c = 0; c < layer_s; ++c) {
+            NeuroNet::LayerBiases b_plus = initial_biases;
+            b_plus.BiasVector[c] += eps;
+            layer.SetBiases(b_plus);
+            float loss_plus = compute_loss(layer, X);
+
+            NeuroNet::LayerBiases b_minus = initial_biases;
+            b_minus.BiasVector[c] -= eps;
+            layer.SetBiases(b_minus);
+            float loss_minus = compute_loss(layer, X);
+
+            float num_grad = (loss_plus - loss_minus) / (2.0f * eps);
+            float ana_grad = dLdB_analytical[0][c];
+            EXPECT_NEAR(ana_grad, num_grad, tol)
+                << "Bias grad mismatch for activation " << layer.get_activation_function_name()
+                << " at B(" << c << ")";
+        }
+        layer.SetBiases(initial_biases);
+
+        // 3. Check input gradients numerically
+        for (int r = 0; r < input_s; ++r) {
+            Matrix::Matrix<float> X_plus = X;
+            X_plus[0][r] += eps;
+            float loss_plus = compute_loss(layer, X_plus);
+
+            Matrix::Matrix<float> X_minus = X;
+            X_minus[0][r] -= eps;
+            float loss_minus = compute_loss(layer, X_minus);
+
+            float num_grad = (loss_plus - loss_minus) / (2.0f * eps);
+            float ana_grad = dLdX_analytical[0][r];
+            EXPECT_NEAR(ana_grad, num_grad, tol)
+                << "Input grad mismatch for activation " << layer.get_activation_function_name()
+                << " at X(0," << r << ")";
+        }
+    }
+}
+
+TEST(NeuroNetInvalidShapeTest, DenseLayerBackwardPassInvalidShapes) {
+    NeuroNet::NeuroNetLayer layer;
+    layer.ResizeLayer(2, 3);
+
+    Matrix::Matrix<float> valid_X(1, 2);
+    Matrix::Matrix<float> valid_dLdOutput(1, 3);
+    Matrix::Matrix<float> wrong_dLdOutput(1, 4);
+    Matrix::Matrix<float> empty_matrix(0, 0);
+
+    EXPECT_THROW(layer.BackwardPass(wrong_dLdOutput, valid_X), std::runtime_error);
+    EXPECT_THROW(layer.BackwardPass(empty_matrix, valid_X), std::runtime_error);
+}
+
+TEST(NeuroNetInvalidShapeTest, NeuroNetTrainInvalidInputs) {
+    NeuroNet::NeuroNet net;
+    net.SetInputSize(2);
+    net.ResizeNeuroNet(1);
+    net.ResizeLayer(0, 1);
+
+    std::vector<Matrix::Matrix<float>> empty_inputs;
+    std::vector<Matrix::Matrix<float>> empty_targets;
+
+    EXPECT_THROW(net.Train(empty_inputs, empty_targets, 0.01f, 10), std::invalid_argument);
+
+    std::vector<Matrix::Matrix<float>> inputs(1, Matrix::Matrix<float>(1, 2));
+    std::vector<Matrix::Matrix<float>> wrong_targets(1, Matrix::Matrix<float>(1, 3)); // Target size mismatch with layer 0 output (1)
+
+    EXPECT_THROW(net.Train(inputs, wrong_targets, 0.01f, 10), std::runtime_error);
+    EXPECT_THROW(net.Train(inputs, empty_targets, 0.01f, 10), std::invalid_argument);
+    EXPECT_THROW(net.Train(inputs, wrong_targets, -0.01f, 10), std::invalid_argument);
+    EXPECT_THROW(net.Train(inputs, wrong_targets, 0.01f, 0), std::invalid_argument);
+}
