@@ -1,9 +1,11 @@
 #include "gtest/gtest.h"
 #include "../src/transformer/transformer_model.h"
+#include "../src/transformer/attention.h"
 #include "../src/math/matrix.h"
 #include <vector>
 #include <string>
 #include <stdexcept>
+#include <cmath>
 
 // Test fixture for TransformerModel tests
 class TransformerModelTest : public ::testing::Test {
@@ -160,4 +162,77 @@ TEST_F(TransformerModelTest, ForwardPassInputTooLong) {
     // If truncation is the expected behavior, this test needs to be adjusted
     // to check that the output corresponds to a truncated input.
     EXPECT_THROW(model.forward(long_input_sequence, mask), std::invalid_argument);
+}
+
+TEST(ScaledDotProductAttentionTest, HandCalculatedAttentionWithMask) {
+    NeuroNet::Transformer::ScaledDotProductAttention attn(0.0f);
+
+    // Q (2x2)
+    Matrix::Matrix<float> Q(2, 2);
+    Q[0][0] = 1.0f; Q[0][1] = 0.0f;
+    Q[1][0] = 0.0f; Q[1][1] = 1.0f;
+
+    // K (2x2)
+    Matrix::Matrix<float> K(2, 2);
+    K[0][0] = 1.0f; K[0][1] = 2.0f;
+    K[1][0] = 0.0f; K[1][1] = 1.0f;
+
+    // V (2x2)
+    Matrix::Matrix<float> V(2, 2);
+    V[0][0] = 10.0f; V[0][1] = 20.0f;
+    V[1][0] = 30.0f; V[1][1] = 40.0f;
+
+    // Mask (2x2): Causal mask with -1e9 for upper-right
+    Matrix::Matrix<float> mask(2, 2);
+    mask[0][0] = 0.0f; mask[0][1] = -1e9f;
+    mask[1][0] = 0.0f; mask[1][1] = 0.0f;
+
+    auto result = attn.forward(Q, K, V, mask);
+
+    // Row 0 of output must strictly pay attention only to position 0 because of mask
+    EXPECT_NEAR(result.attention_weights[0][0], 1.0f, 1e-4f);
+    EXPECT_NEAR(result.attention_weights[0][1], 0.0f, 1e-4f);
+    EXPECT_NEAR(result.output[0][0], 10.0f, 1e-4f);
+    EXPECT_NEAR(result.output[0][1], 20.0f, 1e-4f);
+
+    // Row 1 calculation:
+    // S_10 = (0*1 + 1*2) / sqrt(2) = 2.0 / sqrt(2) = 1.41421356
+    // S_11 = (0*0 + 1*1) / sqrt(2) = 1.0 / sqrt(2) = 0.70710678
+    // Softmax(1.41421356, 0.70710678)
+    float e1 = std::exp(1.41421356f);
+    float e2 = std::exp(0.70710678f);
+    float w10 = e1 / (e1 + e2);
+    float w11 = e2 / (e1 + e2);
+
+    EXPECT_NEAR(result.attention_weights[1][0], w10, 1e-4f);
+    EXPECT_NEAR(result.attention_weights[1][1], w11, 1e-4f);
+
+    float expected_out_10 = w10 * 10.0f + w11 * 30.0f;
+    float expected_out_11 = w10 * 20.0f + w11 * 40.0f;
+
+    EXPECT_NEAR(result.output[1][0], expected_out_10, 1e-4f);
+    EXPECT_NEAR(result.output[1][1], expected_out_11, 1e-4f);
+}
+
+TEST(ScaledDotProductAttentionTest, InvalidAndEmptyInputShapes) {
+    NeuroNet::Transformer::ScaledDotProductAttention attn(0.0f);
+
+    Matrix::Matrix<float> Q(2, 2);
+    Matrix::Matrix<float> K_wrong_dk(2, 3);
+    Matrix::Matrix<float> K(2, 2);
+    Matrix::Matrix<float> V_wrong_seq(3, 2);
+    Matrix::Matrix<float> mask_wrong_dim(3, 3);
+    Matrix::Matrix<float> empty_mat(0, 0);
+
+    // Query and Key d_k mismatch
+    EXPECT_THROW(attn.forward(Q, K_wrong_dk, K, empty_mat), std::invalid_argument);
+
+    // Key and Value seq_len mismatch
+    EXPECT_THROW(attn.forward(Q, K, V_wrong_seq, empty_mat), std::invalid_argument);
+
+    // Zero d_k
+    EXPECT_THROW(attn.forward(empty_mat, empty_mat, empty_mat, empty_mat), std::invalid_argument);
+
+    // Mask dimension mismatch
+    EXPECT_THROW(attn.forward(Q, K, K, mask_wrong_dim), std::invalid_argument);
 }
