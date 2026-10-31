@@ -1,5 +1,7 @@
 #include "least_squares.h"
 #include "matrix.h" // Defines Matrix::Matrix
+#include <stdexcept>
+#include <cmath>
 #include <stdexcept> // For std::runtime_error
 
 namespace Math {
@@ -18,7 +20,28 @@ namespace Math {
             throw std::invalid_argument("Matrix b must be a column vector (have only 1 column).");
         }
 
+
+        if (A.rows() < A.cols()) {
+            throw std::invalid_argument("Matrix A is underdetermined (rows < cols).");
+        }
+
+        auto check_nan_inf = [](const Matrix::Matrix<double>& m) {
+            for (size_t i = 0; i < m.rows(); ++i) {
+                for (size_t j = 0; j < m.cols(); ++j) {
+                    if (std::isnan(m[i][j]) || std::isinf(m[i][j])) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        };
+
+        if (check_nan_inf(A) || check_nan_inf(b)) {
+            throw std::invalid_argument("Input matrices contain NaN or Inf values.");
+        }
+
         // Normal equations: (A^T * A) * x = A^T * b
+
         // Let At = A^T
         // Let AtA = At * A
         // Let Atb = At * b
