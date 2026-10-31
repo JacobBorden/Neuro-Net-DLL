@@ -38,33 +38,31 @@ Matrix::Matrix<float> TransformerFFN::forward(const Matrix::Matrix<float>& input
     // Layer 1: input * W1
     Matrix::Matrix<float> hidden_linear = input * W1_; // (seq_len, d_model) * (d_model, d_ff) -> (seq_len, d_ff)
 
-    // Add bias b1 (broadcasting)
-    // The Matrix library might not support direct broadcasting of (1, d_ff) to (seq_len, d_ff).
-    // We need to manually add b1 to each row of hidden_linear.
-    Matrix::Matrix<float> hidden_biased(hidden_linear.rows(), hidden_linear.cols());
+    constexpr float M_SQRT2_OVER_PI = 0.7978845608028654f; // sqrt(2/PI)
+
+    // Fuse bias b1 and GELU activation in-place to avoid intermediate allocations
+    #pragma omp parallel for
     for(size_t r = 0; r < hidden_linear.rows(); ++r) {
         for(size_t c = 0; c < hidden_linear.cols(); ++c) {
-            hidden_biased[r][c] = hidden_linear[r][c] + b1_[0][c];
+            float x = hidden_linear[r][c] + b1_[0][c];
+            float x_cubed = x * x * x;
+            float inner = M_SQRT2_OVER_PI * (x + 0.044715f * x_cubed);
+            hidden_linear[r][c] = 0.5f * x * (1.0f + std::tanh(inner));
         }
     }
 
-    // Activation: GELU
-    Matrix::Matrix<float> hidden_activated = MathUtils::gelu(hidden_biased);
+    // Layer 2: hidden_linear * W2
+    Matrix::Matrix<float> output_linear = hidden_linear * W2_; // (seq_len, d_ff) * (d_ff, d_model) -> (seq_len, d_model)
 
-    // Dropout is not implemented here.
-
-    // Layer 2: hidden_activated * W2
-    Matrix::Matrix<float> output_linear = hidden_activated * W2_; // (seq_len, d_ff) * (d_ff, d_model) -> (seq_len, d_model)
-
-    // Add bias b2 (broadcasting)
-    Matrix::Matrix<float> output_biased(output_linear.rows(), output_linear.cols());
-     for(size_t r = 0; r < output_linear.rows(); ++r) {
+    // Fuse bias b2 in-place
+    #pragma omp parallel for
+    for(size_t r = 0; r < output_linear.rows(); ++r) {
         for(size_t c = 0; c < output_linear.cols(); ++c) {
-            output_biased[r][c] = output_linear[r][c] + b2_[0][c];
+            output_linear[r][c] += b2_[0][c];
         }
     }
 
-    return output_biased;
+    return output_linear;
 }
 
 // --- Weight and Bias Accessors ---
