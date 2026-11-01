@@ -124,19 +124,6 @@ bool Vocabulary::load_from_json(const std::string& filepath) {
         }
     }
 
-    // Cleanup for JsonParser::Parse, as it dynamically allocates members for objects
-    // This is crucial for the custom JSON parser
-    if (root.type == JsonValueType::Object) {
-        for (auto& pair : root.GetObject()) {
-            if(pair.second->type == JsonValueType::Object){
-                 for(auto& inner_pair : pair.second->GetObject()){
-                    delete inner_pair.second; // delete JsonValue* from inner objects
-                 }
-            }
-            delete pair.second; // delete JsonValue* from root object
-        }
-        root.GetObject().clear();
-    }
     return true;
 }
 
