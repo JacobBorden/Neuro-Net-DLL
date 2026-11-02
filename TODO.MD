@@ -32,7 +32,7 @@ acceptance evidence exists; a proposed PR is not a delivered feature.
   repetitions, and thread counts. Verify #153's merged API repair before closing it.
 - [x] Resolve the orphan `dependencies/matrix` gitlink metadata without deleting a
   user's dependency checkout; verify a fresh clone and Actions cleanup.
-- [ ] Audit JSON ownership/model validation and least-squares conditioning with
+- [x] Audit JSON ownership/model validation and least-squares conditioning with
   adversarial and numerical tests; use evidence to choose scoped repairs.
 
 ## P2 — Complete the dense user workflow

@@ -539,8 +539,6 @@ void Optimization::GeneticAlgorithm::run_evolution(int num_generations, const st
         error_msg->SetString("Best individual was not properly configured or found.");
         error_json.InsertIntoObject("error", error_msg);
         this->current_run_metrics_.best_model_architecture_params_custom_json_string = error_json.ToString();
-        // Cleanup for error_json, as InsertIntoObject doesn't mean root owns it in terms of deletion by destructor
-        delete error_msg; 
     }
     this->current_run_metrics_.overall_best_fitness = this->best_fitness_score_;
 }
@@ -590,28 +588,22 @@ void Optimization::GeneticAlgorithm::export_training_metrics_json(const std::str
 
     JsonValue root; // Custom JsonValue
     root.SetObject();
-    
-    // Pointers to dynamically allocated JsonValues for cleanup
-    std::vector<JsonValue*> allocated_values;
 
     auto add_string_to_obj = [&](JsonValue& obj, const std::string& key, const std::string& val_str) {
         JsonValue* str_val = new JsonValue();
         str_val->SetString(val_str);
         obj.InsertIntoObject(key, str_val);
-        allocated_values.push_back(str_val);
     };
 
     auto add_number_to_obj = [&](JsonValue& obj, const std::string& key, double val_num) {
         JsonValue* num_val = new JsonValue();
         num_val->SetNumber(val_num);
         obj.InsertIntoObject(key, num_val);
-        allocated_values.push_back(num_val);
     };
 
     auto add_null_to_obj = [&](JsonValue& obj, const std::string& key) {
         JsonValue* null_val = new JsonValue(JsonValueType::Null);
         obj.InsertIntoObject(key, null_val);
-        allocated_values.push_back(null_val);
     };
     
     add_string_to_obj(root, "start_time", current_run_metrics_.start_time);
@@ -623,15 +615,11 @@ void Optimization::GeneticAlgorithm::export_training_metrics_json(const std::str
     JsonValue* gen_data_array_val = new JsonValue();
     gen_data_array_val->SetArray();
     root.InsertIntoObject("generation_data", gen_data_array_val);
-    allocated_values.push_back(gen_data_array_val);
 
     for (const auto& gen_metric : current_run_metrics_.generation_data) {
-        JsonValue gen_metric_obj; // This is a stack object, its members if they are pointers need care
+        JsonValue gen_metric_obj;
         gen_metric_obj.SetObject();
         
-        // Note: gen_metric_obj now holds pointers. If gen_metric_obj is copied into an array by value,
-        // these pointers are copied. The lifetime of these pointed-to values must exceed gen_metric_obj
-        // if it's temporary. Here, they are added to allocated_values for later cleanup.
         add_number_to_obj(gen_metric_obj, "generation_number", static_cast<double>(gen_metric.generation_number));
         add_number_to_obj(gen_metric_obj, "average_fitness", gen_metric.average_fitness);
         add_number_to_obj(gen_metric_obj, "best_fitness", gen_metric.best_fitness);
@@ -648,7 +636,7 @@ void Optimization::GeneticAlgorithm::export_training_metrics_json(const std::str
             add_null_to_obj(gen_metric_obj, "accuracy");
         }
         
-        gen_data_array_val->GetArray().push_back(gen_metric_obj); // Pushes a copy; pointers inside are to heap.
+        gen_data_array_val->GetArray().push_back(std::move(gen_metric_obj));
     }
 
     try {
@@ -660,12 +648,6 @@ void Optimization::GeneticAlgorithm::export_training_metrics_json(const std::str
     }
     
     file.close();
-
-    // Cleanup dynamically allocated JsonValues
-    // For JsonValues directly inserted into root or into objects owned by root (like gen_metric_obj fields)
-    for (JsonValue* val_ptr : allocated_values) {
-        delete val_ptr;
-    }
     // The JsonValue objects themselves within gen_data_array_val->GetArray() are copied by value.
     // However, the map *within* those JsonValue objects (if they are objects) stores pointers.
     // The cleanup for allocated_values handles all JsonValues that were new'ed for fields.
