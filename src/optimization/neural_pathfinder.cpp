@@ -136,8 +136,20 @@ std::vector<AStarPathNode> NeuralPathfinder::FindOptimalPathAStar() {
     }
 
     while (!open_set.empty()) {
-        AStarPathNode current_node = open_set.top().second;
+        const auto top_element = open_set.top();
+        const double current_f_score = top_element.first;
+        const AStarPathNode current_node = top_element.second;
         open_set.pop();
+
+        // Optimization: In A* with duplicate insertions (since std::priority_queue does not support decrease_key),
+        // multiple entries for the same node may exist in the queue.
+        // If current_f_score is strictly worse than the recorded best f_score (g_score + h_score),
+        // this entry is stale and can be skipped to avoid redundant expansions.
+        const double best_g = g_score.at(current_node);
+        const double best_f = best_g + CalculateHeuristic(current_node, goal_layer_idx, min_single_edge_cost);
+        if (current_f_score > best_f + 1e-12) {
+            continue;
+        }
 
         if (current_node.layer_idx == goal_layer_idx) {
             return ReconstructPath(came_from, current_node); // Goal reached
