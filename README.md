@@ -831,6 +831,7 @@ Before making significant modifications, it's recommended to thoroughly understa
 
 This `README.md` provides a general overview of the project. For more detailed information, please refer to the following:
 
+*   [Python dense binding reference](./docs/PYTHON_BINDING_REFERENCE.md): positional calls, safe matrix inputs, and supported operations.
 *   **Module-specific Documentation:**
     *   [Neural Network (`NeuroNet` & `NeuroNetLayer`)](./docs/modules/neural_network.md)
     *   [Genetic Algorithm (`GeneticAlgorithm`)](./docs/modules/optimization.md)
