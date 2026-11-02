@@ -50,25 +50,25 @@ AttentionOutput ScaledDotProductAttention::forward(
 
     // 2. Scale scores
     float scale_factor = 1.0f / std::sqrt(static_cast<float>(d_k));
-    Matrix::Matrix<float> scaled_scores = scores * scale_factor; // Uses Matrix::operator*(scalar)
+    scores *= scale_factor; // in-place scaling to prevent extra allocation
 
     // 3. Apply mask (if provided)
     // Mask should have dimensions (seq_len_q, seq_len_k)
     bool use_mask = (mask.rows() > 0 && mask.cols() > 0);
     if (use_mask) {
-        if (mask.rows() != scaled_scores.rows() || mask.cols() != scaled_scores.cols()) {
+        if (mask.rows() != scores.rows() || mask.cols() != scores.cols()) {
             throw std::invalid_argument(
                 "Mask dimensions (" + std::to_string(mask.rows()) + "x" + std::to_string(mask.cols()) +
-                ") must match attention score dimensions (" + std::to_string(scaled_scores.rows()) + "x" +
-                std::to_string(scaled_scores.cols()) + ").");
+                ") must match attention score dimensions (" + std::to_string(scores.rows()) + "x" +
+                std::to_string(scores.cols()) + ").");
         }
         // Element-wise addition
-        scaled_scores = scaled_scores + mask; // Assumes Matrix::operator+ for element-wise addition
+        scores += mask; // in-place addition to prevent extra allocation
     }
 
     // 4. Calculate attention_weights = softmax(scaled_scores (or masked_scores), axis=1)
     // Softmax along the last dimension (cols of scaled_scores, which is seq_len_k)
-    Matrix::Matrix<float> attention_weights = MathUtils::softmax(scaled_scores, 1); // axis=1 for row-wise
+    Matrix::Matrix<float> attention_weights = MathUtils::softmax(scores, 1); // axis=1 for row-wise
 
     // Dropout on attention_weights is not implemented in this version.
 
