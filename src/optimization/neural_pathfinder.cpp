@@ -136,8 +136,14 @@ std::vector<AStarPathNode> NeuralPathfinder::FindOptimalPathAStar() {
     }
 
     while (!open_set.empty()) {
+        double current_f_score = open_set.top().first;
         AStarPathNode current_node = open_set.top().second;
         open_set.pop();
+
+        // Prune stale duplicate entries to avoid redundant neighbor expansions
+        if (current_f_score > g_score.at(current_node) + CalculateHeuristic(current_node, goal_layer_idx, min_single_edge_cost)) {
+            continue;
+        }
 
         if (current_node.layer_idx == goal_layer_idx) {
             return ReconstructPath(came_from, current_node); // Goal reached
