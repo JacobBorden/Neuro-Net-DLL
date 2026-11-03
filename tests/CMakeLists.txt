@@ -41,8 +41,13 @@ if(PYTHON_EXECUTABLE)
         NAME pyneuronet_python
         COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_pyneuronet.py
     )
+    add_test(
+        NAME pyneuronet_reference
+        COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/test_python_reference.py
+                ${PROJECT_SOURCE_DIR}/docs/PYTHON_BINDING_REFERENCE.md
+    )
     set_tests_properties(
-        pyneuronet_python
+        pyneuronet_python pyneuronet_reference
         PROPERTIES ENVIRONMENT "PYNEURONET_BUILD_DIR=$<TARGET_FILE_DIR:pyneuronet>"
     )
 endif()

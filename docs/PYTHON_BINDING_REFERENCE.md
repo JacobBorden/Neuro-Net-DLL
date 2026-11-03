@@ -86,3 +86,6 @@ Build the extension for the interpreter that will import it. A successful import
 from a build tree does not establish staged-install or release-package support.
 This reference describes the current dense API; it does not add bindings or close
 the broader M2/M4 training, packaging and platform acceptance gates.
+
+The `pyneuronet_reference` CTest executes the Python example above against the
+matching build-tree extension, with assertions enabled even under Python `-O`.
