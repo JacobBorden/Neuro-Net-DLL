@@ -22,6 +22,7 @@ add_executable(runTests
     test_neural_pathfinder.cpp
     test_dataset_loader.cpp
     test_logger.cpp
+    test_positional_encoding.cpp
 )
 
 # Link libraries
