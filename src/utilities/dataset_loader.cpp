@@ -36,11 +36,13 @@ bool MNISTLoader::LoadImages(const std::string& filepath, Matrix::Matrix<float>&
     const size_t image_size = static_cast<size_t>(n_rows) * static_cast<size_t>(n_cols);
     Matrix::Matrix<float> images(number_of_images, image_size);
 
+    std::vector<unsigned char> buffer(number_of_images * image_size);
+    if (!file.read(reinterpret_cast<char*>(buffer.data()), buffer.size())) return false;
+
     for (size_t i = 0; i < number_of_images; ++i) {
+        size_t offset = i * image_size;
         for (size_t r = 0; r < image_size; ++r) {
-            unsigned char temp = 0;
-            if (!file.read(reinterpret_cast<char*>(&temp), sizeof(temp))) return false;
-            images[i][r] = static_cast<float>(temp) / 255.0f;
+            images[i][r] = static_cast<float>(buffer[offset + r]) / 255.0f;
         }
     }
 
@@ -65,9 +67,11 @@ bool MNISTLoader::LoadLabels(const std::string& filepath, Matrix::Matrix<float>&
     Matrix::Matrix<float> labels;
     labels.assign(number_of_items, 10, 0.0f);
 
+    std::vector<unsigned char> buffer(number_of_items);
+    if (!file.read(reinterpret_cast<char*>(buffer.data()), buffer.size())) return false;
+
     for (size_t i = 0; i < number_of_items; ++i) {
-        unsigned char temp = 0;
-        if (!file.read(reinterpret_cast<char*>(&temp), sizeof(temp))) return false;
+        unsigned char temp = buffer[i];
         if (temp < 10) {
             labels[i][temp] = 1.0f;
         }
