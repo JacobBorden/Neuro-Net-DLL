@@ -1,5 +1,6 @@
 #include "dataset_loader.h"
 #include <fstream>
+#include <vector>
 
 namespace Utilities {
 namespace Dataset {
@@ -36,11 +37,13 @@ bool MNISTLoader::LoadImages(const std::string& filepath, Matrix::Matrix<float>&
     const size_t image_size = static_cast<size_t>(n_rows) * static_cast<size_t>(n_cols);
     Matrix::Matrix<float> images(number_of_images, image_size);
 
+    // Performance optimization: Buffer an entire image's pixels per read operation
+    // to eliminate millions of single-byte file.read calls.
+    std::vector<unsigned char> row_buffer(image_size);
     for (size_t i = 0; i < number_of_images; ++i) {
+        if (!file.read(reinterpret_cast<char*>(row_buffer.data()), image_size)) return false;
         for (size_t r = 0; r < image_size; ++r) {
-            unsigned char temp = 0;
-            if (!file.read(reinterpret_cast<char*>(&temp), sizeof(temp))) return false;
-            images[i][r] = static_cast<float>(temp) / 255.0f;
+            images[i][r] = static_cast<float>(row_buffer[r]) / 255.0f;
         }
     }
 
