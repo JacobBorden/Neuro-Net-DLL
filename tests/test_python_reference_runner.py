@@ -38,6 +38,18 @@ class ReferenceRunnerTests(unittest.TestCase):
         self.assertIn("Matching build-tree", result.stderr)
         self.assertNotIn("source substitute executed", result.stderr)
 
+    def test_preloaded_fallback_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            # sitecustomize models a startup hook preloading an installed module.
+            Path(directory, "sitecustomize.py").write_text(
+                "import sys, types\n"
+                "module = types.ModuleType('pyneuronet')\n"
+                "module.__file__ = __file__\n"
+                "sys.modules['pyneuronet'] = module\n", encoding="utf-8")
+            result = self.run_reference("```python\npass\n```\n", fallback=directory)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Imported pyneuronet does not match", result.stderr)
+
     def test_missing_example_is_rejected(self):
         result = self.run_reference("No executable example.\n")
         self.assertNotEqual(result.returncode, 0)

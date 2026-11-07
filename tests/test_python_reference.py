@@ -1,4 +1,5 @@
 """Execute the reference's Python blocks against the matching built extension."""
+from importlib import import_module
 from importlib.machinery import EXTENSION_SUFFIXES, PathFinder
 import os
 from pathlib import Path
@@ -12,6 +13,12 @@ if (spec is None or spec.origin is None
         or not any(spec.origin.endswith(suffix) for suffix in EXTENSION_SUFFIXES)):
     raise RuntimeError("Matching build-tree pyneuronet extension is required")
 sys.path.insert(0, str(build_dir))
+# Startup hooks can preload modules before this script runs. Verify the module
+# Python actually imports as well as the candidate discovered on disk.
+module = import_module("pyneuronet")
+module_origin = getattr(module, "__file__", None)
+if module_origin is None or Path(module_origin).resolve() != Path(spec.origin).resolve():
+    raise RuntimeError("Imported pyneuronet does not match the build-tree extension")
 reference = Path(sys.argv[1])
 blocks = re.findall(r"^```python\n(.*?)^```", reference.read_text(encoding="utf-8"), re.M | re.S)
 if not blocks:
