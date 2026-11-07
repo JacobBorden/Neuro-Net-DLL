@@ -1,5 +1,6 @@
 #include "dataset_loader.h"
 #include <fstream>
+#include <vector>
 
 namespace Utilities {
 namespace Dataset {
@@ -34,17 +35,21 @@ bool MNISTLoader::LoadImages(const std::string& filepath, Matrix::Matrix<float>&
     n_cols = SwapEndian(n_cols);
 
     const size_t image_size = static_cast<size_t>(n_rows) * static_cast<size_t>(n_cols);
+    const size_t total_size = static_cast<size_t>(number_of_images) * image_size;
+
+    std::vector<unsigned char> buffer(total_size);
+    if (!file.read(reinterpret_cast<char*>(buffer.data()), total_size)) return false;
+
     Matrix::Matrix<float> images(number_of_images, image_size);
 
+    size_t offset = 0;
     for (size_t i = 0; i < number_of_images; ++i) {
         for (size_t r = 0; r < image_size; ++r) {
-            unsigned char temp = 0;
-            if (!file.read(reinterpret_cast<char*>(&temp), sizeof(temp))) return false;
-            images[i][r] = static_cast<float>(temp) / 255.0f;
+            images[i][r] = static_cast<float>(buffer[offset++]) / 255.0f;
         }
     }
 
-    outImages = images;
+    outImages = std::move(images);
     return true;
 }
 
@@ -62,18 +67,20 @@ bool MNISTLoader::LoadLabels(const std::string& filepath, Matrix::Matrix<float>&
     if (!file.read(reinterpret_cast<char*>(&number_of_items), sizeof(number_of_items))) return false;
     number_of_items = SwapEndian(number_of_items);
 
+    std::vector<unsigned char> buffer(number_of_items);
+    if (!file.read(reinterpret_cast<char*>(buffer.data()), number_of_items)) return false;
+
     Matrix::Matrix<float> labels;
     labels.assign(number_of_items, 10, 0.0f);
 
     for (size_t i = 0; i < number_of_items; ++i) {
-        unsigned char temp = 0;
-        if (!file.read(reinterpret_cast<char*>(&temp), sizeof(temp))) return false;
+        unsigned char temp = buffer[i];
         if (temp < 10) {
             labels[i][temp] = 1.0f;
         }
     }
 
-    outLabels = labels;
+    outLabels = std::move(labels);
     return true;
 }
 
