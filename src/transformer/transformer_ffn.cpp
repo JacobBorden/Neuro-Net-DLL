@@ -36,35 +36,43 @@ Matrix::Matrix<float> TransformerFFN::forward(const Matrix::Matrix<float>& input
     }
 
     // Layer 1: input * W1
-    Matrix::Matrix<float> hidden_linear = input * W1_; // (seq_len, d_model) * (d_model, d_ff) -> (seq_len, d_ff)
+    Matrix::Matrix<float> hidden = input * W1_; // (seq_len, d_model) * (d_model, d_ff) -> (seq_len, d_ff)
 
-    // Add bias b1 (broadcasting)
-    // The Matrix library might not support direct broadcasting of (1, d_ff) to (seq_len, d_ff).
-    // We need to manually add b1 to each row of hidden_linear.
-    Matrix::Matrix<float> hidden_biased(hidden_linear.rows(), hidden_linear.cols());
-    for(size_t r = 0; r < hidden_linear.rows(); ++r) {
-        for(size_t c = 0; c < hidden_linear.cols(); ++c) {
-            hidden_biased[r][c] = hidden_linear[r][c] + b1_[0][c];
+    // Optimization: Fuse bias b1 addition and GELU activation in-place into hidden matrix
+    // This avoids allocating separate hidden_biased and hidden_activated matrices
+    constexpr float M_SQRT2_OVER_PI = 0.7978845608028654f; // sqrt(2/PI)
+    size_t rows = hidden.rows();
+    size_t cols = hidden.cols();
+#ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+#endif
+    for (size_t r = 0; r < rows; ++r) {
+        for (size_t c = 0; c < cols; ++c) {
+            float x = hidden[r][c] + b1_[0][c];
+            float x_cubed = x * x * x;
+            float inner = M_SQRT2_OVER_PI * (x + 0.044715f * x_cubed);
+            hidden[r][c] = 0.5f * x * (1.0f + std::tanh(inner));
         }
     }
-
-    // Activation: GELU
-    Matrix::Matrix<float> hidden_activated = MathUtils::gelu(hidden_biased);
 
     // Dropout is not implemented here.
 
-    // Layer 2: hidden_activated * W2
-    Matrix::Matrix<float> output_linear = hidden_activated * W2_; // (seq_len, d_ff) * (d_ff, d_model) -> (seq_len, d_model)
+    // Layer 2: hidden * W2
+    Matrix::Matrix<float> output = hidden * W2_; // (seq_len, d_ff) * (d_ff, d_model) -> (seq_len, d_model)
 
-    // Add bias b2 (broadcasting)
-    Matrix::Matrix<float> output_biased(output_linear.rows(), output_linear.cols());
-     for(size_t r = 0; r < output_linear.rows(); ++r) {
-        for(size_t c = 0; c < output_linear.cols(); ++c) {
-            output_biased[r][c] = output_linear[r][c] + b2_[0][c];
+    // Optimization: Add bias b2 in-place to avoid allocating an extra output_biased matrix
+    size_t out_rows = output.rows();
+    size_t out_cols = output.cols();
+#ifdef _OPENMP
+    #pragma omp parallel for collapse(2)
+#endif
+    for (size_t r = 0; r < out_rows; ++r) {
+        for (size_t c = 0; c < out_cols; ++c) {
+            output[r][c] += b2_[0][c];
         }
     }
 
-    return output_biased;
+    return output;
 }
 
 // --- Weight and Bias Accessors ---
