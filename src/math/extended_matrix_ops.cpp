@@ -1,4 +1,5 @@
 #include "extended_matrix_ops.h"
+#include <algorithm> // For std::copy_n
 #include <numeric> // For std::accumulate (though manual sum is often clearer for matrices)
 #include <stdexcept> // For std::runtime_error
 
@@ -152,12 +153,12 @@ std::vector<Matrix::Matrix<float>> split_matrix_by_cols(const Matrix::Matrix<flo
     for (int k = 0; k < num_splits; ++k) {
         Matrix::Matrix<float> current_split(original_rows, split_cols);
         size_t start_col_original = k * split_cols;
+        // Optimization: Use std::copy_n to copy contiguous row elements in bulk
+        // instead of element-by-element indexing.
         for (size_t i = 0; i < original_rows; ++i) {
-            for (size_t j = 0; j < split_cols; ++j) {
-                current_split[i][j] = input[i][start_col_original + j];
-            }
+            std::copy_n(input[i].begin() + start_col_original, split_cols, current_split[i].begin());
         }
-        splits.push_back(current_split);
+        splits.push_back(std::move(current_split));
     }
     return splits;
 }
@@ -191,12 +192,13 @@ Matrix::Matrix<float> combine_matrices_by_cols(const std::vector<Matrix::Matrix<
     size_t current_col_offset = 0;
 
     for (const auto& input_matrix : inputs) {
+        size_t cols = input_matrix.cols();
+        // Optimization: Use std::copy_n to copy contiguous row slices in bulk
+        // into the combined matrix at current_col_offset.
         for (size_t i = 0; i < num_rows; ++i) {
-            for (size_t j = 0; j < input_matrix.cols(); ++j) {
-                combined_matrix[i][current_col_offset + j] = input_matrix[i][j];
-            }
+            std::copy_n(input_matrix[i].begin(), cols, combined_matrix[i].begin() + current_col_offset);
         }
-        current_col_offset += input_matrix.cols();
+        current_col_offset += cols;
     }
     return combined_matrix;
 }
