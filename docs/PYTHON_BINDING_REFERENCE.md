@@ -73,6 +73,46 @@ through pybind11 to ValueError/RuntimeError; boolean rejection results still nee
 checking. Model loading has relative-path restrictions; use disposable relative
 filenames for examples.
 
+## Save and reload predictions
+
+This continues the configured one-layer example above without training. Model JSON
+stores parameters with finite precision, so compare predictions with a tolerance.
+The temporary working directory permits a disposable relative model filename and
+restores the caller's directory even if a check fails.
+
+```python
+import math
+import os
+import tempfile
+from pathlib import Path
+
+samples = [nn.Matrix([[0.25, -0.75]]), nn.Matrix([[-1.0, 0.5]])]
+predictions = []
+for sample in samples:
+    assert network.set_input(sample)
+    predictions.append(network.get_output().get(0, 0))
+
+previous_directory = Path.cwd()
+with tempfile.TemporaryDirectory() as directory:
+    try:
+        os.chdir(directory)
+        assert network.save_model("dense.json")
+        restored = nn.NeuroNet.load_model("dense.json")
+        assert restored.get_layer_count() == network.get_layer_count()
+        assert restored.get_input_size() == network.get_input_size()
+        for sample, expected in zip(samples, predictions):
+            assert restored.set_input(sample)
+            output = restored.get_output()
+            assert (output.rows(), output.cols()) == (1, 1)
+            assert math.isclose(output.get(0, 0), expected,
+                                rel_tol=1e-5, abs_tol=1e-5)
+    finally:
+        os.chdir(previous_directory)
+```
+
+This checks same-build serialization and inference on two inputs. It does not
+establish training quality or model compatibility across library versions.
+
 ## Limits
 
 This binding exposes no seed setter, direct weight/bias access, loss selector,
@@ -87,5 +127,5 @@ from a build tree does not establish staged-install or release-package support.
 This reference describes the current dense API; it does not add bindings or close
 the broader M2/M4 training, packaging and platform acceptance gates.
 
-The `pyneuronet_reference` CTest executes the Python example above against the
+The `pyneuronet_reference` CTest executes the Python examples above against the
 matching build-tree extension, with assertions enabled even under Python `-O`.
