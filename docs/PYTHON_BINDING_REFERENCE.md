@@ -73,6 +73,38 @@ through pybind11 to ValueError/RuntimeError; boolean rejection results still nee
 checking. Model loading has relative-path restrictions; use disposable relative
 filenames for examples.
 
+## Handle rejected calls
+
+A rejected input returns `False`; check it before requesting a prediction.
+The following continues the two-feature network above and uses rectangular,
+in-bounds matrices. Invalid training arguments raise `ValueError` before any
+training updates. Check the exception type rather than depending on message text.
+
+```python
+assert not network.set_input(nn.Matrix([[1.0]]))  # Wrong feature count.
+assert not network.set_input(nn.Matrix([[1.0, 2.0], [3.0, 4.0]]))  # Two rows.
+assert not nn.NeuroNet().set_input(nn.Matrix([[1.0, 2.0]]))  # No layers.
+
+training_inputs = [nn.Matrix([[0.25, -0.75]])]
+training_targets = [nn.Matrix([[0.5]])]
+for inputs, targets, rate, epochs in [
+    ([], training_targets, 0.1, 1),
+    (training_inputs, [], 0.1, 1),
+    (training_inputs, training_targets * 2, 0.1, 1),
+    (training_inputs, training_targets, 0.0, 1),
+    (training_inputs, training_targets, 0.1, 0),
+]:
+    try:
+        network.train(inputs, targets, rate, epochs)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Invalid training arguments were accepted")
+
+# Supply a valid sample again before inference after a rejected call.
+assert network.set_input(training_inputs[0])
+```
+
 ## Save and reload predictions
 
 This continues the configured one-layer example above without training. Model JSON
