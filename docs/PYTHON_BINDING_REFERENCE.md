@@ -105,9 +105,36 @@ for inputs, targets, rate, epochs in [
 assert network.set_input(training_inputs[0])
 ```
 
+## Train a single sample
+
+This tiny linear example checks the training call and error reduction. A zero input
+isolates the bias update. The target is one unit above the initial prediction, so
+the check does not depend on a particular random initialization or seed API.
+The measured objective here is half squared error for one scalar output; this does
+not qualify other activation/loss combinations or generalization quality.
+
+```python
+import math
+
+sample = nn.Matrix([[0.0, 0.0]])
+assert network.set_input(sample)
+before = network.get_output().get(0, 0)
+assert math.isfinite(before)
+target = before + 1.0
+initial_error = 0.5 * (before - target) ** 2
+network.train([sample], [nn.Matrix([[target]])], 0.1, 5)
+assert network.set_input(sample)
+after = network.get_output().get(0, 0)
+assert math.isfinite(after)
+final_error = 0.5 * (after - target) ** 2
+assert final_error < initial_error, (initial_error, final_error)
+```
+
+The next example saves this trained network and checks its predictions after load.
+
 ## Save and reload predictions
 
-This continues the configured one-layer example above without training. Model JSON
+This continues the trained one-layer example above. Model JSON
 stores parameters with finite precision, so compare predictions with a tolerance.
 The temporary working directory permits a disposable relative model filename and
 restores the caller's directory even if a check fails.
@@ -142,7 +169,7 @@ with tempfile.TemporaryDirectory() as directory:
         os.chdir(previous_directory)
 ```
 
-This checks same-build serialization and inference on two inputs. It does not
+This checks same-build serialization and inference of the trained model on two inputs. It does not
 establish training quality or model compatibility across library versions.
 
 ## Limits
