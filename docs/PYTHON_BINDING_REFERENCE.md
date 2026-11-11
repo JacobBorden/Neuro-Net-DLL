@@ -110,6 +110,9 @@ assert network.set_input(training_inputs[0])
 This tiny linear example checks the training call and error reduction. A zero input
 isolates the bias update. The target is one unit above the initial prediction, so
 the check does not depend on a particular random initialization or seed API.
+For this zero-input linear case, each update multiplies the residual by
+`1 - learning_rate`: after five updates it must be `0.9 ** 5` of its initial
+value. Check that recurrence with float tolerance as well as error reduction.
 The measured objective here is half squared error for one scalar output; this does
 not qualify other activation/loss combinations or generalization quality.
 
@@ -128,6 +131,8 @@ after = network.get_output().get(0, 0)
 assert math.isfinite(after)
 final_error = 0.5 * (after - target) ** 2
 assert final_error < initial_error, (initial_error, final_error)
+expected_after = target + (before - target) * (1.0 - 0.1) ** 5
+assert math.isclose(after, expected_after, rel_tol=1e-5, abs_tol=1e-5), (after, expected_after)
 ```
 
 The next example saves this trained network and checks its predictions after load.
