@@ -52,7 +52,7 @@ acceptance evidence exists; a proposed PR is not a delivered feature.
   allow builds without Python or tests and verify staged Python installation.
 - [x] Set a real package contact (#128) and exclude GoogleTest install artifacts;
   verify the resulting TGZ contents.
-- [ ] Verify DEB/RPM metadata and clean installation before claiming supported
+- [x] Verify DEB/RPM metadata and clean installation before claiming supported
   binary distributions (#128).
 - [ ] Update module docs for the implemented decoder, CNN/RNN/LSTM primitives,
   dense backpropagation, and current build/dependency requirements.
