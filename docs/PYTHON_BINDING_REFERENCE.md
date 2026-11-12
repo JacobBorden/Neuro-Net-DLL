@@ -170,11 +170,25 @@ with tempfile.TemporaryDirectory() as directory:
             assert (output.rows(), output.cols()) == (1, 1)
             assert math.isclose(output.get(0, 0), expected,
                                 rel_tol=1e-5, abs_tol=1e-5)
+        # Resume training on the loaded parameters using the same linear contract.
+        zero_sample = nn.Matrix([[0.0, 0.0]])
+        assert restored.set_input(zero_sample)
+        resumed_before = restored.get_output().get(0, 0)
+        resumed_target = resumed_before - 1.0
+        restored.train([zero_sample], [nn.Matrix([[resumed_target]])], 0.2, 3)
+        assert restored.set_input(zero_sample)
+        resumed_after = restored.get_output().get(0, 0)
+        expected_resumed = resumed_target + (resumed_before - resumed_target) * 0.8 ** 3
+        assert math.isfinite(resumed_after)
+        assert math.isclose(resumed_after, expected_resumed,
+                            rel_tol=1e-5, abs_tol=1e-5), (resumed_after, expected_resumed)
     finally:
         os.chdir(previous_directory)
 ```
 
-This checks same-build serialization and inference of the trained model on two inputs. It does not
+This checks same-build serialization and inference of the trained model on two inputs,
+then verifies three additional bias updates after loading. This continuation check
+covers this linear single-sample case only. It does not
 establish training quality or model compatibility across library versions.
 
 ## Limits
