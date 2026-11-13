@@ -150,7 +150,10 @@ import os
 import tempfile
 from pathlib import Path
 
-samples = [nn.Matrix([[0.25, -0.75]]), nn.Matrix([[-1.0, 0.5]])]
+# Three affine-independent inputs distinguish both weights and the bias.
+# The zero input catches coupled parameter changes hidden by the other two.
+samples = [nn.Matrix([[0.25, -0.75]]), nn.Matrix([[-1.0, 0.5]]),
+           nn.Matrix([[0.0, 0.0]])]
 predictions = []
 for sample in samples:
     assert network.set_input(sample)
@@ -186,7 +189,7 @@ with tempfile.TemporaryDirectory() as directory:
         os.chdir(previous_directory)
 ```
 
-This checks same-build serialization and inference of the trained model on two inputs,
+This checks same-build serialization and inference of the trained model on three affine-independent inputs,
 then verifies three additional bias updates after loading. This continuation check
 covers this linear single-sample case only. It does not
 establish training quality or model compatibility across library versions.
