@@ -107,19 +107,20 @@ assert network.set_input(training_inputs[0])
 
 ## Train a single sample
 
-This tiny linear example checks the training call and error reduction. A zero input
-isolates the bias update. The target is one unit above the initial prediction, so
+This tiny linear example checks the training call and error reduction. A nonzero input
+exercises both weight updates and the bias update. The target is one unit above the initial prediction, so
 the check does not depend on a particular random initialization or seed API.
-For this zero-input linear case, each update multiplies the residual by
-`1 - learning_rate`: after five updates it must be `0.9 ** 5` of its initial
-value. Check that recurrence with float tolerance as well as error reduction.
+For a linear prediction `w·x + b` and half squared error, one update changes
+the residual by the factor `1 - learning_rate * (1 + x·x)`: the weight
+contribution is `x·x` and the bias contribution is one. With `x = [0.5, -1]`
+and rate 0.1, five updates leave `0.775 ** 5` of the initial residual. Check that recurrence with float tolerance as well as error reduction.
 The measured objective here is half squared error for one scalar output; this does
 not qualify other activation/loss combinations or generalization quality.
 
 ```python
 import math
 
-sample = nn.Matrix([[0.0, 0.0]])
+sample = nn.Matrix([[0.5, -1.0]])
 assert network.set_input(sample)
 before = network.get_output().get(0, 0)
 assert math.isfinite(before)
@@ -131,7 +132,7 @@ after = network.get_output().get(0, 0)
 assert math.isfinite(after)
 final_error = 0.5 * (after - target) ** 2
 assert final_error < initial_error, (initial_error, final_error)
-expected_after = target + (before - target) * (1.0 - 0.1) ** 5
+expected_after = target + (before - target) * (1.0 - 0.1 * (1.0 + 0.5 ** 2 + (-1.0) ** 2)) ** 5
 assert math.isclose(after, expected_after, rel_tol=1e-5, abs_tol=1e-5), (after, expected_after)
 ```
 
