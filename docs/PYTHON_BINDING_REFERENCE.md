@@ -77,8 +77,7 @@ filenames for examples.
 
 A rejected input returns `False`; check it before requesting a prediction.
 The following continues the two-feature network above and uses rectangular,
-in-bounds matrices. Invalid training arguments raise `ValueError` before any
-training updates. Check the exception type rather than depending on message text.
+in-bounds matrices. The argument checks below raise `ValueError` before any training updates. Check the exception type rather than depending on message text.
 
 ```python
 assert not network.set_input(nn.Matrix([[1.0]]))  # Wrong feature count.
@@ -103,6 +102,44 @@ for inputs, targets, rate, epochs in [
 
 # Supply a valid sample again before inference after a rejected call.
 assert network.set_input(training_inputs[0])
+```
+
+### A failed training call can leave updates applied
+
+Training validates each sample's shape as it reaches that sample. A shape error
+raises `RuntimeError`, and updates from earlier samples remain applied. If you need
+to avoid partial updates from shape errors, validate all input and target shapes
+against the configured network before calling `train`.
+
+This separate linear network uses a zero input to isolate the bias. The first
+target is one unit above its starting prediction, so a learning rate of 0.25
+increases that prediction by 0.25 before the second input is rejected.
+
+```python
+import math
+
+partial = nn.NeuroNet(1)
+partial.set_input_size(2)
+assert partial.resize_layer(0, 1)
+partial.set_activation_function(0, linear)
+
+zero = nn.Matrix([[0.0, 0.0]])
+assert partial.set_input(zero)
+initial = partial.get_output().get(0, 0)
+assert math.isfinite(initial)
+target_matrix = nn.Matrix([[initial + 1.0]])
+wrong_width = nn.Matrix([[0.0]])
+
+try:
+    partial.train([zero, wrong_width], [target_matrix, target_matrix], 0.25, 1)
+except RuntimeError:
+    pass
+else:
+    raise AssertionError("Training accepted an input with the wrong width")
+
+assert partial.set_input(zero)
+updated = partial.get_output().get(0, 0)
+assert math.isclose(updated, initial + 0.25, rel_tol=0.0, abs_tol=1e-5), (initial, updated)
 ```
 
 ## Train a single sample
