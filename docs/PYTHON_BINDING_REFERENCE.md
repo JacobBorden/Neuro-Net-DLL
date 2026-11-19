@@ -142,6 +142,51 @@ updated = partial.get_output().get(0, 0)
 assert math.isclose(updated, initial + 0.25, rel_tol=0.0, abs_tol=1e-5), (initial, updated)
 ```
 
+### Check all sample shapes before training
+
+Use the configured input width and final layer width to check every sample before
+calling `train`. Here the same network takes two features and produces one output.
+The check validates the shape of existing Matrix samples. Check that nested lists
+are rectangular before constructing those matrices.
+
+```python
+def check_sample_shapes(samples, width, name):
+    for index, sample in enumerate(samples):
+        if (sample.rows(), sample.cols()) != (1, width):
+            raise ValueError(f"{name} sample {index} must have shape 1 × {width}")
+
+
+def train_checked(inputs, targets):
+    check_sample_shapes(inputs, partial.get_input_size(), "Input")
+    check_sample_shapes(targets, 1, "Target")
+    partial.train(inputs, targets, 0.25, 1)
+
+
+valid_target = nn.Matrix([[updated + 1.0]])
+for inputs, targets in [
+    ([zero, wrong_width], [valid_target, valid_target]),
+    ([zero, nn.Matrix([[0.0, 0.0], [0.0, 0.0]])], [valid_target, valid_target]),
+    ([zero, zero], [valid_target, nn.Matrix([[0.0, 0.0]])]),
+    ([zero, zero], [valid_target, nn.Matrix([[0.0], [0.0]])]),
+]:
+    try:
+        train_checked(inputs, targets)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Shape check accepted a malformed sample")
+
+    input_accepted = partial.set_input(zero)
+    assert input_accepted
+    assert partial.get_output().get(0, 0) == updated
+
+train_checked([zero], [valid_target])
+input_accepted = partial.set_input(zero)
+assert input_accepted
+assert math.isclose(partial.get_output().get(0, 0), updated + 0.25,
+                    rel_tol=0.0, abs_tol=1e-5)
+```
+
 ## Train a single sample
 
 This tiny linear example checks the training call and error reduction. A nonzero input
