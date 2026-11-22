@@ -21,6 +21,32 @@ subsequent rows without checking their lengths. The element access wrappers also
 index directly; Python-style IndexError protection is not supplied by the binding.
 Use finite, representable float values for numerical workflows.
 
+For nested iterables, materialize each row and check its length before passing
+the rows to the binding. This also catches an empty first row followed by data.
+
+```python
+import pyneuronet as nn
+
+def matrix_from_rows(rows):
+    rows = [list(row) for row in rows]
+    if rows and any(len(row) != len(rows[0]) for row in rows):
+        raise ValueError("Matrix rows must all have the same length")
+    return nn.Matrix(rows)
+
+
+rectangular = matrix_from_rows([[1.25, -2.0, 3.5], [4.0, 0.0, -5.5]])
+assert (rectangular.rows(), rectangular.cols()) == (2, 3)
+assert rectangular.to_list() == [[1.25, -2.0, 3.5], [4.0, 0.0, -5.5]]
+
+for ragged in ([[1.0], [2.0, 3.0]], [[1.0, 2.0], [3.0]], [[], [1.0]]):
+    try:
+        matrix_from_rows(ragged)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Matrix construction accepted ragged rows")
+```
+
 ```python
 import pyneuronet as nn
 
