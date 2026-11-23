@@ -47,6 +47,58 @@ for ragged in ([[1.0], [2.0, 3.0]], [[1.0, 2.0], [3.0]], [[], [1.0]]):
         raise AssertionError("Matrix construction accepted ragged rows")
 ```
 
+Check coordinates before both reads and writes. The example accepts integer
+indices, including objects that implement Python's integer index protocol.
+Negative coordinates raise `IndexError` because Matrix uses zero-based indexing
+without wraparound.
+
+```python
+from operator import index
+
+import pyneuronet as nn
+
+
+def checked_coordinates(matrix, row, col):
+    row, col = index(row), index(col)
+    if not (0 <= row < matrix.rows() and 0 <= col < matrix.cols()):
+        raise IndexError("Matrix coordinate out of range")
+    return row, col
+
+
+def get_checked(matrix, row, col):
+    return matrix.get(*checked_coordinates(matrix, row, col))
+
+
+def set_checked(matrix, row, col, value):
+    row, col = checked_coordinates(matrix, row, col)
+    matrix.set(row, col, value)
+
+
+indexed = nn.Matrix([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+assert get_checked(indexed, 0, 0) == 1.0
+assert get_checked(indexed, 1, 2) == 6.0
+set_checked(indexed, 1, 2, -7.0)
+assert get_checked(indexed, 1, 2) == -7.0
+expected = [[1.0, 2.0, 3.0], [4.0, 5.0, -7.0]]
+
+for row, col in [(-1, 0), (0, -1), (2, 0), (0, 3)]:
+    try:
+        get_checked(indexed, row, col)
+    except IndexError:
+        pass
+    else:
+        raise AssertionError("Read accepted an out-of-range coordinate")
+
+    try:
+        set_checked(indexed, row, col, 99.0)
+    except IndexError:
+        pass
+    else:
+        raise AssertionError("Write accepted an out-of-range coordinate")
+
+assert indexed.to_list() == expected
+```
+
 ```python
 import pyneuronet as nn
 
