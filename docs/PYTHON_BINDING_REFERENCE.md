@@ -137,7 +137,7 @@ The names below describe argument order, not supported keyword spellings.
 | `get_layer_count()`, `get_input_size()` | `getLayerCount`, `GetInputSize` |
 | `set_activation_function(layer_index, activation)` | Select the layer activation. |
 | `set_input(matrix)` | `SetInput`; inspect its boolean result. |
-| `get_output()` | `GetOutput` |
+| `get_output()` | Compute the current prediction and return it as an independent Matrix. |
 | `train(inputs, targets, learning_rate, epochs)` | `Train`; inputs/targets are sequences of Matrix samples. |
 | `save_model(filename)` | Save the dense model. |
 | `NeuroNet.load_model(filename)` | Static loader returning a network. |
@@ -270,6 +270,8 @@ assert math.isclose(partial.get_output().get(0, 0), updated + 0.25,
 This tiny linear example checks the training call and error reduction. A nonzero input
 exercises both weight updates and the bias update. The target is one unit above the initial prediction, so
 the check does not depend on a particular random initialization or seed API.
+Keep the first output Matrix to see that it retains its prediction after training
+and another forward pass.
 For a linear prediction `w·x + b` and half squared error, one update changes
 the residual by the factor `1 - learning_rate * (1 + x·x)`: the weight
 contribution is `x·x` and the bias contribution is one. With `x = [0.5, -1]`
@@ -282,7 +284,8 @@ import math
 
 sample = nn.Matrix([[0.5, -1.0]])
 assert network.set_input(sample)
-before = network.get_output().get(0, 0)
+first_output = network.get_output()
+before = first_output.get(0, 0)
 assert math.isfinite(before)
 target = before + 1.0
 initial_error = 0.5 * (before - target) ** 2
@@ -294,6 +297,7 @@ final_error = 0.5 * (after - target) ** 2
 assert final_error < initial_error, (initial_error, final_error)
 expected_after = target + (before - target) * (1.0 - 0.1 * (1.0 + 0.5 ** 2 + (-1.0) ** 2)) ** 5
 assert math.isclose(after, expected_after, rel_tol=1e-5, abs_tol=1e-5), (after, expected_after)
+assert first_output.get(0, 0) == before, "Earlier prediction changed"
 ```
 
 The next example saves this trained network and checks its predictions after load.
