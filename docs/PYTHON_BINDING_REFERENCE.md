@@ -332,32 +332,44 @@ with tempfile.TemporaryDirectory() as directory:
         restored = nn.NeuroNet.load_model("dense.json")
         assert restored.get_layer_count() == network.get_layer_count()
         assert restored.get_input_size() == network.get_input_size()
+        loaded_predictions = []
         for sample, expected in zip(samples, predictions):
             assert restored.set_input(sample)
             output = restored.get_output()
             assert (output.rows(), output.cols()) == (1, 1)
-            assert math.isclose(output.get(0, 0), expected,
-                                rel_tol=1e-5, abs_tol=1e-5)
-        # Resume training on the loaded parameters using the same linear contract.
-        zero_sample = nn.Matrix([[0.0, 0.0]])
-        assert restored.set_input(zero_sample)
+            actual = output.get(0, 0)
+            assert math.isclose(actual, expected, rel_tol=1e-5, abs_tol=1e-5)
+            loaded_predictions.append(actual)
+
+        # Resume training on the loaded parameters with nonzero features.
+        features = (0.5, -1.0)
+        resume_sample = nn.Matrix([list(features)])
+        assert restored.set_input(resume_sample)
         resumed_before = restored.get_output().get(0, 0)
         resumed_target = resumed_before - 1.0
-        restored.train([zero_sample], [nn.Matrix([[resumed_target]])], 0.2, 3)
-        assert restored.set_input(zero_sample)
-        resumed_after = restored.get_output().get(0, 0)
-        expected_resumed = resumed_target + (resumed_before - resumed_target) * 0.8 ** 3
-        assert math.isfinite(resumed_after)
-        assert math.isclose(resumed_after, expected_resumed,
-                            rel_tol=1e-5, abs_tol=1e-5), (resumed_after, expected_resumed)
+        rate, epochs = 0.2, 3
+        restored.train([resume_sample], [nn.Matrix([[resumed_target]])], rate, epochs)
+
+        # Each weight delta equals its training feature times the bias delta.
+        scale = 1.0 + sum(feature ** 2 for feature in features)
+        residual = resumed_before - resumed_target
+        bias_delta = residual * ((1.0 - rate * scale) ** epochs - 1.0) / scale
+        for sample, loaded in zip(samples, loaded_predictions):
+            dot = sum(feature * sample.get(0, col)
+                      for col, feature in enumerate(features))
+            expected = loaded + bias_delta * (1.0 + dot)
+            assert restored.set_input(sample)
+            actual = restored.get_output().get(0, 0)
+            assert math.isclose(actual, expected, rel_tol=1e-5, abs_tol=1e-5)
     finally:
         os.chdir(previous_directory)
 ```
 
-This checks same-build serialization and inference of the trained model on three affine-independent inputs,
-then verifies three additional bias updates after loading. This continuation check
-covers this linear single-sample case only. It does not
-establish training quality or model compatibility across library versions.
+This checks same-build serialization and inference on three affine-independent
+inputs. After three additional training steps it checks those inputs again
+against the analytical weight and bias changes. The zero input isolates the
+bias. The two nonzero inputs distinguish the two weight changes. The continuation
+check covers a single linear sample in the same build.
 
 ## Limits
 
