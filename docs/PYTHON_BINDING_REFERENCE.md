@@ -371,6 +371,49 @@ against the analytical weight and bias changes. The zero input isolates the
 bias. The two nonzero inputs distinguish the two weight changes. The continuation
 check covers a single linear sample in the same build.
 
+### Check activation after load
+
+Use a separate one-neuron model to check that save/load preserves Sigmoid.
+At zero input, the linear prediction equals the bias. One linear training
+step at rate 1 sets that bias to approximately −1. Switching to Sigmoid gives
+a prediction near 0.269, which distinguishes the saved activation from the
+default linear activation.
+
+```python
+import math
+import os
+import tempfile
+from pathlib import Path
+
+import pyneuronet as nn
+
+model = nn.NeuroNet(1)
+model.set_input_size(1)
+assert model.resize_layer(0, 1)
+model.set_activation_function(0, getattr(nn.ActivationFunctionType, "None"))
+zero_input = nn.Matrix([[0.0]])
+model.train([zero_input], [nn.Matrix([[-1.0]])], 1.0, 1)
+assert model.set_input(zero_input)
+logit = model.get_output().get(0, 0)
+assert math.isclose(logit, -1.0, rel_tol=0.0, abs_tol=1e-6)
+
+model.set_activation_function(0, nn.ActivationFunctionType.Sigmoid)
+expected = 1.0 / (1.0 + math.exp(-logit))
+assert math.isclose(model.get_output().get(0, 0), expected, abs_tol=1e-6)
+
+previous_directory = Path.cwd()
+with tempfile.TemporaryDirectory() as directory:
+    try:
+        os.chdir(directory)
+        assert model.save_model("sigmoid.json")
+        restored_sigmoid = nn.NeuroNet.load_model("sigmoid.json")
+        assert restored_sigmoid.set_input(zero_input)
+        actual = restored_sigmoid.get_output().get(0, 0)
+        assert math.isclose(actual, expected, abs_tol=1e-6), (actual, expected)
+    finally:
+        os.chdir(previous_directory)
+```
+
 ## Limits
 
 This binding exposes no seed setter, direct weight/bias access, loss selector,
